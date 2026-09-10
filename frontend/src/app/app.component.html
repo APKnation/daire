@@ -1,0 +1,30 @@
+@if (showApplicationShell()) {
+  <div class="min-h-screen bg-slate-50 text-slate-900 lg:flex">
+    <aside class="flex w-full flex-col bg-slate-950 px-5 py-6 text-slate-300 lg:min-h-screen lg:w-64 lg:shrink-0">
+      <div class="flex items-center gap-3">
+        <span class="grid size-10 place-items-center rounded-xl bg-emerald-300 font-bold text-slate-950">D</span>
+        <div><strong class="block tracking-[0.2em] text-white">DAIRE</strong><small class="text-xs text-slate-500">Central System</small></div>
+      </div>
+      <nav class="mt-8 grid gap-2 sm:grid-cols-5 lg:grid-cols-1">
+        <a routerLink="/dashboard" routerLinkActive="bg-emerald-900 text-white" [routerLinkActiveOptions]="{exact: true}" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">Overview</a>
+        <a routerLink="/assessments" routerLinkActive="bg-emerald-900 text-white" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">Assessments</a>
+        <a routerLink="/lenders" routerLinkActive="bg-emerald-900 text-white" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">Lenders</a>
+        <a routerLink="/consents" routerLinkActive="bg-emerald-900 text-white" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">Consent management</a>
+        <a routerLink="/integrations" routerLinkActive="bg-emerald-900 text-white" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">Integrations</a>
+        <a routerLink="/credit-profiles" routerLinkActive="bg-emerald-900 text-white" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">Credit profiles</a>
+        <a routerLink="/features" routerLinkActive="bg-emerald-900 text-white" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">Features</a>
+        <a routerLink="/ai-reputation" routerLinkActive="bg-emerald-900 text-white" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">AI reputation</a>
+        <a routerLink="/smart-contract" routerLinkActive="bg-emerald-900 text-white" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">Smart contract</a>
+        <a routerLink="/blockchain" routerLinkActive="bg-emerald-900 text-white" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">Blockchain</a>
+        <a routerLink="/audit-logs" routerLinkActive="bg-emerald-900 text-white" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">Audit logs</a>
+      </nav>
+      <div class="mt-auto pt-8">
+        <div class="mb-3 hidden items-center gap-2 text-xs text-slate-500 lg:flex"><span class="size-2 rounded-full bg-emerald-400"></span>Systems operational</div>
+        <button type="button" (click)="auth.logout()" class="w-full rounded-lg border border-slate-700 px-3 py-2.5 text-left text-sm text-slate-300 transition hover:border-red-400 hover:bg-red-950 hover:text-red-200">Log out</button>
+      </div>
+    </aside>
+    <main class="min-w-0 flex-1 p-4 sm:p-6 lg:p-10"><router-outlet /></main>
+  </div>
+} @else {
+  <router-outlet />
+}
