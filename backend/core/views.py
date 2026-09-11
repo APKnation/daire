@@ -37,9 +37,21 @@ class ConsentViewSet(viewsets.ModelViewSet):
 class AssessmentViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Assessment.objects.select_related("borrower")
     serializer_class = AssessmentSerializer
+    lookup_field = "assessment_reference"
+
+    def get_object(self):
+        queryset = self.filter_queryset(self.get_queryset())
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+        val = self.kwargs.get(lookup_url_kwarg)
+        if val and str(val).isdigit():
+            obj = queryset.filter(id=int(val)).first()
+            if obj:
+                self.check_object_permissions(self.request, obj)
+                return obj
+        return super().get_object()
 
     @action(detail=True, methods=["get"])
-    def verify(self, request, pk=None):
+    def verify(self, request, assessment_reference=None, pk=None):
         assessment = self.get_object()
         try:
             transaction = BlockchainVerificationService().verify(assessment)
