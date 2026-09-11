@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ApiService, DashboardData } from '../core/api.service';
 import { AuthService } from '../core/auth.service';
@@ -11,16 +11,21 @@ import { AuthService } from '../core/auth.service';
 })
 export class DashboardComponent implements OnInit {
   private readonly api = inject(ApiService);
+  private readonly cdr = inject(ChangeDetectorRef);
   readonly auth = inject(AuthService);
   data: DashboardData | null = null;
   error = '';
 
   ngOnInit(): void {
     this.api.dashboard().subscribe({
-      next: (data) => this.data = data,
+      next: (data) => {
+        this.data = data;
+        this.cdr.markForCheck();
+      },
       error: (err) => {
         console.error('Dashboard error:', err);
         this.error = 'Dashboard data could not be loaded. Confirm the Django API is running.';
+        this.cdr.markForCheck();
       }
     });
   }
