@@ -1,7 +1,6 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, Input, OnInit, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { finalize } from 'rxjs';
 import { AIReputationResult, ApiService, AuditLog, BlockchainTransaction, Borrower, Consent, CreditFeature, CreditProfile, IntegrationRequest, Lender, SmartContractResult } from '../core/api.service';
 
 type RecordKind = 'lenders' | 'borrowers' | 'consents' | 'integrations' | 'credit-profiles' | 'features' | 'ai-reputation' | 'smart-contract' | 'blockchain' | 'audit-logs';
@@ -11,9 +10,10 @@ type RecordKind = 'lenders' | 'borrowers' | 'consents' | 'integrations' | 'credi
   imports: [DatePipe, DecimalPipe],
   templateUrl: './records.component.html',
 })
-export class RecordsComponent {
+export class RecordsComponent implements OnInit {
   private readonly api = inject(ApiService);
-  kind: RecordKind = 'lenders';
+  private readonly route = inject(ActivatedRoute);
+  @Input() kind: RecordKind = 'lenders';
   lenders: Lender[] = [];
   borrowers: Borrower[] = [];
   consents: Consent[] = [];
@@ -34,11 +34,19 @@ export class RecordsComponent {
       .join(' · ');
   }
 
-  constructor() {
-    const route = inject(ActivatedRoute);
-    route.data.subscribe((data) => {
-      this.kind = (data['kind'] as RecordKind | undefined) ?? 'lenders';
-      this.loadRecords();
+  ngOnInit(): void {
+    const routeKind = this.route.snapshot.data['kind'] as RecordKind | undefined;
+    if (routeKind) {
+      this.kind = routeKind;
+    }
+    this.loadRecords();
+
+    this.route.data.subscribe((data) => {
+      const newKind = (data['kind'] as RecordKind | undefined) ?? 'lenders';
+      if (newKind !== this.kind) {
+        this.kind = newKind;
+        this.loadRecords();
+      }
     });
   }
 
@@ -55,39 +63,39 @@ export class RecordsComponent {
     this.blockchainTransactions = [];
     this.error = '';
     this.loading = true;
-    const failed = (error: { status?: number }) => {
-      this.loading = false;
-      this.error = error.status === 401 || error.status === 403
-        ? 'Your session has expired. Sign in again using the same host as this page.'
-        : `${this.kind} could not be loaded.`;
-    };
-    const loaded = <T>(assign: (data: T) => void) => (data: T): void => {
-      assign(data);
-      this.loading = false;
-    };
-    const complete = () => { this.loading = false; };
-    if (this.kind === 'lenders') {
-      this.api.lenders().pipe(finalize(complete)).subscribe({ next: (data) => this.lenders = data, error: failed });
-    } else if (this.kind === 'borrowers') {
-      this.api.borrowers().pipe(finalize(complete)).subscribe({ next: (data) => this.borrowers = data, error: failed });
-    } else if (this.kind === 'consents') {
-      this.api.consents().pipe(finalize(complete)).subscribe({ next: (data) => this.consents = data, error: failed });
-    } else if (this.kind === 'integrations') {
-      this.api.integrations().pipe(finalize(complete)).subscribe({ next: (data) => this.integrations = data, error: failed });
-    } else if (this.kind === 'audit-logs') {
-      this.api.auditLogs().pipe(finalize(complete)).subscribe({ next: (data) => this.auditLogs = data, error: failed });
-    } else if (this.kind === 'credit-profiles') {
-      this.api.creditProfiles().pipe(finalize(complete)).subscribe({ next: loaded((data) => this.creditProfiles = data), error: failed });
-    } else {
-      if (this.kind === 'features') {
-        this.api.features().pipe(finalize(complete)).subscribe({ next: (data) => this.features = data, error: failed });
-      } else if (this.kind === 'ai-reputation') {
-        this.api.aiReputation().pipe(finalize(complete)).subscribe({ next: (data) => this.aiResults = data, error: failed });
-      } else if (this.kind === 'smart-contract') {
-        this.api.smartContracts().pipe(finalize(complete)).subscribe({ next: (data) => this.smartContracts = data, error: failed });
-      } else {
-        this.api.blockchain().pipe(finalize(complete)).subscribe({ next: (data) => this.blockchainTransactions = data, error: failed });
+    const handleData = <T>(assign: (data: T) => void) => ({
+      next: (data: T) => {
+        assign(data);
+        this.loading = false;
+      },
+      error: (error: { status?: number }) => {
+        this.loading = false;
+        this.error = error.status === 401 || error.status === 403
+          ? 'Your session has expired. Sign in again using the same host as this page.'
+          : `${this.kind} could not be loaded.`;
       }
+    });
+
+    if (this.kind === 'lenders') {
+      this.api.lenders().subscribe(handleData((data) => this.lenders = data));
+    } else if (this.kind === 'borrowers') {
+      this.api.borrowers().subscribe(handleData((data) => this.borrowers = data));
+    } else if (this.kind === 'consents') {
+      this.api.consents().subscribe(handleData((data) => this.consents = data));
+    } else if (this.kind === 'integrations') {
+      this.api.integrations().subscribe(handleData((data) => this.integrations = data));
+    } else if (this.kind === 'audit-logs') {
+      this.api.auditLogs().subscribe(handleData((data) => this.auditLogs = data));
+    } else if (this.kind === 'credit-profiles') {
+      this.api.creditProfiles().subscribe(handleData((data) => this.creditProfiles = data));
+    } else if (this.kind === 'features') {
+      this.api.features().subscribe(handleData((data) => this.features = data));
+    } else if (this.kind === 'ai-reputation') {
+      this.api.aiReputation().subscribe(handleData((data) => this.aiResults = data));
+    } else if (this.kind === 'smart-contract') {
+      this.api.smartContracts().subscribe(handleData((data) => this.smartContracts = data));
+    } else {
+      this.api.blockchain().subscribe(handleData((data) => this.blockchainTransactions = data));
     }
   }
 }

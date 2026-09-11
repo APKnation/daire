@@ -1,46 +1,409 @@
 @if (error) {
-  <div class="mb-4 rounded-xl bg-red-50 p-4 text-red-700">{{ error }}</div>
+  <div class="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+    <svg class="size-5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
+    {{ error }}
+  </div>
 }
+
 @if (loading) {
-  <div class="mb-4 rounded-xl border border-slate-200 bg-white p-5 text-slate-500">Loading {{ kind }}...</div>
+  <!-- Skeleton header -->
+  <div class="mb-8 animate-pulse">
+    <div class="h-3 w-32 rounded bg-slate-200 mb-3"></div>
+    <div class="h-8 w-64 rounded bg-slate-200"></div>
+  </div>
+  <div class="card p-8 animate-pulse space-y-4">
+    @for (_ of [1,2,3,4,5]; track $index) {
+      <div class="flex gap-4">
+        <div class="h-4 flex-1 rounded bg-slate-200"></div>
+        <div class="h-4 w-24 rounded bg-slate-100"></div>
+        <div class="h-4 w-16 rounded bg-slate-100"></div>
+      </div>
+    }
+  </div>
 }
+
+@if (!error && !loading) {
+
+<!-- ──────────────── LENDERS ──────────────── -->
 @if (kind === 'lenders') {
-  <header class="mb-8"><p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Network</p><h1 class="mt-2 text-3xl font-bold">Lender institutions</h1></header>
-  <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-5 py-3">Institution</th><th class="px-5 py-3">Type</th><th class="px-5 py-3">API URL</th><th class="px-5 py-3">Status</th></tr></thead><tbody class="divide-y divide-slate-100">@for (lender of lenders; track lender.lender_id) {<tr><td class="px-5 py-4"><strong>{{ lender.institution_name }}</strong><small class="block text-slate-400">{{ lender.lender_id }}</small></td><td class="px-5 py-4">{{ lender.institution_type }}</td><td class="px-5 py-4 text-slate-500">{{ lender.api_base_url }}</td><td class="px-5 py-4">{{ lender.api_status }}</td></tr>} @empty {<tr><td colspan="4" class="p-10 text-center text-slate-400">No lenders found.</td></tr>}</tbody></table></div></section>
+  <header class="mb-8">
+    <p class="page-label">Network</p>
+    <h1 class="page-title">Lender institutions</h1>
+    <p class="mt-1 text-sm text-slate-500">{{ lenders.length }} lender(s)</p>
+  </header>
+  <section class="card overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead class="border-b border-slate-100 bg-slate-50">
+          <tr>
+            <th class="table-th">Institution</th>
+            <th class="table-th">Type</th>
+            <th class="table-th">API URL</th>
+            <th class="table-th">Auth method</th>
+            <th class="table-th">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @for (l of lenders; track l.lender_id) {
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="table-td">
+                <strong class="block font-semibold text-slate-900">{{ l.institution_name }}</strong>
+                <small class="font-mono text-xs text-slate-400">{{ l.lender_id }}</small>
+              </td>
+              <td class="table-td text-slate-600">{{ l.institution_type }}</td>
+              <td class="table-td text-slate-500 font-mono text-xs">{{ l.api_base_url || '—' }}</td>
+              <td class="table-td text-slate-500">{{ l.authentication_method || '—' }}</td>
+              <td class="table-td">
+                <span [class]="l.api_status === 'CONNECTED' ? 'badge-green' : 'badge-slate'">{{ l.api_status }}</span>
+              </td>
+            </tr>
+          }
+          @empty {
+            <tr><td colspan="5" class="px-6 py-12 text-center text-sm text-slate-400">No lenders found.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
 }
-@if (kind === 'borrowers') {
-  <header class="mb-8"><p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Borrowers</p><h1 class="mt-2 text-3xl font-bold">Borrower references</h1></header>
-  <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-5 py-3">Reference</th><th class="px-5 py-3">Created</th></tr></thead><tbody class="divide-y divide-slate-100">@for (borrower of borrowers; track borrower.id ?? borrower.borrower_reference) {<tr><td class="px-5 py-4 font-semibold">{{ borrower.borrower_reference }}</td><td class="px-5 py-4">{{ borrower.created_at | date:'medium' }}</td></tr>} @empty {<tr><td colspan="2" class="p-10 text-center text-slate-400">No borrowers found.</td></tr>}</tbody></table></section>
-}
+
+<!-- ──────────────── CONSENTS ──────────────── -->
 @if (kind === 'consents') {
-  <header class="mb-8"><p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Access control</p><h1 class="mt-2 text-3xl font-bold">Consent management</h1></header>
-  <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-5 py-3">Consent</th><th class="px-5 py-3">Borrower</th><th class="px-5 py-3">Purpose</th><th class="px-5 py-3">Status</th><th class="px-5 py-3">Expires</th></tr></thead><tbody class="divide-y divide-slate-100">@for (consent of consents; track consent.consent_id) {<tr><td class="px-5 py-4 font-semibold">{{ consent.consent_id }}</td><td class="px-5 py-4">{{ consent.borrower_id }}</td><td class="px-5 py-4">{{ consent.purpose }}</td><td class="px-5 py-4">{{ consent.status }}</td><td class="px-5 py-4">{{ consent.expires_at | date:'medium' }}</td></tr>} @empty {<tr><td colspan="5" class="p-10 text-center text-slate-400">No consents found.</td></tr>}</tbody></table></section>
+  <header class="mb-8">
+    <p class="page-label">Access control</p>
+    <h1 class="page-title">Consent management</h1>
+    <p class="mt-1 text-sm text-slate-500">{{ consents.length }} consent(s)</p>
+  </header>
+  <section class="card overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead class="border-b border-slate-100 bg-slate-50">
+          <tr>
+            <th class="table-th">Consent ID</th>
+            <th class="table-th">Borrower</th>
+            <th class="table-th">Lender</th>
+            <th class="table-th">Purpose</th>
+            <th class="table-th">Status</th>
+            <th class="table-th">Expires</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @for (c of consents; track c.consent_id) {
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="table-td font-mono text-xs font-semibold text-slate-900">{{ c.consent_id }}</td>
+              <td class="table-td text-slate-600">{{ c.borrower_reference || c.borrower_id || c.borrower }}</td>
+              <td class="table-td text-slate-600">{{ c.lender_name || c.lender_id || c.lender }}</td>
+              <td class="table-td text-slate-500">{{ c.purpose || '—' }}</td>
+              <td class="table-td">
+                <span [class]="c.status === 'ACTIVE' ? 'badge-green' : c.status === 'EXPIRED' ? 'badge-red' : 'badge-slate'">{{ c.status }}</span>
+              </td>
+              <td class="table-td text-slate-400">{{ c.expires_at | date:'mediumDate' }}</td>
+            </tr>
+          }
+          @empty {
+            <tr><td colspan="6" class="px-6 py-12 text-center text-sm text-slate-400">No consents found.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
 }
+
+<!-- ──────────────── INTEGRATIONS ──────────────── -->
 @if (kind === 'integrations') {
-  <header class="mb-8"><p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Operations</p><h1 class="mt-2 text-3xl font-bold">Integration requests</h1></header>
-  <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-5 py-3">Request</th><th class="px-5 py-3">Lender</th><th class="px-5 py-3">Borrower</th><th class="px-5 py-3">Status</th></tr></thead><tbody class="divide-y divide-slate-100">@for (request of integrations; track request.request_reference) {<tr><td class="px-5 py-4 font-semibold">{{ request.request_reference }}</td><td class="px-5 py-4">{{ request.lender_id }}</td><td class="px-5 py-4">{{ request.borrower_reference }}</td><td class="px-5 py-4">{{ request.status }}</td></tr>} @empty {<tr><td colspan="4" class="p-10 text-center text-slate-400">No integration requests found.</td></tr>}</tbody></table></section>
+  <header class="mb-8">
+    <p class="page-label">Operations</p>
+    <h1 class="page-title">Integration requests</h1>
+    <p class="mt-1 text-sm text-slate-500">{{ integrations.length }} request(s)</p>
+  </header>
+  <section class="card overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead class="border-b border-slate-100 bg-slate-50">
+          <tr>
+            <th class="table-th">Request ref</th>
+            <th class="table-th">Lender</th>
+            <th class="table-th">Borrower</th>
+            <th class="table-th">Status</th>
+            <th class="table-th">Created</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @for (r of integrations; track r.request_reference) {
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="table-td font-mono text-xs font-semibold text-slate-900">{{ r.request_reference }}</td>
+              <td class="table-td text-slate-600">{{ r.lender_id }}</td>
+              <td class="table-td text-slate-600">{{ r.borrower_reference }}</td>
+              <td class="table-td">
+                <span [class]="r.status === 'SUCCESS' ? 'badge-green' : r.status === 'FAILED' ? 'badge-red' : 'badge-yellow'">{{ r.status }}</span>
+              </td>
+              <td class="table-td text-slate-400">{{ r.created_at | date:'mediumDate' }}</td>
+            </tr>
+          }
+          @empty {
+            <tr><td colspan="5" class="px-6 py-12 text-center text-sm text-slate-400">No integration requests found.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
 }
+
+<!-- ──────────────── CREDIT PROFILES ──────────────── -->
 @if (kind === 'credit-profiles') {
-  <header class="mb-8"><p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Scoring inputs</p><h1 class="mt-2 text-3xl font-bold">Credit profiles</h1><p class="mt-2 text-sm text-slate-500">{{ creditProfiles.length }} profile(s) loaded</p></header>
-  <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div class="overflow-x-auto"><table class="w-full min-w-[1100px] text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-5 py-3">Profile</th><th class="px-5 py-3">Borrower</th><th class="px-5 py-3">Loans</th><th class="px-5 py-3">Debt</th><th class="px-5 py-3">Payment ratio</th><th class="px-5 py-3">Transactions</th><th class="px-5 py-3">Stability</th></tr></thead><tbody class="divide-y divide-slate-100">@for (profile of creditProfiles; track profile.id) {<tr><td class="px-5 py-4 font-semibold">#{{ profile.id }}<small class="block text-slate-400">v{{ profile.source_version }}</small></td><td class="px-5 py-4">{{ profile.borrower }}</td><td class="px-5 py-4">{{ profile.profile_data.active_loan_count }} active / {{ profile.profile_data.completed_loan_count }} completed</td><td class="px-5 py-4">{{ profile.profile_data.total_outstanding_debt | number:'1.0-2' }}</td><td class="px-5 py-4">{{ profile.profile_data.on_time_payment_ratio * 100 | number:'1.0-2' }}%</td><td class="px-5 py-4">{{ profile.profile_data.transaction_frequency }} ({{ profile.profile_data.income_frequency }} income)</td><td class="px-5 py-4">{{ profile.profile_data.balance_stability }}</td></tr>} @empty {<tr><td colspan="7" class="p-10 text-center text-slate-400">No credit profiles found.</td></tr>}</tbody></table></div></section>
+  <header class="mb-8">
+    <p class="page-label">Scoring inputs</p>
+    <h1 class="page-title">Credit profiles</h1>
+    <p class="mt-1 text-sm text-slate-500">{{ creditProfiles.length }} profile(s)</p>
+  </header>
+  <section class="card overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-[1000px] text-left">
+        <thead class="border-b border-slate-100 bg-slate-50">
+          <tr>
+            <th class="table-th">Profile</th>
+            <th class="table-th">Borrower</th>
+            <th class="table-th">Active loans</th>
+            <th class="table-th">Total debt</th>
+            <th class="table-th">Pay ratio</th>
+            <th class="table-th">Tx frequency</th>
+            <th class="table-th">Stability</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @for (p of creditProfiles; track p.id) {
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="table-td">
+                <span class="font-semibold text-slate-900">#{{ p.id }}</span>
+                <small class="block font-mono text-xs text-slate-400">v{{ p.source_version }}</small>
+              </td>
+              <td class="table-td text-slate-600">{{ p.borrower_reference || p.borrower }}</td>
+              <td class="table-td">
+                <span class="font-semibold text-slate-900">{{ p.profile_data?.active_loan_count ?? 0 }}</span>
+                <small class="text-slate-400"> / {{ p.profile_data?.completed_loan_count ?? 0 }} done</small>
+              </td>
+              <td class="table-td font-mono text-slate-700">{{ (p.profile_data?.total_outstanding_debt ?? 0) | number:'1.0-0' }}</td>
+              <td class="table-td">
+                <span class="font-semibold" [class]="(p.profile_data?.on_time_payment_ratio ?? 0) >= 0.9 ? 'text-emerald-700' : 'text-amber-700'">
+                  {{ ((p.profile_data?.on_time_payment_ratio ?? 0) * 100) | number:'1.1-1' }}%
+                </span>
+              </td>
+              <td class="table-td text-slate-600">{{ p.profile_data?.transaction_frequency ?? 0 }}</td>
+              <td class="table-td">
+                <span class="font-mono text-slate-700">{{ p.profile_data?.balance_stability ?? 0 }}</span>
+              </td>
+            </tr>
+          }
+          @empty {
+            <tr><td colspan="7" class="px-6 py-12 text-center text-sm text-slate-400">No credit profiles found.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
 }
+
+<!-- ──────────────── FEATURES ──────────────── -->
 @if (kind === 'features') {
-  <header class="mb-8"><p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Scoring inputs</p><h1 class="mt-2 text-3xl font-bold">Credit features</h1><p class="mt-2 text-sm text-slate-500">{{ features.length }} feature(s) loaded</p></header>
-  <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-5 py-3">Feature</th><th class="px-5 py-3">Value</th><th class="px-5 py-3">Profile</th><th class="px-5 py-3">Version</th><th class="px-5 py-3">Created</th></tr></thead><tbody class="divide-y divide-slate-100">@for (feature of features; track feature.id) {<tr><td class="px-5 py-4 font-semibold">{{ feature.name }}</td><td class="px-5 py-4">{{ feature.value }}</td><td class="px-5 py-4">{{ feature.profile }}</td><td class="px-5 py-4">{{ feature.feature_version }}</td><td class="px-5 py-4 text-slate-500">{{ feature.created_at | date:'medium' }}</td></tr>} @empty {<tr><td colspan="5" class="p-10 text-center text-slate-400">No credit features found.</td></tr>}</tbody></table></section>
+  <header class="mb-8">
+    <p class="page-label">Scoring inputs</p>
+    <h1 class="page-title">Credit features</h1>
+    <p class="mt-1 text-sm text-slate-500">{{ features.length }} feature(s)</p>
+  </header>
+  <section class="card overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead class="border-b border-slate-100 bg-slate-50">
+          <tr>
+            <th class="table-th">Feature name</th>
+            <th class="table-th">Value</th>
+            <th class="table-th">Profile</th>
+            <th class="table-th">Version</th>
+            <th class="table-th">Created</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @for (f of features; track f.id) {
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="table-td font-semibold text-slate-900">{{ f.name }}</td>
+              <td class="table-td font-mono text-slate-700">{{ f.value }}</td>
+              <td class="table-td text-slate-500">#{{ f.profile }}</td>
+              <td class="table-td"><span class="badge-slate">{{ f.feature_version }}</span></td>
+              <td class="table-td text-slate-400">{{ f.created_at | date:'mediumDate' }}</td>
+            </tr>
+          }
+          @empty {
+            <tr><td colspan="5" class="px-6 py-12 text-center text-sm text-slate-400">No credit features found.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
 }
+
+<!-- ──────────────── AI REPUTATION ──────────────── -->
 @if (kind === 'ai-reputation') {
-  <header class="mb-8"><p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">AI scoring</p><h1 class="mt-2 text-3xl font-bold">AI reputation results</h1></header>
-  <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-5 py-3">Assessment</th><th class="px-5 py-3">Reputation</th><th class="px-5 py-3">Score</th><th class="px-5 py-3">Risk</th><th class="px-5 py-3">Model</th><th class="px-5 py-3">Behavior</th></tr></thead><tbody class="divide-y divide-slate-100">@for (result of aiResults; track result.id) {<tr><td class="px-5 py-4 font-semibold">#{{ result.assessment }}</td><td class="px-5 py-4">{{ result.reputation }}</td><td class="px-5 py-4">{{ result.score }}</td><td class="px-5 py-4">{{ result.risk_level || '—' }}</td><td class="px-5 py-4">{{ result.model_version }}</td><td class="max-w-md px-5 py-4 text-slate-600">{{ result.behavior_summary || '—' }}</td></tr>} @empty {<tr><td colspan="6" class="p-10 text-center text-slate-400">No AI reputation results found.</td></tr>}</tbody></table></section>
+  <header class="mb-8">
+    <p class="page-label">AI scoring</p>
+    <h1 class="page-title">AI reputation results</h1>
+    <p class="mt-1 text-sm text-slate-500">{{ aiResults.length }} result(s)</p>
+  </header>
+  <section class="card overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead class="border-b border-slate-100 bg-slate-50">
+          <tr>
+            <th class="table-th">Assessment</th>
+            <th class="table-th">Reputation</th>
+            <th class="table-th">Score</th>
+            <th class="table-th">Risk level</th>
+            <th class="table-th">Model</th>
+            <th class="table-th">Behavior summary</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @for (r of aiResults; track r.id) {
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="table-td font-semibold text-slate-900">#{{ r.assessment }}</td>
+              <td class="table-td"><span class="badge-green">{{ r.reputation }}</span></td>
+              <td class="table-td text-xl font-bold text-slate-900">{{ r.score }}</td>
+              <td class="table-td">
+                <span [class]="r.risk_level === 'LOW' ? 'badge-green' : r.risk_level === 'HIGH' ? 'badge-red' : 'badge-yellow'">
+                  {{ r.risk_level || '—' }}
+                </span>
+              </td>
+              <td class="table-td font-mono text-xs text-slate-500">{{ r.model_version }}</td>
+              <td class="table-td max-w-xs text-slate-500 text-xs">{{ r.behavior_summary || '—' }}</td>
+            </tr>
+          }
+          @empty {
+            <tr><td colspan="6" class="px-6 py-12 text-center text-sm text-slate-400">No AI reputation results found.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
 }
+
+<!-- ──────────────── SMART CONTRACT ──────────────── -->
 @if (kind === 'smart-contract') {
-  <header class="mb-8"><p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Authoritative scoring</p><h1 class="mt-2 text-3xl font-bold">Smart-contract results</h1></header>
-  <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-5 py-3">Assessment</th><th class="px-5 py-3">Credit score</th><th class="px-5 py-3">Ruleset</th><th class="px-5 py-3">Contract</th></tr></thead><tbody class="divide-y divide-slate-100">@for (result of smartContracts; track result.id) {<tr><td class="px-5 py-4 font-semibold">#{{ result.assessment }}</td><td class="px-5 py-4 text-lg font-bold">{{ result.credit_score }}</td><td class="px-5 py-4">{{ result.ruleset_version }}</td><td class="max-w-md truncate px-5 py-4 text-slate-600">{{ result.contract_address }}</td></tr>} @empty {<tr><td colspan="4" class="p-10 text-center text-slate-400">No smart-contract results found.</td></tr>}</tbody></table></section>
+  <header class="mb-8">
+    <p class="page-label">Authoritative scoring</p>
+    <h1 class="page-title">Smart contract results</h1>
+    <p class="mt-1 text-sm text-slate-500">{{ smartContracts.length }} result(s)</p>
+  </header>
+  <section class="card overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead class="border-b border-slate-100 bg-slate-50">
+          <tr>
+            <th class="table-th">Assessment</th>
+            <th class="table-th">Credit score</th>
+            <th class="table-th">Ruleset</th>
+            <th class="table-th">Contract address</th>
+            <th class="table-th">Created</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @for (r of smartContracts; track r.id) {
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="table-td font-semibold text-slate-900">#{{ r.assessment }}</td>
+              <td class="table-td">
+                <span class="text-2xl font-bold text-slate-900">{{ r.credit_score }}</span>
+                <span class="text-xs text-slate-400">/100</span>
+              </td>
+              <td class="table-td"><span class="badge-slate font-mono">{{ r.ruleset_version }}</span></td>
+              <td class="table-td max-w-xs truncate font-mono text-xs text-slate-500">{{ r.contract_address }}</td>
+              <td class="table-td text-slate-400">{{ r.created_at | date:'mediumDate' }}</td>
+            </tr>
+          }
+          @empty {
+            <tr><td colspan="5" class="px-6 py-12 text-center text-sm text-slate-400">No smart contract results found.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
 }
+
+<!-- ──────────────── BLOCKCHAIN ──────────────── -->
 @if (kind === 'blockchain') {
-  <header class="mb-8"><p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Verification</p><h1 class="mt-2 text-3xl font-bold">Blockchain transactions</h1></header>
-  <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-5 py-3">Transaction</th><th class="px-5 py-3">Assessment</th><th class="px-5 py-3">Network</th><th class="px-5 py-3">Block</th><th class="px-5 py-3">Status</th></tr></thead><tbody class="divide-y divide-slate-100">@for (transaction of blockchainTransactions; track transaction.id) {<tr><td class="max-w-sm truncate px-5 py-4 font-mono text-xs">{{ transaction.transaction_hash }}</td><td class="px-5 py-4">#{{ transaction.assessment }}</td><td class="px-5 py-4">{{ transaction.network }}</td><td class="px-5 py-4">{{ transaction.block_number ?? 'Pending' }}</td><td class="px-5 py-4">{{ transaction.status }}</td></tr>} @empty {<tr><td colspan="5" class="p-10 text-center text-slate-400">No blockchain transactions found.</td></tr>}</tbody></table></section>
+  <header class="mb-8">
+    <p class="page-label">Verification</p>
+    <h1 class="page-title">Blockchain transactions</h1>
+    <p class="mt-1 text-sm text-slate-500">{{ blockchainTransactions.length }} transaction(s)</p>
+  </header>
+  <section class="card overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead class="border-b border-slate-100 bg-slate-50">
+          <tr>
+            <th class="table-th">Tx hash</th>
+            <th class="table-th">Assessment</th>
+            <th class="table-th">Network</th>
+            <th class="table-th">Block</th>
+            <th class="table-th">Status</th>
+            <th class="table-th">Created</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @for (tx of blockchainTransactions; track tx.id) {
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="table-td max-w-xs truncate font-mono text-xs text-slate-600">{{ tx.transaction_hash }}</td>
+              <td class="table-td font-semibold text-slate-900">#{{ tx.assessment }}</td>
+              <td class="table-td"><span class="badge-slate">{{ tx.network }}</span></td>
+              <td class="table-td font-mono text-slate-700">{{ tx.block_number ?? 'Pending' }}</td>
+              <td class="table-td">
+                <span [class]="tx.status === 'CONFIRMED' ? 'badge-green' : tx.status === 'FAILED' ? 'badge-red' : 'badge-yellow'">{{ tx.status }}</span>
+              </td>
+              <td class="table-td text-slate-400">{{ tx.created_at | date:'mediumDate' }}</td>
+            </tr>
+          }
+          @empty {
+            <tr><td colspan="6" class="px-6 py-12 text-center text-sm text-slate-400">No blockchain transactions found.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
 }
+
+<!-- ──────────────── AUDIT LOGS ──────────────── -->
 @if (kind === 'audit-logs') {
-  <header class="mb-8"><p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Operations</p><h1 class="mt-2 text-3xl font-bold">Audit logs</h1></header>
-  <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-5 py-3">Event</th><th class="px-5 py-3">Actor</th><th class="px-5 py-3">Request</th><th class="px-5 py-3">Details</th><th class="px-5 py-3">Created</th></tr></thead><tbody class="divide-y divide-slate-100">@for (log of auditLogs; track log.id) {<tr><td class="px-5 py-4 font-semibold">{{ log.event_type }}</td><td class="px-5 py-4">{{ log.actor ?? 'System' }}</td><td class="px-5 py-4">{{ log.request_reference ?? '—' }}</td><td class="max-w-md px-5 py-4 text-xs text-slate-600">{{ formatDetails(log.details) }}</td><td class="px-5 py-4 text-slate-500">{{ log.created_at | date:'medium' }}</td></tr>} @empty {<tr><td colspan="5" class="p-10 text-center text-slate-400">No audit logs found.</td></tr>}</tbody></table></section>
+  <header class="mb-8">
+    <p class="page-label">Operations</p>
+    <h1 class="page-title">Audit logs</h1>
+    <p class="mt-1 text-sm text-slate-500">{{ auditLogs.length }} event(s)</p>
+  </header>
+  <section class="card overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead class="border-b border-slate-100 bg-slate-50">
+          <tr>
+            <th class="table-th">Event type</th>
+            <th class="table-th">Actor</th>
+            <th class="table-th">Request ref</th>
+            <th class="table-th">Details</th>
+            <th class="table-th">Created</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @for (log of auditLogs; track log.id) {
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="table-td font-semibold text-slate-900">{{ log.event_type }}</td>
+              <td class="table-td text-slate-600">{{ log.actor ?? 'System' }}</td>
+              <td class="table-td font-mono text-xs text-slate-500">{{ log.request_reference ?? '—' }}</td>
+              <td class="table-td max-w-xs text-xs text-slate-500">{{ formatDetails(log.details) }}</td>
+              <td class="table-td text-slate-400">{{ log.created_at | date:'medium' }}</td>
+            </tr>
+          }
+          @empty {
+            <tr><td colspan="5" class="px-6 py-12 text-center text-sm text-slate-400">No audit logs found.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
 }
+
+} <!-- end !error && !loading -->

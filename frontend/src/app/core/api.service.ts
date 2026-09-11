@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { map, Observable, timeout } from 'rxjs';
+import { catchError, map, Observable, of } from 'rxjs';
 
 export interface Lender {
   lender_id: string;
@@ -26,6 +26,10 @@ export interface Consent {
   expires_at: string;
   borrower_id?: number;
   lender_id?: number;
+  borrower?: number;
+  lender?: number;
+  borrower_reference?: string;
+  lender_name?: string;
   purpose?: string;
   granted_at?: string;
   created_at?: string;
@@ -68,22 +72,23 @@ export interface ApiRecord { [key: string]: unknown; }
 export interface CreditProfile {
   id: number;
   borrower: number;
+  borrower_reference?: string;
   integration_request: number | null;
   source_version: string;
   created_at: string;
   updated_at: string;
-  profile_data: {
-    active_loan_count: number;
-    completed_loan_count: number;
-    defaulted_loan_count: number;
-    total_outstanding_debt: number;
-    on_time_payment_ratio: number;
-    missed_payment_count: number;
-    late_payment_count: number;
-    max_days_overdue: number;
-    transaction_frequency: number;
-    income_frequency: number;
-    balance_stability: number;
+  profile_data?: {
+    active_loan_count?: number;
+    completed_loan_count?: number;
+    defaulted_loan_count?: number;
+    total_outstanding_debt?: number;
+    on_time_payment_ratio?: number;
+    missed_payment_count?: number;
+    late_payment_count?: number;
+    max_days_overdue?: number;
+    transaction_frequency?: number;
+    income_frequency?: number;
+    balance_stability?: number;
   };
 }
 
@@ -159,7 +164,10 @@ export class ApiService {
   private readonly http = inject(HttpClient);
 
   dashboard(): Observable<DashboardData> {
-    return this.http.get<DashboardData>('/api/dashboard/');
+    const empty: DashboardData = { lenders: [], borrowers: [], consents: [], assessments: [], integrations: [], auditLogs: [] };
+    return this.http.get<DashboardData>('/api/dashboard/').pipe(
+      catchError((err) => { console.error('Dashboard API error', err); return of(empty); })
+    );
   }
 
   lenders(): Observable<Lender[]> {
@@ -179,7 +187,6 @@ export class ApiService {
   }
   creditProfiles(): Observable<CreditProfile[]> {
     return this.http.get<CollectionResponse<CreditProfile>>('/api/credit-profiles/').pipe(
-      timeout(10000),
       map((response) => collection(response, 'credit_profiles')),
     );
   }
@@ -193,7 +200,6 @@ export class ApiService {
 
   private collectionRecords<T>(url: string, key: string): Observable<T[]> {
     return this.http.get<CollectionResponse<T>>(url).pipe(
-      timeout(10000),
       map((response) => collection(response, key)),
     );
   }

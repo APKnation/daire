@@ -1,29 +1,102 @@
 @if (showApplicationShell()) {
-  <div class="min-h-screen bg-slate-50 text-slate-900 lg:flex">
-    <aside class="flex w-full flex-col bg-slate-950 px-5 py-6 text-slate-300 lg:min-h-screen lg:w-64 lg:shrink-0">
-      <div class="flex items-center gap-3">
-        <span class="grid size-10 place-items-center rounded-xl bg-emerald-300 font-bold text-slate-950">D</span>
-        <div><strong class="block tracking-[0.2em] text-white">DAIRE</strong><small class="text-xs text-slate-500">Central System</small></div>
+  <div class="flex min-h-screen bg-slate-50">
+    <!-- Sidebar -->
+    <aside class="flex w-64 shrink-0 flex-col bg-slate-950 text-slate-300">
+      <!-- Logo -->
+      <div class="flex items-center gap-3 px-5 py-6 border-b border-slate-800">
+        <span class="grid size-10 place-items-center rounded-xl bg-emerald-400 text-slate-950 font-black text-lg">D</span>
+        <div>
+          <strong class="block text-sm tracking-[0.2em] text-white font-bold">DAIRE</strong>
+          <small class="text-[11px] text-slate-500">Credit Intelligence</small>
+        </div>
       </div>
-      <nav class="mt-8 grid gap-2 sm:grid-cols-5 lg:grid-cols-1">
-        <a routerLink="/dashboard" routerLinkActive="bg-emerald-900 text-white" [routerLinkActiveOptions]="{exact: true}" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">Overview</a>
-        <a routerLink="/assessments" routerLinkActive="bg-emerald-900 text-white" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">Assessments</a>
-        <a routerLink="/lenders" routerLinkActive="bg-emerald-900 text-white" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">Lenders</a>
-        <a routerLink="/consents" routerLinkActive="bg-emerald-900 text-white" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">Consent management</a>
-        <a routerLink="/integrations" routerLinkActive="bg-emerald-900 text-white" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">Integrations</a>
-        <a routerLink="/credit-profiles" routerLinkActive="bg-emerald-900 text-white" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">Credit profiles</a>
-        <a routerLink="/features" routerLinkActive="bg-emerald-900 text-white" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">Features</a>
-        <a routerLink="/ai-reputation" routerLinkActive="bg-emerald-900 text-white" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">AI reputation</a>
-        <a routerLink="/smart-contract" routerLinkActive="bg-emerald-900 text-white" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">Smart contract</a>
-        <a routerLink="/blockchain" routerLinkActive="bg-emerald-900 text-white" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">Blockchain</a>
-        <a routerLink="/audit-logs" routerLinkActive="bg-emerald-900 text-white" class="rounded-lg px-3 py-2.5 text-sm transition hover:bg-slate-800 hover:text-white">Audit logs</a>
+
+      <!-- Nav -->
+      <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
+        <p class="px-3 pt-2 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-600">Main</p>
+        <a routerLink="/dashboard" routerLinkActive="!bg-emerald-900 !text-emerald-100" [routerLinkActiveOptions]="{exact:true}"
+           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-white">
+          <svg class="size-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          Overview
+        </a>
+        <a routerLink="/assessments" routerLinkActive="!bg-emerald-900 !text-emerald-100"
+           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-white">
+          <svg class="size-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          Assessments
+        </a>
+
+        <p class="px-3 pt-5 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-600">Network</p>
+        <a routerLink="/lenders" routerLinkActive="!bg-emerald-900 !text-emerald-100"
+           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-white">
+          <svg class="size-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+          Lenders
+        </a>
+        <a routerLink="/consents" routerLinkActive="!bg-emerald-900 !text-emerald-100"
+           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-white">
+          <svg class="size-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          Consent management
+        </a>
+        <a routerLink="/integrations" routerLinkActive="!bg-emerald-900 !text-emerald-100"
+           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-white">
+          <svg class="size-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          Integrations
+        </a>
+
+        <p class="px-3 pt-5 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-600">Credit data</p>
+        <a routerLink="/credit-profiles" routerLinkActive="!bg-emerald-900 !text-emerald-100"
+           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-white">
+          <svg class="size-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          Credit profiles
+        </a>
+        <a routerLink="/features" routerLinkActive="!bg-emerald-900 !text-emerald-100"
+           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-white">
+          <svg class="size-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+          Credit features
+        </a>
+
+        <p class="px-3 pt-5 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-600">Intelligence</p>
+        <a routerLink="/ai-reputation" routerLinkActive="!bg-emerald-900 !text-emerald-100"
+           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-white">
+          <svg class="size-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          AI reputation
+        </a>
+        <a routerLink="/smart-contract" routerLinkActive="!bg-emerald-900 !text-emerald-100"
+           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-white">
+          <svg class="size-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+          Smart contract
+        </a>
+        <a routerLink="/blockchain" routerLinkActive="!bg-emerald-900 !text-emerald-100"
+           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-white">
+          <svg class="size-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+          Blockchain
+        </a>
+        <a routerLink="/audit-logs" routerLinkActive="!bg-emerald-900 !text-emerald-100"
+           class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 transition hover:bg-slate-800 hover:text-white">
+          <svg class="size-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          Audit logs
+        </a>
       </nav>
-      <div class="mt-auto pt-8">
-        <div class="mb-3 hidden items-center gap-2 text-xs text-slate-500 lg:flex"><span class="size-2 rounded-full bg-emerald-400"></span>Systems operational</div>
-        <button type="button" (click)="auth.logout()" class="w-full rounded-lg border border-slate-700 px-3 py-2.5 text-left text-sm text-slate-300 transition hover:border-red-400 hover:bg-red-950 hover:text-red-200">Log out</button>
+
+      <!-- Footer -->
+      <div class="border-t border-slate-800 px-4 py-4">
+        <div class="mb-3 flex items-center gap-2 text-xs text-slate-500">
+          <span class="size-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          Systems operational
+        </div>
+        <button type="button" (click)="auth.logout()"
+          class="flex w-full items-center gap-2 rounded-lg border border-slate-700 px-3 py-2.5 text-left text-sm text-slate-400 transition hover:border-red-800 hover:bg-red-950/50 hover:text-red-300">
+          <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+          Log out
+        </button>
       </div>
     </aside>
-    <main class="min-w-0 flex-1 p-4 sm:p-6 lg:p-10"><router-outlet /></main>
+
+    <!-- Main content -->
+    <main class="min-w-0 flex-1 overflow-auto">
+      <div class="min-h-full p-6 lg:p-8">
+        <router-outlet />
+      </div>
+    </main>
   </div>
 } @else {
   <router-outlet />

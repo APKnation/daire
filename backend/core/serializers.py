@@ -21,13 +21,18 @@ class BorrowerSerializer(serializers.ModelSerializer):
 
 
 class ConsentSerializer(serializers.ModelSerializer):
+    borrower_id = serializers.IntegerField(source="borrower.id", read_only=True)
+    lender_id = serializers.IntegerField(source="lender.id", read_only=True)
+    borrower_reference = serializers.CharField(source="borrower.borrower_reference", read_only=True)
+    lender_name = serializers.CharField(source="lender.institution_name", read_only=True)
+
     class Meta:
         model = Consent
         fields = "__all__"
         read_only_fields = ("created_at", "updated_at")
 
     def validate(self, attrs):
-        if attrs["expires_at"] <= attrs["granted_at"]:
+        if attrs.get("expires_at") and attrs.get("granted_at") and attrs["expires_at"] <= attrs["granted_at"]:
             raise serializers.ValidationError("expires_at must be after granted_at.")
         return attrs
 
@@ -67,6 +72,8 @@ class AuditLogSerializer(serializers.ModelSerializer):
 
 
 class CreditProfileSerializer(serializers.ModelSerializer):
+    borrower_reference = serializers.CharField(source="borrower.borrower_reference", read_only=True)
+
     class Meta:
         model = CreditProfile
         fields = "__all__"

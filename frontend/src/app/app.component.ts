@@ -13,6 +13,6 @@ export class AppComponent {
   private readonly router = inject(Router);
 
   showApplicationShell(): boolean {
-    return this.auth.isAuthenticated() && !['/', '/login'].includes(this.router.url);
+    return !['/', '/login'].includes(this.router.url);
   }
 }
