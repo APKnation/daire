@@ -38,7 +38,7 @@ npm install
 npm start -- --port 4200
 ```
 
-Open `http://localhost:4200`. The development proxy forwards `/api` requests to Django on port 8081 by default. Choose any backend and frontend ports when starting the services:
+Open `http://localhost:4200`. The development proxy forwards `/api` requests to Django on port 8000 by default. Choose any backend and frontend ports when starting the services:
 
 ```bash
 # Terminal 1
