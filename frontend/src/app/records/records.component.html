@@ -67,6 +67,42 @@
   </section>
 }
 
+<!-- ──────────────── BORROWERS ──────────────── -->
+@if (kind === 'borrowers') {
+  <header class="mb-8">
+    <p class="page-label">Entities</p>
+    <h1 class="page-title">Borrower registry</h1>
+    <p class="mt-1 text-sm text-slate-500">{{ borrowers.length }} borrower(s)</p>
+  </header>
+  <section class="card overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead class="border-b border-slate-100 bg-slate-50">
+          <tr>
+            <th class="table-th">Borrower Reference</th>
+            <th class="table-th">Internal ID</th>
+            <th class="table-th">Created</th>
+            <th class="table-th">Last updated</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @for (b of borrowers; track b.borrower_reference) {
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="table-td font-semibold text-slate-900">{{ b.borrower_reference }}</td>
+              <td class="table-td font-mono text-xs text-slate-500">#{{ b.id }}</td>
+              <td class="table-td text-slate-400">{{ b.created_at | date:'mediumDate' }}</td>
+              <td class="table-td text-slate-400">{{ b.updated_at | date:'mediumDate' }}</td>
+            </tr>
+          }
+          @empty {
+            <tr><td colspan="4" class="px-6 py-12 text-center text-sm text-slate-400">No borrowers found.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}
+
 <!-- ──────────────── CONSENTS ──────────────── -->
 @if (kind === 'consents') {
   <header class="mb-8">
