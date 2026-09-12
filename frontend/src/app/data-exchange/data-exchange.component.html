@@ -14,11 +14,12 @@
     <h2 class="mt-1 text-base font-semibold text-slate-900">Receive borrower data from a lender</h2>
     <p class="mt-1 mb-5 text-sm text-slate-500">The lender response is merged into the central borrower record and kept source-linked.</p>
     <div class="space-y-4">
-      <label class="block"><span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Lender</span>
-        <select class="input-field" [(ngModel)]="selectedLenderId"><option [ngValue]="null">Select lender</option>@for (lender of lenders; track lender.id) {<option [ngValue]="lender.id">{{ lender.institution_name }} · {{ lender.api_status }}</option>}</select>
+      <label class="block"><span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Lender from Lenders registry</span>
+        <select class="input-field" [(ngModel)]="selectedLenderId"><option [ngValue]="null">Select lender</option>@for (lender of lenders; track lender.id) {<option [ngValue]="lender.id">{{ lender.institution_name }} · {{ lender.lender_id }} · DB #{{ lender.id }}</option>}</select>
       </label>
       <label class="block"><span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Canonical borrower reference</span><input class="input-field" [(ngModel)]="borrowerReference" placeholder="BRW-TZ-1001"></label>
       <button class="btn-primary" [disabled]="loading || !selectedLenderId || !borrowerReference" (click)="pull()">Pull and merge lender data</button>
+      <p class="text-xs text-slate-400">This list is loaded directly from the same lender registry shown under Lenders. DB # is the ID used for the pull request.</p>
     </div>
     @if (borrower) { <div class="mt-5 rounded-xl bg-slate-50 p-4 text-sm"><strong class="text-slate-900">{{ borrower.borrower_reference }}</strong><span class="ml-2 text-slate-500">{{ borrower.source_lenders?.join(', ') }} · {{ borrower.loans?.length || 0 }} loan(s)</span></div> }
   </article>

@@ -62,9 +62,13 @@ export class DataExchangeComponent implements OnInit {
   }
 
   pull(): void {
-    if (!this.selectedLenderId || !this.borrowerReference.trim()) return;
+    const selected = this.lenders.find((lender) => lender.id === this.selectedLenderId);
+    if (!selected || !this.borrowerReference.trim()) {
+      this.error = 'Select a lender from the Lenders registry and enter a borrower reference.';
+      return;
+    }
     this.loading = true; this.message = ''; this.error = '';
-    this.api.pullLenderData(this.selectedLenderId, this.borrowerReference.trim()).subscribe({
+    this.api.pullLenderData(selected.id!, this.borrowerReference.trim()).subscribe({
       next: (borrower) => { this.borrower = borrower; this.loading = false; this.message = 'Lender data pulled and merged into the borrower profile.'; this.cdr.markForCheck(); },
       error: (err) => { this.loading = false; this.error = err?.error?.detail || 'Lender pull failed. Check the lender API connection.'; this.cdr.markForCheck(); },
     });

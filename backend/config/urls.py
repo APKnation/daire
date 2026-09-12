@@ -2,11 +2,12 @@ from django.contrib import admin
 from django.contrib.auth import authenticate, login, logout
 from django.http import JsonResponse
 from django.urls import include, path
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 
 @csrf_exempt
+@ensure_csrf_cookie
 def session_login(request):
     if request.method != "POST":
         return JsonResponse({"detail": "Only POST is allowed."}, status=405)
