@@ -69,6 +69,16 @@ Vendor systems can submit normalized borrower data to `POST /api/borrowers/inges
 
 Submit the same canonical `borrower_reference` for NMB, CRDB, M-Pesa, Mixx by Yas, or a microfinance institution. The system keeps each lender/account/loan source and recalculates the borrower-level totals. Search the merged view with `GET /api/borrowers/search/?lender_name=NMB&account_reference=NMB-ACCOUNT-001`.
 
+## Data routing and synchronization
+
+Manage the active field policy through `/api/routing-policies/`. It has separate `ai_fields` and `blockchain_fields`; only those fields are sent by the scoring actions. Every exchange is visible through read-only `/api/data-exchanges/`.
+
+- CRUD central records: `/api/borrowers/`, `/api/borrower-accounts/`, `/api/borrower-loans/`, `/api/repayments/`, `/api/borrower-financial-profiles/`, `/api/credit-profiles/`, `/api/features/`
+- Pull lender data: `POST /api/lenders/{id}/pull-borrower-data/`
+- Push central data to a lender: `POST /api/lenders/{id}/push-borrower-data/`
+- Push to AI: `POST /api/assessments/{reference}/ai-reputation/`; read the stored AI result with `GET /api/assessments/{reference}/ai-result/`
+- Push to blockchain: `POST /api/assessments/{reference}/blockchain-score/`; pull verification with `GET /api/assessments/{reference}/verify/`
+
 ## Frontend
 
 The Angular operations console is in `frontend/`. Start the Django API first, then:

@@ -188,11 +188,20 @@ class AssessmentViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=["get"])
     def verify(self, request, assessment_reference=None, pk=None):
         assessment = self.get_object()
+        exchange = record_exchange(system=DataExchange.System.BLOCKCHAIN, direction=DataExchange.Direction.PULL,
+                                   operation="verify_transaction", borrower=assessment.borrower,
+                                   assessment=assessment, fields_sent=["transaction_hash"],
+                                   payload={"transaction_hash": assessment.blockchain_transaction_hash})
         try:
             transaction = BlockchainVerificationService().verify(assessment)
         except ExternalServiceUnavailable as exc:
+            exchange.status, exchange.error_message = DataExchange.Status.FAILED, str(exc)
+            exchange.save(update_fields=("status", "error_message", "updated_at"))
             return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         verified = transaction.status == "CONFIRMED"
+        exchange.status = DataExchange.Status.COMPLETED
+        exchange.response = BlockchainTransactionSerializer(transaction).data
+        exchange.save(update_fields=("status", "response", "updated_at"))
         return Response({
             "assessment_reference": assessment.assessment_reference,
             "credit_score": assessment.credit_score,
@@ -201,6 +210,18 @@ class AssessmentViewSet(viewsets.ReadOnlyModelViewSet):
             "block_number": transaction.block_number,
             "ruleset_version": assessment.ruleset_version,
         })
+
+    @action(detail=True, methods=["get"], url_path="ai-result")
+    def ai_result(self, request, pk=None):
+        assessment = self.get_object()
+        result = AIReputationResult.objects.filter(assessment=assessment).first()
+        if not result:
+            return Response({"detail": "AI result is not available."}, status=status.HTTP_404_NOT_FOUND)
+        exchange = record_exchange(system=DataExchange.System.AI, direction=DataExchange.Direction.PULL,
+                                   operation="read_reputation_result", borrower=assessment.borrower,
+                                   assessment=assessment, fields_sent=[], response=AIReputationResultSerializer(result).data,
+                                   status=DataExchange.Status.COMPLETED)
+        return Response(AIReputationResultSerializer(result).data)
 
     def _features(self, assessment, destination="ai"):
         profile = CreditProfile.objects.filter(borrower=assessment.borrower).order_by("-created_at").first()

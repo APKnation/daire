@@ -2,6 +2,29 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 
+def create_default_policy(apps, schema_editor):
+    Policy = apps.get_model("core", "DataRoutingPolicy")
+    Policy.objects.get_or_create(
+        policy_id="DEFAULT-CREDIT-ROUTING",
+        defaults={
+            "name": "Default credit scoring policy",
+            "ai_fields": [
+                "active_loan_count", "completed_loan_count", "defaulted_loan_count",
+                "total_outstanding_debt", "on_time_payment_ratio", "missed_payment_count",
+                "late_payment_count", "max_days_overdue", "transaction_frequency",
+                "income_frequency", "balance_stability",
+            ],
+            "blockchain_fields": [
+                "active_loan_count", "completed_loan_count", "defaulted_loan_count",
+                "total_outstanding_debt", "on_time_payment_ratio", "missed_payment_count",
+                "late_payment_count", "max_days_overdue",
+            ],
+            "active": True,
+            "version": "1.0.0",
+        },
+    )
+
+
 class Migration(migrations.Migration):
     dependencies = [("core", "0003_unified_borrower_data")]
 
@@ -40,4 +63,5 @@ class Migration(migrations.Migration):
                 ("policy", models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name="data_exchanges", to="core.dataroutingpolicy")),
             ],
         ),
+        migrations.RunPython(create_default_policy, migrations.RunPython.noop),
     ]
