@@ -254,6 +254,12 @@ export class ApiService {
   borrowers(): Observable<Borrower[]> {
     return this.http.get<CollectionResponse<Borrower>>('/api/borrowers/').pipe(map((response) => collection(response, 'borrowers')));
   }
+  createBorrower(data: Partial<Borrower>): Observable<Borrower> { return this.http.post<Borrower>('/api/borrowers/', data); }
+  updateBorrower(id: number, data: Partial<Borrower>): Observable<Borrower> { return this.http.patch<Borrower>(`/api/borrowers/${id}/`, data); }
+  deleteBorrower(id: number): Observable<void> { return this.http.delete<void>(`/api/borrowers/${id}/`); }
+  createLender(data: Partial<Lender>): Observable<Lender> { return this.http.post<Lender>('/api/lenders/', data); }
+  updateLender(id: number, data: Partial<Lender>): Observable<Lender> { return this.http.patch<Lender>(`/api/lenders/${id}/`, data); }
+  deleteLender(id: number): Observable<void> { return this.http.delete<void>(`/api/lenders/${id}/`); }
   borrowerSearch(lenderName = '', accountReference = '', borrowerReference = ''): Observable<Borrower[]> {
     const params = new URLSearchParams();
     if (lenderName) params.set('lender_name', lenderName);

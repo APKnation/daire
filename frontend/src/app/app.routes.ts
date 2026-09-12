@@ -5,6 +5,7 @@ import { DashboardComponent } from './dashboard/dashboard.component';
 import { AssessmentsComponent } from './assessments/assessments.component';
 import { RecordsComponent } from './records/records.component';
 import { DataExchangeComponent } from './data-exchange/data-exchange.component';
+import { DataManagementComponent } from './data-management/data-management.component';
 
 export const routes: Routes = [
   { path: '', component: LoginComponent },
@@ -12,6 +13,7 @@ export const routes: Routes = [
   { path: 'dashboard', canActivate: [authGuard], component: DashboardComponent },
   { path: 'assessments', canActivate: [authGuard], component: AssessmentsComponent },
   { path: 'data-exchange', canActivate: [authGuard], component: DataExchangeComponent },
+  { path: 'data-management', canActivate: [authGuard], component: DataManagementComponent },
   { path: 'lenders', canActivate: [authGuard], component: RecordsComponent, data: { kind: 'lenders' } },
   { path: 'borrowers', canActivate: [authGuard], component: RecordsComponent, data: { kind: 'borrowers' } },
   { path: 'consents', canActivate: [authGuard], component: RecordsComponent, data: { kind: 'consents' } },
