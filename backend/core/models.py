@@ -32,7 +32,7 @@ class Borrower(TimestampedModel):
     age = models.PositiveSmallIntegerField(null=True, blank=True)
     gender = models.CharField(max_length=20, blank=True)
     employment_status = models.CharField(max_length=50, blank=True)
-    income = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)
+    income = models.DecimalField(max_digits=16, decimal_places=4, null=True, blank=True)
     business_information = models.JSONField(default=dict, blank=True)
     account_information = models.JSONField(default=dict, blank=True)
 
@@ -56,11 +56,11 @@ class BorrowerLoan(TimestampedModel):
     lender = models.ForeignKey(Lender, on_delete=models.PROTECT, related_name="borrower_loans")
     source_account = models.ForeignKey(BorrowerAccount, on_delete=models.PROTECT, related_name="loans", null=True, blank=True)
     loan_id = models.CharField(max_length=128)
-    loan_amount = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    loan_amount = models.DecimalField(max_digits=18, decimal_places=4, default=0)
     loan_date = models.DateField(null=True, blank=True)
     loan_duration_months = models.PositiveIntegerField(default=0)
     interest_rate = models.DecimalField(max_digits=8, decimal_places=4, default=0)
-    outstanding_balance = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    outstanding_balance = models.DecimalField(max_digits=18, decimal_places=4, default=0)
     status = models.CharField(max_length=30, default="ACTIVE")
 
     class Meta:
@@ -73,7 +73,7 @@ class RepaymentRecord(TimestampedModel):
     borrower = models.ForeignKey(Borrower, on_delete=models.PROTECT, related_name="repayment_records")
     lender = models.ForeignKey(Lender, on_delete=models.PROTECT, related_name="repayment_records")
     loan = models.ForeignKey(BorrowerLoan, on_delete=models.CASCADE, related_name="repayments")
-    repayment_amount = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    repayment_amount = models.DecimalField(max_digits=18, decimal_places=4, default=0)
     repayment_date = models.DateField(null=True, blank=True)
     due_date = models.DateField(null=True, blank=True)
     days_overdue = models.PositiveIntegerField(default=0)
@@ -87,11 +87,11 @@ class BorrowerFinancialProfile(TimestampedModel):
     transaction_frequency = models.PositiveIntegerField(default=0)
     income_frequency = models.PositiveIntegerField(default=0)
     cash_flow_patterns = models.JSONField(default=dict, blank=True)
-    savings = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    savings = models.DecimalField(max_digits=18, decimal_places=4, default=0)
     account_activity = models.JSONField(default=dict, blank=True)
     active_loans = models.PositiveIntegerField(default=0)
-    total_outstanding_debt = models.DecimalField(max_digits=18, decimal_places=2, default=0)
-    monthly_repayment = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    total_outstanding_debt = models.DecimalField(max_digits=18, decimal_places=4, default=0)
+    monthly_repayment = models.DecimalField(max_digits=18, decimal_places=4, default=0)
     previous_loans = models.PositiveIntegerField(default=0)
     debt_to_income_ratio = models.DecimalField(max_digits=9, decimal_places=4, default=0)
 
@@ -159,7 +159,7 @@ class CreditProfile(TimestampedModel):
 class CreditFeature(TimestampedModel):
     profile = models.ForeignKey(CreditProfile, on_delete=models.CASCADE, related_name="features")
     name = models.CharField(max_length=100)
-    value = models.DecimalField(max_digits=20, decimal_places=8)
+    value = models.DecimalField(max_digits=20, decimal_places=4)
     feature_version = models.CharField(max_length=64, default="1")
 
     class Meta:
