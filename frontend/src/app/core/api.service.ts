@@ -16,8 +16,67 @@ export interface Lender {
 export interface Borrower {
   borrower_reference: string;
   id?: number;
+  customer_id?: string;
+  age?: number | null;
+  gender?: string;
+  employment_status?: string;
+  income?: string | number | null;
+  business_information?: Record<string, unknown>;
+  account_information?: Record<string, unknown>;
+  source_lenders?: string[];
+  financial_profile?: FinancialProfile | null;
+  accounts?: BorrowerAccount[];
+  loans?: BorrowerLoan[];
   created_at?: string;
   updated_at?: string;
+}
+
+export interface FinancialProfile {
+  active_loans: number;
+  total_outstanding_debt: string | number;
+  monthly_repayment: string | number;
+  previous_loans: number;
+  debt_to_income_ratio: string | number;
+  transaction_frequency: number;
+  income_frequency: number;
+  savings: string | number;
+  cash_flow_patterns: Record<string, unknown>;
+  account_activity: Record<string, unknown>;
+}
+
+export interface BorrowerAccount {
+  id: number;
+  lender: number;
+  lender_name: string;
+  account_reference: string;
+  account_name: string;
+  customer_id: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface BorrowerLoan {
+  id: number;
+  loan_id: string;
+  lender: number;
+  lender_name: string;
+  loan_amount: string | number;
+  loan_date: string | null;
+  loan_duration_months: number;
+  interest_rate: string | number;
+  outstanding_balance: string | number;
+  status: string;
+  repayments: Repayment[];
+}
+
+export interface Repayment {
+  id: number;
+  repayment_amount: string | number;
+  repayment_date: string | null;
+  due_date: string | null;
+  days_overdue: number;
+  missed_payments: number;
+  late_payments: number;
+  default_status: string;
 }
 
 export interface Consent {
@@ -55,16 +114,6 @@ export interface IntegrationRequest {
   error_message: string;
   raw_payload: unknown;
   created_at: string;
-}
-
-export interface AuditLog {
-  id: number;
-  event_type: string;
-  actor: number | null;
-  request_reference: string | null;
-  details: unknown;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface ApiRecord { [key: string]: unknown; }
@@ -156,7 +205,6 @@ export interface DashboardData {
   consents: Consent[];
   assessments: Assessment[];
   integrations: IntegrationRequest[];
-  auditLogs: AuditLog[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -164,7 +212,7 @@ export class ApiService {
   private readonly http = inject(HttpClient);
 
   dashboard(): Observable<DashboardData> {
-    const empty: DashboardData = { lenders: [], borrowers: [], consents: [], assessments: [], integrations: [], auditLogs: [] };
+    const empty: DashboardData = { lenders: [], borrowers: [], consents: [], assessments: [], integrations: [] };
     return this.http.get<DashboardData>('/api/dashboard/').pipe(
       catchError((err) => { console.error('Dashboard API error', err); return of(empty); })
     );
@@ -175,6 +223,19 @@ export class ApiService {
   }
   borrowers(): Observable<Borrower[]> {
     return this.http.get<CollectionResponse<Borrower>>('/api/borrowers/').pipe(map((response) => collection(response, 'borrowers')));
+  }
+  borrowerSearch(lenderName = '', accountReference = '', borrowerReference = ''): Observable<Borrower[]> {
+    const params = new URLSearchParams();
+    if (lenderName) params.set('lender_name', lenderName);
+    if (accountReference) params.set('account_reference', accountReference);
+    if (borrowerReference) params.set('borrower_reference', borrowerReference);
+    const query = params.toString();
+    return this.http.get<CollectionResponse<Borrower>>(`/api/borrowers/search/${query ? `?${query}` : ''}`).pipe(
+      map((response) => collection(response, 'borrowers')),
+    );
+  }
+  ingestBorrower(data: { lender_id: string; borrower_reference: string; account_reference?: string; payload: Record<string, unknown> }): Observable<Borrower> {
+    return this.http.post<Borrower>('/api/borrowers/ingest/', data);
   }
   consents(): Observable<Consent[]> {
     return this.http.get<CollectionResponse<Consent>>('/api/consents/').pipe(map((response) => collection(response, 'consents')));
@@ -194,9 +255,6 @@ export class ApiService {
   aiReputation(): Observable<AIReputationResult[]> { return this.collectionRecords<AIReputationResult>('/api/ai-reputation/', 'results'); }
   smartContracts(): Observable<SmartContractResult[]> { return this.collectionRecords<SmartContractResult>('/api/smart-contract/', 'results'); }
   blockchain(): Observable<BlockchainTransaction[]> { return this.collectionRecords<BlockchainTransaction>('/api/blockchain/', 'transactions'); }
-  auditLogs(): Observable<AuditLog[]> {
-    return this.http.get<CollectionResponse<AuditLog>>('/api/audit-logs/').pipe(map((response) => collection(response, 'auditLogs')));
-  }
 
   private collectionRecords<T>(url: string, key: string): Observable<T[]> {
     return this.http.get<CollectionResponse<T>>(url).pipe(

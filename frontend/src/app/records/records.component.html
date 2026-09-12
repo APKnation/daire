@@ -71,36 +71,79 @@
 @if (kind === 'borrowers') {
   <header class="mb-8">
     <p class="page-label">Entities</p>
-    <h1 class="page-title">Borrower registry</h1>
-    <p class="mt-1 text-sm text-slate-500">{{ borrowers.length }} borrower(s)</p>
+    <h1 class="page-title">Unified borrower view</h1>
+    <p class="mt-1 text-sm text-slate-500">Search one account and see the borrower’s obligations across all lenders.</p>
   </header>
-  <section class="card overflow-hidden">
+
+  <section class="card mb-6 p-5">
+    <div class="grid gap-3 md:grid-cols-[1fr_1fr_1fr_auto]">
+      <input #lenderSearch class="input-field" placeholder="Lender: NMB, M-Pesa, CRDB" aria-label="Lender name">
+      <input #accountSearch class="input-field" placeholder="Account number" aria-label="Account number">
+      <input #referenceSearch class="input-field" placeholder="Borrower reference" aria-label="Borrower reference">
+      <button class="btn-primary" (click)="searchBorrowers(lenderSearch.value, accountSearch.value, referenceSearch.value)">Find borrower</button>
+    </div>
+    @if (borrowerSearchError) {
+      <p class="mt-3 text-sm text-red-600">{{ borrowerSearchError }}</p>
+    }
+  </section>
+
+  <section class="card mb-6 overflow-hidden">
+    <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Borrower registry</p>
+        <h2 class="mt-0.5 text-base font-semibold text-slate-900">{{ borrowers.length }} borrower(s)</h2>
+      </div>
+      <span class="badge-green">Cross-lender totals</span>
+    </div>
     <div class="overflow-x-auto">
       <table class="w-full text-left">
         <thead class="border-b border-slate-100 bg-slate-50">
           <tr>
             <th class="table-th">Borrower Reference</th>
-            <th class="table-th">Internal ID</th>
-            <th class="table-th">Created</th>
-            <th class="table-th">Last updated</th>
+            <th class="table-th">Customer ID</th>
+            <th class="table-th">Lenders</th>
+            <th class="table-th">Loans</th>
+            <th class="table-th">Outstanding debt</th>
+            <th class="table-th"></th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
           @for (b of borrowers; track b.borrower_reference) {
             <tr class="hover:bg-slate-50 transition-colors">
               <td class="table-td font-semibold text-slate-900">{{ b.borrower_reference }}</td>
-              <td class="table-td font-mono text-xs text-slate-500">#{{ b.id }}</td>
-              <td class="table-td text-slate-400">{{ b.created_at | date:'mediumDate' }}</td>
-              <td class="table-td text-slate-400">{{ b.updated_at | date:'mediumDate' }}</td>
+              <td class="table-td font-mono text-xs text-slate-500">{{ b.customer_id || '—' }}</td>
+              <td class="table-td text-slate-600">{{ b.source_lenders?.join(', ') || '—' }}</td>
+              <td class="table-td font-semibold text-slate-900">{{ b.loans?.length || 0 }}</td>
+              <td class="table-td font-semibold text-slate-900">{{ totalOutstanding(b) | number:'1.0-2' }}</td>
+              <td class="table-td"><button class="text-sm font-semibold text-emerald-700 hover:text-emerald-900" (click)="selectBorrower(b)">View profile →</button></td>
             </tr>
           }
           @empty {
-            <tr><td colspan="4" class="px-6 py-12 text-center text-sm text-slate-400">No borrowers found.</td></tr>
+            <tr><td colspan="6" class="px-6 py-12 text-center text-sm text-slate-400">No borrowers found.</td></tr>
           }
         </tbody>
       </table>
     </div>
   </section>
+
+  @if (selectedBorrower; as b) {
+    <section class="space-y-6">
+      <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <article class="card p-5"><span class="text-xs text-slate-400">Identity</span><strong class="mt-2 block text-lg text-slate-900">{{ b.customer_id || b.borrower_reference }}</strong><span class="text-xs text-slate-500">{{ b.age ? b.age + ' years' : 'Age not supplied' }} · {{ b.employment_status || 'Employment not supplied' }}</span></article>
+        <article class="card p-5"><span class="text-xs text-slate-400">Active loans</span><strong class="mt-2 block text-2xl text-slate-900">{{ b.financial_profile?.active_loans || 0 }}</strong><span class="text-xs text-slate-500">{{ b.financial_profile?.previous_loans || 0 }} previous</span></article>
+        <article class="card p-5"><span class="text-xs text-slate-400">Total outstanding</span><strong class="mt-2 block text-2xl text-slate-900">{{ totalOutstanding(b) | number:'1.0-2' }}</strong><span class="text-xs text-slate-500">All lenders combined</span></article>
+        <article class="card p-5"><span class="text-xs text-slate-400">Debt-to-income</span><strong class="mt-2 block text-2xl text-slate-900">{{ b.financial_profile?.debt_to_income_ratio || 0 }}</strong><span class="text-xs text-slate-500">Calculated from unified debt</span></article>
+        <article class="card p-5"><span class="text-xs text-slate-400">Repayments recorded</span><strong class="mt-2 block text-2xl text-slate-900">{{ paymentTotal(b) | number:'1.0-2' }}</strong><span class="text-xs text-slate-500">Combined payment amounts</span></article>
+      </div>
+
+      <article class="card overflow-hidden">
+        <div class="border-b border-slate-100 px-6 py-4"><h2 class="font-semibold text-slate-900">Loans and repayment history by lender</h2></div>
+        <div class="overflow-x-auto"><table class="w-full text-left"><thead class="border-b border-slate-100 bg-slate-50"><tr><th class="table-th">Lender</th><th class="table-th">Loan</th><th class="table-th">Amount</th><th class="table-th">Outstanding</th><th class="table-th">Status</th><th class="table-th">Payments</th></tr></thead>
+          <tbody class="divide-y divide-slate-100">@for (loan of b.loans || []; track loan.id) {<tr><td class="table-td font-semibold">{{ loan.lender_name }}</td><td class="table-td font-mono text-xs">{{ loan.loan_id }}</td><td class="table-td">{{ loan.loan_amount | number:'1.0-2' }}</td><td class="table-td font-semibold">{{ loan.outstanding_balance | number:'1.0-2' }}</td><td class="table-td"><span [class]="loan.status === 'ACTIVE' || loan.status === 'CURRENT' ? 'badge-green' : 'badge-slate'">{{ loan.status }}</span></td><td class="table-td">{{ loan.repayments.length }}</td></tr>} @empty {<tr><td colspan="6" class="px-6 py-10 text-center text-sm text-slate-400">No loan records supplied.</td></tr>}</tbody>
+        </table></div>
+      </article>
+    </section>
+  }
 }
 
 <!-- ──────────────── CONSENTS ──────────────── -->
@@ -397,44 +440,6 @@
           }
           @empty {
             <tr><td colspan="6" class="px-6 py-12 text-center text-sm text-slate-400">No blockchain transactions found.</td></tr>
-          }
-        </tbody>
-      </table>
-    </div>
-  </section>
-}
-
-<!-- ──────────────── AUDIT LOGS ──────────────── -->
-@if (kind === 'audit-logs') {
-  <header class="mb-8">
-    <p class="page-label">Operations</p>
-    <h1 class="page-title">Audit logs</h1>
-    <p class="mt-1 text-sm text-slate-500">{{ auditLogs.length }} event(s)</p>
-  </header>
-  <section class="card overflow-hidden">
-    <div class="overflow-x-auto">
-      <table class="w-full text-left">
-        <thead class="border-b border-slate-100 bg-slate-50">
-          <tr>
-            <th class="table-th">Event type</th>
-            <th class="table-th">Actor</th>
-            <th class="table-th">Request ref</th>
-            <th class="table-th">Details</th>
-            <th class="table-th">Created</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-          @for (log of auditLogs; track log.id) {
-            <tr class="hover:bg-slate-50 transition-colors">
-              <td class="table-td font-semibold text-slate-900">{{ log.event_type }}</td>
-              <td class="table-td text-slate-600">{{ log.actor ?? 'System' }}</td>
-              <td class="table-td font-mono text-xs text-slate-500">{{ log.request_reference ?? '—' }}</td>
-              <td class="table-td max-w-xs text-xs text-slate-500">{{ formatDetails(log.details) }}</td>
-              <td class="table-td text-slate-400">{{ log.created_at | date:'medium' }}</td>
-            </tr>
-          }
-          @empty {
-            <tr><td colspan="5" class="px-6 py-12 text-center text-sm text-slate-400">No audit logs found.</td></tr>
           }
         </tbody>
       </table>

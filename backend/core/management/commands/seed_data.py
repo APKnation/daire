@@ -9,7 +9,6 @@ from django.utils import timezone
 from core.models import (
     AIReputationResult,
     Assessment,
-    AuditLog,
     BlockchainTransaction,
     Borrower,
     Consent,
@@ -515,70 +514,4 @@ class Command(BaseCommand):
                 )
 
         self.stdout.write(self.style.SUCCESS(f"✓ Seeded {len(assessments_data)} Assessments, AI Results, Smart Contracts & On-Chain Transactions"))
-
-        # ---------------------------------------------------------------------
-        # 6. AUDIT LOGS
-        # ---------------------------------------------------------------------
-        audit_events = [
-            {
-                "event_type": "CONSENT_VERIFIED",
-                "request_reference": uuid.uuid4(),
-                "details": {"consent_id": "CST-2026-001", "borrower": "BRW-TZ-1001", "lender": "CRDB Bank Plc", "status": "ACTIVE"},
-            },
-            {
-                "event_type": "DATA_NORMALIZED",
-                "request_reference": uuid.uuid4(),
-                "details": {"borrower": "BRW-TZ-1001", "active_loans": 1, "completed_loans": 7, "on_time_ratio": 0.98},
-            },
-            {
-                "event_type": "FEATURES_GENERATED",
-                "request_reference": uuid.uuid4(),
-                "details": {"profile_id": 1, "features_count": 11, "version": "1.0.0"},
-            },
-            {
-                "event_type": "AI_REPUTATION_SCORING",
-                "request_reference": uuid.uuid4(),
-                "details": {"assessment": "ASM-2026-8801", "reputation": "EXCELLENT", "score": 0.9450, "model": "daire-ai-v3.0.4"},
-            },
-            {
-                "event_type": "SMART_CONTRACT_CALCULATED",
-                "request_reference": uuid.uuid4(),
-                "details": {"assessment": "ASM-2026-8801", "credit_score": 88, "ruleset": "daire-rules-v2.1"},
-            },
-            {
-                "event_type": "BLOCKCHAIN_ANCHORED",
-                "request_reference": uuid.uuid4(),
-                "details": {"network": "Polygon Amoy Testnet", "tx": "0x7a3d9b1c5f8e...", "block": 19482710, "status": "CONFIRMED"},
-            },
-            {
-                "event_type": "CONSENT_VERIFIED",
-                "request_reference": uuid.uuid4(),
-                "details": {"consent_id": "CST-2026-006", "borrower": "apk-09", "lender": "CRDB Bank Plc", "status": "ACTIVE"},
-            },
-            {
-                "event_type": "DATA_NORMALIZED",
-                "request_reference": uuid.uuid4(),
-                "details": {"borrower": "apk-09", "active_loans": 1, "completed_loans": 5, "on_time_ratio": 0.95},
-            },
-            {
-                "event_type": "SCORE_VERIFIED",
-                "request_reference": uuid.uuid4(),
-                "details": {"assessment": "ASM-2026-8805", "credit_score": 85, "verified": True, "method": "on-chain proof"},
-            },
-            {
-                "event_type": "SECURITY_AUDIT",
-                "request_reference": None,
-                "details": {"action": "SYSTEM_STARTUP", "status": "ALL_SERVICES_OPTIMAL", "environment": "local-dev"},
-            },
-        ]
-
-        for log_data in audit_events:
-            AuditLog.objects.create(
-                event_type=log_data["event_type"],
-                actor=admin_user,
-                request_reference=log_data["request_reference"],
-                details=log_data["details"],
-            )
-
-        self.stdout.write(self.style.SUCCESS(f"✓ Seeded {len(audit_events)} Audit Logs"))
         self.stdout.write(self.style.SUCCESS("All test data seeded successfully!"))

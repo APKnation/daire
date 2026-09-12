@@ -246,34 +246,4 @@
     </article>
   </section>
 
-  <!-- Audit logs -->
-  <section class="card overflow-hidden">
-    <div class="border-b border-slate-100 px-6 py-4">
-      <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Audit trail</p>
-      <h2 class="mt-0.5 text-base font-semibold text-slate-900">Recent audit events</h2>
-    </div>
-    <div class="overflow-x-auto">
-      <table class="w-full text-left">
-        <thead class="border-b border-slate-100 bg-slate-50">
-          <tr>
-            <th class="table-th">Event type</th>
-            <th class="table-th">Request</th>
-            <th class="table-th">Created</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-          @for (log of d.auditLogs.slice(0, 10); track log.id) {
-            <tr class="hover:bg-slate-50 transition-colors">
-              <td class="table-td font-semibold text-slate-900">{{ log.event_type }}</td>
-              <td class="table-td font-mono text-xs text-slate-500">{{ log.request_reference || '—' }}</td>
-              <td class="table-td text-slate-400">{{ log.created_at | date:'medium' }}</td>
-            </tr>
-          }
-          @empty {
-            <tr><td colspan="3" class="px-6 py-12 text-center text-sm text-slate-400">No audit events found.</td></tr>
-          }
-        </tbody>
-      </table>
-    </div>
-  </section>
 }

@@ -28,6 +28,47 @@ POST /api/integrations/request-credit-data/
 
 The lender adapter is intentionally isolated in `core/services.py`; replace `MockLenderAdapter` with a lender-specific adapter without changing the API or orchestration contract. The AI and blockchain services are not implemented in this increment, so no central code calculates a final credit score.
 
+## Unified borrower data
+
+Vendor systems can submit normalized borrower data to `POST /api/borrowers/ingest/`:
+
+```json
+{
+  "lender_id": "LDR-NMB-02",
+  "borrower_reference": "BRW-TZ-1001",
+  "account_reference": "NMB-ACCOUNT-001",
+  "payload": {
+    "customer_id": "CUST-001",
+    "age": 29,
+    "employment_status": "EMPLOYED",
+    "income": 1200000,
+    "transaction_frequency": 12,
+    "income_frequency": 4,
+    "savings": 250000,
+    "loans": [{
+      "loan_id": "NMB-LOAN-1",
+      "loan_amount": 500000,
+      "loan_date": "2025-01-12",
+      "loan_duration_months": 12,
+      "interest_rate": 12.5,
+      "outstanding_balance": 320000,
+      "status": "ACTIVE",
+      "repayments": [{
+        "repayment_amount": 42000,
+        "repayment_date": "2025-02-05",
+        "due_date": "2025-02-05",
+        "days_overdue": 0,
+        "missed_payments": 0,
+        "late_payments": 0,
+        "default_status": "CLEAR"
+      }]
+    }]
+  }
+}
+```
+
+Submit the same canonical `borrower_reference` for NMB, CRDB, M-Pesa, Mixx by Yas, or a microfinance institution. The system keeps each lender/account/loan source and recalculates the borrower-level totals. Search the merged view with `GET /api/borrowers/search/?lender_name=NMB&account_reference=NMB-ACCOUNT-001`.
+
 ## Frontend
 
 The Angular operations console is in `frontend/`. Start the Django API first, then:

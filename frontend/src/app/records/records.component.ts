@@ -3,11 +3,11 @@ import { ChangeDetectorRef, Component, Input, OnDestroy, OnInit, inject } from '
 import { ActivatedRoute } from '@angular/router';
 import { Subscription } from 'rxjs';
 import {
-  AIReputationResult, ApiService, AuditLog, BlockchainTransaction, Borrower,
+  AIReputationResult, ApiService, BlockchainTransaction, Borrower,
   Consent, CreditFeature, CreditProfile, IntegrationRequest, Lender, SmartContractResult
 } from '../core/api.service';
 
-type RecordKind = 'lenders' | 'borrowers' | 'consents' | 'integrations' | 'credit-profiles' | 'features' | 'ai-reputation' | 'smart-contract' | 'blockchain' | 'audit-logs';
+type RecordKind = 'lenders' | 'borrowers' | 'consents' | 'integrations' | 'credit-profiles' | 'features' | 'ai-reputation' | 'smart-contract' | 'blockchain';
 
 @Component({
   standalone: true,
@@ -35,10 +35,11 @@ export class RecordsComponent implements OnInit, OnDestroy {
 
   lenders: Lender[] = [];
   borrowers: Borrower[] = [];
+  selectedBorrower: Borrower | null = null;
+  borrowerSearchError = '';
   consents: Consent[] = [];
   integrations: IntegrationRequest[] = [];
   creditProfiles: CreditProfile[] = [];
-  auditLogs: AuditLog[] = [];
   features: CreditFeature[] = [];
   aiResults: AIReputationResult[] = [];
   smartContracts: SmartContractResult[] = [];
@@ -79,11 +80,12 @@ export class RecordsComponent implements OnInit, OnDestroy {
     this.consents = [];
     this.integrations = [];
     this.creditProfiles = [];
-    this.auditLogs = [];
     this.features = [];
     this.aiResults = [];
     this.smartContracts = [];
     this.blockchainTransactions = [];
+    this.selectedBorrower = null;
+    this.borrowerSearchError = '';
     this.error = '';
     this.loading = true;
     this.cdr.markForCheck();
@@ -108,16 +110,13 @@ export class RecordsComponent implements OnInit, OnDestroy {
         this.api.lenders().subscribe(handleData((data) => this.lenders = data));
         break;
       case 'borrowers':
-        this.api.borrowers().subscribe(handleData((data) => this.borrowers = data));
+        this.api.borrowerSearch().subscribe(handleData((data) => this.borrowers = data));
         break;
       case 'consents':
         this.api.consents().subscribe(handleData((data) => this.consents = data));
         break;
       case 'integrations':
         this.api.integrations().subscribe(handleData((data) => this.integrations = data));
-        break;
-      case 'audit-logs':
-        this.api.auditLogs().subscribe(handleData((data) => this.auditLogs = data));
         break;
       case 'credit-profiles':
         this.api.creditProfiles().subscribe(handleData((data) => this.creditProfiles = data));
@@ -139,5 +138,35 @@ export class RecordsComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
         break;
     }
+  }
+
+  searchBorrowers(lenderName: string, accountReference: string, borrowerReference: string): void {
+    this.borrowerSearchError = '';
+    this.api.borrowerSearch(lenderName.trim(), accountReference.trim(), borrowerReference.trim()).subscribe({
+      next: (data) => {
+        this.borrowers = data;
+        this.selectedBorrower = null;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.borrowerSearchError = 'Borrower search could not be completed.';
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  selectBorrower(borrower: Borrower): void {
+    this.selectedBorrower = borrower;
+  }
+
+  totalOutstanding(borrower: Borrower): number {
+    return Number(borrower.financial_profile?.total_outstanding_debt || 0);
+  }
+
+  paymentTotal(borrower: Borrower): number {
+    return (borrower.loans || []).reduce(
+      (total, loan) => total + loan.repayments.reduce((sum, payment) => sum + Number(payment.repayment_amount || 0), 0),
+      0,
+    );
   }
 }

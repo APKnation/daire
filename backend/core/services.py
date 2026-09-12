@@ -1,16 +1,19 @@
 from dataclasses import asdict, dataclass
 import json
 import os
+from datetime import date
 from decimal import Decimal
 from urllib.error import URLError
 from urllib.request import Request, urlopen
+from urllib.parse import urlencode
 from typing import Any
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from .models import (
-    AIReputationResult, AuditLog, BlockchainTransaction, Borrower, Consent,
-    CreditFeature, CreditProfile, IntegrationRequest, Lender, SmartContractResult,
+    AIReputationResult, BlockchainTransaction, Borrower, BorrowerAccount, BorrowerFinancialProfile,
+    BorrowerLoan, Consent, CreditFeature, CreditProfile, IntegrationRequest, Lender,
+    RepaymentRecord, SmartContractResult, DataExchange, DataRoutingPolicy,
 )
 
 
@@ -30,6 +33,56 @@ def _post_json(url: str, payload: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(result, dict):
         raise ExternalServiceUnavailable("External scoring service returned an invalid response.")
     return result
+
+
+def _get_json(url: str) -> dict[str, Any]:
+    if not url:
+        raise ExternalServiceUnavailable("External data service is unavailable: URL is not configured.")
+    try:
+        with urlopen(Request(url, headers={"Accept": "application/json"}), timeout=10) as response:
+            result = json.loads(response.read().decode())
+    except (OSError, ValueError, URLError) as exc:
+        raise ExternalServiceUnavailable("External data service is unavailable.") from exc
+    if not isinstance(result, dict):
+        raise ExternalServiceUnavailable("External data service returned an invalid response.")
+    return result
+
+
+def active_routing_policy() -> DataRoutingPolicy | None:
+    return DataRoutingPolicy.objects.filter(active=True).order_by("-created_at").first()
+
+
+def fields_for_destination(fields: dict[str, Any], destination: str) -> dict[str, Any]:
+    policy = active_routing_policy()
+    allowed = getattr(policy, f"{destination.lower()}_fields", None) if policy else None
+    if not allowed:
+        return fields
+    return {name: value for name, value in fields.items() if name in allowed}
+
+
+def borrower_routing_payload(borrower: Borrower, destination: str = "ai") -> dict[str, Any]:
+    try:
+        profile = borrower.financial_profile
+    except BorrowerFinancialProfile.DoesNotExist:
+        profile = None
+    fields = {
+        "borrower_reference": borrower.borrower_reference,
+        "customer_id": borrower.customer_id,
+        "income": str(borrower.income or 0),
+        "active_loan_count": profile.active_loans if profile else 0,
+        "total_outstanding_debt": str(profile.total_outstanding_debt if profile else 0),
+        "monthly_repayment": str(profile.monthly_repayment if profile else 0),
+        "previous_loans": profile.previous_loans if profile else 0,
+        "debt_to_income_ratio": str(profile.debt_to_income_ratio if profile else 0),
+        "transaction_frequency": profile.transaction_frequency if profile else 0,
+        "income_frequency": profile.income_frequency if profile else 0,
+        "savings": str(profile.savings if profile else 0),
+    }
+    return fields_for_destination(fields, destination)
+
+
+def record_exchange(**kwargs) -> DataExchange:
+    return DataExchange.objects.create(**kwargs)
 
 
 @dataclass
@@ -87,6 +140,128 @@ def validate_and_normalize(payload: dict[str, Any], borrower_reference: str) -> 
     )
 
 
+def _coerce_decimal(value: Any, default: Decimal = Decimal("0")) -> Decimal:
+    if value in (None, "", "null"):
+        return default
+    try:
+        return Decimal(str(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _coerce_date(value: Any) -> date | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value))
+    except ValueError:
+        return None
+
+
+def refresh_borrower_financial_profile(borrower: Borrower) -> BorrowerFinancialProfile:
+    loans = BorrowerLoan.objects.filter(borrower=borrower)
+    active_statuses = {"ACTIVE", "CURRENT", "OPEN"}
+    total_outstanding = sum((loan.outstanding_balance for loan in loans), Decimal("0"))
+    monthly_repayment = sum((record.repayment_amount for record in RepaymentRecord.objects.filter(borrower=borrower)), Decimal("0"))
+    transaction_frequency = sum((int((account.metadata or {}).get("transaction_frequency", 0)) for account in borrower.accounts.all()), 0)
+    income_frequency = sum((int((account.metadata or {}).get("income_frequency", 0)) for account in borrower.accounts.all()), 0)
+    cash_flow_patterns = {
+        "vendors": list(borrower.accounts.values_list("lender__institution_name", flat=True)),
+        "account_count": borrower.accounts.count(),
+    }
+    savings = sum(( _coerce_decimal((account.metadata or {}).get("savings", 0)) for account in borrower.accounts.all()), Decimal("0"))
+    account_activity = {
+        "vendors": [account.lender.institution_name for account in borrower.accounts.select_related("lender")],
+        "accounts": [account.account_reference or account.account_name or account.id for account in borrower.accounts.all()],
+    }
+    profile, _ = BorrowerFinancialProfile.objects.get_or_create(borrower=borrower)
+    profile.transaction_frequency = transaction_frequency
+    profile.income_frequency = income_frequency
+    profile.cash_flow_patterns = cash_flow_patterns
+    profile.savings = savings
+    profile.account_activity = account_activity
+    profile.active_loans = loans.filter(status__in=active_statuses).count()
+    profile.total_outstanding_debt = total_outstanding
+    profile.monthly_repayment = monthly_repayment
+    profile.previous_loans = loans.exclude(status__in=active_statuses).count()
+    profile.debt_to_income_ratio = Decimal("0")
+    if borrower.income and borrower.income > 0:
+        profile.debt_to_income_ratio = (total_outstanding / borrower.income).quantize(Decimal("0.0001"))
+    profile.save()
+    return profile
+
+
+def merge_vendor_borrower_data(*, lender: Lender, borrower_reference: str, payload: dict[str, Any], account_reference: str | None = None):
+    borrower, _ = Borrower.objects.get_or_create(borrower_reference=borrower_reference)
+    borrower.customer_id = payload.get("customer_id") or borrower.customer_id or borrower_reference
+    borrower.age = payload.get("age") or borrower.age
+    borrower.gender = payload.get("gender") or borrower.gender
+    borrower.employment_status = payload.get("employment_status") or borrower.employment_status
+    borrower.income = _coerce_decimal(payload.get("income")) if payload.get("income") is not None else borrower.income
+    borrower.business_information = payload.get("business_information") or borrower.business_information or {}
+    borrower.account_information = payload.get("account_information") or borrower.account_information or {}
+    borrower.save(update_fields=(
+        "customer_id", "age", "gender", "employment_status", "income",
+        "business_information", "account_information", "updated_at",
+    ))
+
+    account_key = account_reference or payload.get("account_reference") or payload.get("account_number") or borrower.customer_id
+    borrower_account, _ = BorrowerAccount.objects.update_or_create(
+        borrower=borrower,
+        lender=lender,
+        account_reference=account_key,
+        defaults={
+            "account_name": payload.get("account_name") or lender.institution_name,
+            "customer_id": borrower.customer_id,
+            "metadata": {
+                "transaction_frequency": payload.get("transaction_frequency", 0),
+                "income_frequency": payload.get("income_frequency", 0),
+                "savings": payload.get("savings", 0),
+                "cash_flow_patterns": payload.get("cash_flow_patterns", {}),
+                "account_activity": payload.get("account_activity", {}),
+            },
+        },
+    )
+
+    for loan_payload in payload.get("loans", []):
+        loan_id = str(loan_payload.get("loan_id") or loan_payload.get("loan_reference") or f"{borrower_reference}-{len(payload.get('loans', []))}")
+        loan, _ = BorrowerLoan.objects.update_or_create(
+            borrower=borrower,
+            lender=lender,
+            loan_id=loan_id,
+            defaults={
+                "source_account": borrower_account,
+                "loan_amount": _coerce_decimal(loan_payload.get("loan_amount", 0)),
+                "loan_date": _coerce_date(loan_payload.get("loan_date")),
+                "loan_duration_months": int(loan_payload.get("loan_duration_months") or loan_payload.get("loan_duration") or 0),
+                "interest_rate": _coerce_decimal(loan_payload.get("interest_rate", loan_payload.get("interest", 0))),
+                "outstanding_balance": _coerce_decimal(loan_payload.get("outstanding_balance", loan_payload.get("outstanding_amount", 0))),
+                "status": loan_payload.get("status") or "ACTIVE",
+            },
+        )
+
+        for repayment_payload in loan_payload.get("repayments", []):
+            repay_date = _coerce_date(repayment_payload.get("repayment_date")) or _coerce_date(repayment_payload.get("date"))
+            RepaymentRecord.objects.update_or_create(
+                borrower=borrower,
+                lender=lender,
+                loan=loan,
+                repayment_date=repay_date or timezone.now().date(),
+                defaults={
+                    "repayment_amount": _coerce_decimal(repayment_payload.get("repayment_amount", 0)),
+                    "due_date": _coerce_date(repayment_payload.get("due_date")),
+                    "days_overdue": int(repayment_payload.get("days_overdue") or 0),
+                    "missed_payments": int(repayment_payload.get("missed_payments") or 0),
+                    "late_payments": int(repayment_payload.get("late_payments") or 0),
+                    "default_status": repayment_payload.get("default_status") or "",
+                },
+            )
+
+    return refresh_borrower_financial_profile(borrower)
+
+
 @transaction.atomic
 def create_integration_request(*, lender: Lender, borrower: Borrower, consent: Consent, actor, adapter=None):
     if consent.lender_id != lender.id or consent.borrower_id != borrower.id:
@@ -94,7 +269,6 @@ def create_integration_request(*, lender: Lender, borrower: Borrower, consent: C
     if not consent.is_valid():
         raise ValidationError("Consent is not active or has expired.")
     request = IntegrationRequest.objects.create(lender=lender, borrower=borrower, consent=consent)
-    AuditLog.objects.create(event_type="CONSENT_VERIFIED", actor=actor, request_reference=request.request_reference)
     adapter = adapter or MockLenderAdapter()
     payload = adapter.fetch_credit_data(borrower.borrower_reference)
     profile = validate_and_normalize(payload, borrower.borrower_reference)
@@ -105,9 +279,20 @@ def create_integration_request(*, lender: Lender, borrower: Borrower, consent: C
         integration_request=request,
         defaults={"borrower": borrower, "profile_data": asdict(profile)},
     )
-    AuditLog.objects.create(
-        event_type="DATA_NORMALIZED", actor=actor, request_reference=request.request_reference,
-        details={"active_loan_count": profile.active_loan_count, "on_time_payment_ratio": profile.on_time_payment_ratio},
+    merge_vendor_borrower_data(
+        lender=lender,
+        borrower_reference=borrower.borrower_reference,
+        payload={
+            "customer_id": borrower.customer_id or borrower.borrower_reference,
+            "account_reference": borrower.borrower_reference,
+            "account_name": lender.institution_name,
+            "loans": payload.get("loans", []),
+            "transaction_frequency": len(payload.get("transactions", [])),
+            "income_frequency": sum(1 for item in payload.get("transactions", []) if item.get("type") == "INCOME"),
+            "savings": payload.get("savings", 0),
+            "cash_flow_patterns": payload.get("cash_flow_patterns", {}),
+            "account_activity": payload.get("account_activity", {}),
+        },
     )
     return request
 

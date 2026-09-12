@@ -4,15 +4,20 @@ from django.contrib import admin
 from .models import (
     AIReputationResult,
     Assessment,
-    AuditLog,
     BlockchainTransaction,
     Borrower,
+    BorrowerAccount,
+    BorrowerFinancialProfile,
+    BorrowerLoan,
     Consent,
     CreditFeature,
     CreditProfile,
     IntegrationRequest,
     Lender,
+    RepaymentRecord,
     SmartContractResult,
+    DataExchange,
+    DataRoutingPolicy,
 )
 
 
@@ -81,6 +86,33 @@ class LenderAdmin(admin.ModelAdmin):
     search_fields = ("lender_id", "institution_name")
 
 
+@admin.register(BorrowerAccount)
+class BorrowerAccountAdmin(admin.ModelAdmin):
+    list_display = ("borrower", "lender", "account_reference", "account_name")
+    search_fields = ("account_reference", "borrower__borrower_reference", "lender__institution_name")
+    list_filter = ("lender",)
+
+
+@admin.register(BorrowerLoan)
+class BorrowerLoanAdmin(admin.ModelAdmin):
+    list_display = ("borrower", "lender", "loan_id", "loan_amount", "outstanding_balance", "status")
+    search_fields = ("loan_id", "borrower__borrower_reference", "lender__institution_name")
+    list_filter = ("lender", "status")
+
+
+@admin.register(RepaymentRecord)
+class RepaymentRecordAdmin(admin.ModelAdmin):
+    list_display = ("borrower", "loan", "repayment_amount", "repayment_date", "days_overdue")
+    search_fields = ("loan__loan_id", "borrower__borrower_reference")
+    list_filter = ("lender",)
+
+
+@admin.register(BorrowerFinancialProfile)
+class BorrowerFinancialProfileAdmin(admin.ModelAdmin):
+    list_display = ("borrower", "active_loans", "total_outstanding_debt", "monthly_repayment", "debt_to_income_ratio")
+    search_fields = ("borrower__borrower_reference",)
+
+
 @admin.register(Consent)
 class ConsentAdmin(admin.ModelAdmin):
     fieldsets = (
@@ -124,14 +156,6 @@ class AssessmentAdmin(admin.ModelAdmin):
     list_display = ("assessment_reference", "borrower", "risk_level", "credit_score", "verification_status")
     list_filter = ("risk_level", "verification_status")
     search_fields = ("assessment_reference", "borrower__borrower_reference")
-
-
-@admin.register(AuditLog)
-class AuditLogAdmin(admin.ModelAdmin):
-    readonly_fields = ("created_at", "updated_at")
-    list_display = ("event_type", "actor", "request_reference", "created_at")
-    list_filter = ("event_type",)
-    search_fields = ("event_type", "request_reference")
 
 
 @admin.register(CreditProfile)
@@ -192,4 +216,19 @@ class BlockchainTransactionAdmin(admin.ModelAdmin):
     list_display = ("transaction_hash", "assessment", "network", "status", "block_number", "created_at")
     list_filter = ("network", "status")
     search_fields = ("transaction_hash", "assessment__assessment_reference")
+    readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(DataRoutingPolicy)
+class DataRoutingPolicyAdmin(admin.ModelAdmin):
+    list_display = ("policy_id", "name", "active", "version", "updated_at")
+    list_filter = ("active",)
+    search_fields = ("policy_id", "name")
+
+
+@admin.register(DataExchange)
+class DataExchangeAdmin(admin.ModelAdmin):
+    list_display = ("system", "direction", "operation", "status", "borrower", "created_at")
+    list_filter = ("system", "direction", "status")
+    search_fields = ("operation", "borrower__borrower_reference", "error_message")
     readonly_fields = ("created_at", "updated_at")

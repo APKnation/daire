@@ -19,6 +19,5 @@ export const routes: Routes = [
   { path: 'ai-reputation', canActivate: [authGuard], component: RecordsComponent, data: { kind: 'ai-reputation' } },
   { path: 'smart-contract', canActivate: [authGuard], component: RecordsComponent, data: { kind: 'smart-contract' } },
   { path: 'blockchain', canActivate: [authGuard], component: RecordsComponent, data: { kind: 'blockchain' } },
-  { path: 'audit-logs', canActivate: [authGuard], component: RecordsComponent, data: { kind: 'audit-logs' } },
   { path: '**', redirectTo: '' },
 ];
