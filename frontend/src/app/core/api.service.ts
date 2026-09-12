@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { catchError, map, Observable, of } from 'rxjs';
 
 export interface Lender {
+  id?: number;
   lender_id: string;
   institution_name: string;
   institution_type: string;
@@ -189,6 +190,16 @@ export interface VerificationResult {
   ruleset_version: string;
 }
 
+export interface RoutingPolicy {
+  id?: number;
+  policy_id: string;
+  name: string;
+  ai_fields: string[];
+  blockchain_fields: string[];
+  active: boolean;
+  version: string;
+}
+
 type CollectionResponse<T> = T[] | { results: T[] } | Record<string, T[]>;
 
 function collection<T>(response: CollectionResponse<T>, key?: string): T[] {
@@ -220,6 +231,24 @@ export class ApiService {
 
   lenders(): Observable<Lender[]> {
     return this.http.get<CollectionResponse<Lender>>('/api/lenders/').pipe(map((response) => collection(response, 'lenders')));
+  }
+  routingPolicies(): Observable<RoutingPolicy[]> {
+    return this.http.get<CollectionResponse<RoutingPolicy>>('/api/routing-policies/').pipe(map((response) => collection(response, 'routing_policies')));
+  }
+  updateRoutingPolicy(policy: RoutingPolicy): Observable<RoutingPolicy> {
+    return this.http.put<RoutingPolicy>(`/api/routing-policies/${policy.id}/`, policy);
+  }
+  pullLenderData(lenderId: number, borrowerReference: string): Observable<Borrower> {
+    return this.http.post<Borrower>(`/api/lenders/${lenderId}/pull-borrower-data/`, { borrower_reference: borrowerReference });
+  }
+  pushAi(reference: string): Observable<ApiRecord> {
+    return this.http.post<ApiRecord>(`/api/assessments/${reference}/ai-reputation/`, {});
+  }
+  pushBlockchain(reference: string): Observable<ApiRecord> {
+    return this.http.post<ApiRecord>(`/api/assessments/${reference}/blockchain-score/`, {});
+  }
+  broadcastResult(borrowerId: number, resultType: string, payload: ApiRecord): Observable<ApiRecord> {
+    return this.http.post<ApiRecord>(`/api/borrowers/${borrowerId}/broadcast-result/`, { result_type: resultType, payload });
   }
   borrowers(): Observable<Borrower[]> {
     return this.http.get<CollectionResponse<Borrower>>('/api/borrowers/').pipe(map((response) => collection(response, 'borrowers')));

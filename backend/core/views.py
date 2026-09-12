@@ -143,6 +143,37 @@ class BorrowerViewSet(viewsets.ModelViewSet):
         )
         return Response(BorrowerFinancialProfileSerializer(profile).data)
 
+    @action(detail=True, methods=["post"], url_path="broadcast-result")
+    def broadcast_result(self, request, pk=None):
+        """Broadcast a selected AI/blockchain result to every linked lender."""
+        borrower = self.get_object()
+        result_type = request.data.get("result_type") or "CREDIT_RESULT"
+        result_payload = request.data.get("payload")
+        if not isinstance(result_payload, dict):
+            return Response({"detail": "payload must be a JSON object."}, status=status.HTTP_400_BAD_REQUEST)
+        results = []
+        sent_to = set()
+        for account in borrower.accounts.select_related("lender").all():
+            lender = account.lender
+            if lender.id in sent_to:
+                continue
+            sent_to.add(lender.id)
+            exchange = record_exchange(system=DataExchange.System.LENDER, direction=DataExchange.Direction.PUSH,
+                                       operation="broadcast_credit_result", borrower=borrower, lender=lender,
+                                       fields_sent=list(result_payload.keys()),
+                                       payload={"borrower_reference": borrower.borrower_reference,
+                                                "result_type": result_type, "result": result_payload})
+            try:
+                response = _post_json(request.data.get("target_url") or lender.api_base_url, exchange.payload)
+                exchange.status, exchange.response = DataExchange.Status.COMPLETED, response
+                exchange.save(update_fields=("status", "response", "updated_at"))
+                results.append({"lender": lender.institution_name, "status": "COMPLETED", "response": response})
+            except ExternalServiceUnavailable as exc:
+                exchange.status, exchange.error_message = DataExchange.Status.FAILED, str(exc)
+                exchange.save(update_fields=("status", "error_message", "updated_at"))
+                results.append({"lender": lender.institution_name, "status": "FAILED", "detail": str(exc)})
+        return Response({"borrower_reference": borrower.borrower_reference, "result_type": result_type, "broadcasts": results})
+
 
 class BorrowerAccountViewSet(viewsets.ModelViewSet):
     queryset = BorrowerAccount.objects.select_related("borrower", "lender")
