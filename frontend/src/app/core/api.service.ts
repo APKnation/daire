@@ -194,6 +194,7 @@ export interface RoutingPolicy {
   id?: number;
   policy_id: string;
   name: string;
+  lender_fields: string[];
   ai_fields: string[];
   blockchain_fields: string[];
   active: boolean;

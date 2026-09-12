@@ -42,7 +42,7 @@ class LenderViewSet(viewsets.ModelViewSet):
                                    fields_sent=["borrower_reference"], payload={"borrower_reference": borrower_reference})
         try:
             url = request.data.get("source_url") or f"{lender.api_base_url.rstrip('/')}/borrowers?{urlencode({'borrower_reference': borrower_reference})}"
-            payload = _get_json(url)
+            payload = fields_for_destination(_get_json(url), "lender")
             profile = merge_vendor_borrower_data(lender=lender, borrower_reference=borrower_reference, payload=payload,
                                                   account_reference=request.data.get("account_reference") or payload.get("account_reference"))
             exchange.status = DataExchange.Status.COMPLETED

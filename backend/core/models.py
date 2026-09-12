@@ -200,6 +200,7 @@ class DataRoutingPolicy(TimestampedModel):
 
     policy_id = models.CharField(max_length=64, unique=True)
     name = models.CharField(max_length=255)
+    lender_fields = models.JSONField(default=list, blank=True)
     ai_fields = models.JSONField(default=list, blank=True)
     blockchain_fields = models.JSONField(default=list, blank=True)
     active = models.BooleanField(default=True)
