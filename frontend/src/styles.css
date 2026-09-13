@@ -8,6 +8,12 @@
 
 body { margin: 0; background: #f1f5f9; color: #0f172a; }
 
+/* High-contrast application navigation */
+.app-nav a { color: #e2e8f0; }
+.app-nav a:hover { color: #ffffff; }
+.app-nav summary { color: #94a3b8; }
+.app-sidebar small { color: #94a3b8; }
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }

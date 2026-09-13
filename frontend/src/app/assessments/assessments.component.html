@@ -47,7 +47,7 @@
             <th class="table-th">Reference</th>
             <th class="table-th">Borrower</th>
             <th class="table-th">Reputation</th>
-            <th class="table-th">Credit score</th>
+            <th class="table-th">Credit score (350–800)</th>
             <th class="table-th">Status</th>
             <th class="table-th"></th>
           </tr>
@@ -67,7 +67,7 @@
               </td>
               <td class="table-td">
                 <span class="text-lg font-bold text-slate-900">{{ a.credit_score ?? '—' }}</span>
-                <span class="text-xs font-normal text-slate-400">/100</span>
+                <span class="text-xs font-normal text-slate-400">/800</span>
               </td>
               <td class="table-td">
                 <span [class]="a.verification_status === 'CONFIRMED' ? 'badge-green' : 'badge-slate'">
@@ -76,8 +76,9 @@
               </td>
               <td class="table-td">
                 <button (click)="verify(a)"
-                  class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100">
-                  Verify →
+                  [disabled]="verifyingReference === a.assessment_reference"
+                  class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-wait disabled:opacity-50">
+                  {{ verifyingReference === a.assessment_reference ? 'Checking…' : 'Verify →' }}
                 </button>
               </td>
             </tr>
@@ -103,7 +104,7 @@
             <strong class="font-mono text-sm text-slate-900">{{ result.assessment_reference }}</strong>
           </div>
           <div>
-            <span class="block text-xs text-slate-500 mb-1">Credit score</span>
+            <span class="block text-xs text-slate-500 mb-1">Credit score (350–800)</span>
             <strong class="text-slate-900">{{ result.credit_score ?? '—' }}</strong>
           </div>
           <div>

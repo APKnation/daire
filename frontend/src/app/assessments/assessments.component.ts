@@ -12,6 +12,7 @@ export class AssessmentsComponent implements OnInit {
   verification: VerificationResult | null = null;
   error = '';
   loading = true;
+  verifyingReference = '';
 
   ngOnInit(): void {
     this.api.assessments().subscribe({
@@ -28,9 +29,19 @@ export class AssessmentsComponent implements OnInit {
     });
   }
   verify(assessment: Assessment): void {
+    this.error = '';
+    this.verifyingReference = assessment.assessment_reference;
+    this.cdr.markForCheck();
     this.api.verifyAssessment(assessment.assessment_reference).subscribe({
       next: (result) => {
         this.verification = result;
+        this.verifyingReference = '';
+        assessment.verification_status = result.verified ? 'CONFIRMED' : 'UNCONFIRMED';
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.verifyingReference = '';
+        this.error = err?.error?.detail || 'This assessment could not be verified. It may not have a blockchain transaction yet.';
         this.cdr.markForCheck();
       },
     });

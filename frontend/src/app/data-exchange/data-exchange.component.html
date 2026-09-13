@@ -8,7 +8,7 @@
 @if (error) { <div class="mb-5 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">{{ error }}</div> }
 @if (loading) { <div class="mb-5 rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-500">Working with the connected system…</div> }
 
-<section class="mb-6 grid gap-6 xl:grid-cols-2">
+<section class="mb-6">
   <article class="card p-6">
     <p class="page-label">1 · Pull and merge</p>
     <h2 class="mt-1 text-base font-semibold text-slate-900">Receive borrower data from all lenders</h2>
@@ -20,8 +20,11 @@
     </div>
     @if (borrower) { <div class="mt-5 rounded-xl bg-slate-50 p-4 text-sm"><strong class="text-slate-900">{{ borrower.borrower_reference }}</strong><span class="ml-2 text-slate-500">{{ borrower.source_lenders?.join(', ') }} · {{ borrower.loans?.length || 0 }} loan(s)</span></div> }
   </article>
+</section>
 
-  <article class="card p-6">
+<details open class="card mb-6 overflow-hidden">
+  <summary class="cursor-pointer list-none px-6 py-5 text-sm font-semibold text-slate-900 marker:hidden"><span class="mr-2 text-emerald-600">＋</span>Advanced data permissions <span class="ml-2 font-normal text-slate-400">Optional</span></summary>
+  <article class="border-t border-slate-100 p-6">
     <p class="page-label">2 · Select data fields</p>
     <h2 class="mt-1 text-base font-semibold text-slate-900">What enters and leaves the center?</h2>
     <p class="mt-1 mb-4 text-sm text-slate-500">Choose fields to pull from lenders. AI and blockchain can only receive approved normalized scoring fields; raw identity and account fields remain in the central system.</p>
@@ -31,11 +34,12 @@
       <div class="mt-4 flex items-center justify-between"><span class="text-xs text-slate-400">Pull: {{ p.lender_fields.length }} · AI: {{ p.ai_fields.length }} · Blockchain: {{ p.blockchain_fields.length }}</span><button class="btn-primary" (click)="savePolicy()">Save field policy</button></div>
     } @else { <p class="text-sm text-slate-500">No routing policy found. Run migrations first.</p> }
   </article>
-</section>
+</details>
 
 <section class="card p-6">
   <p class="page-label">3 · Score and distribute</p>
-  <h2 class="mt-1 text-base font-semibold text-slate-900">Send selected data and broadcast the result</h2>
+  <h2 class="mt-1 text-base font-semibold text-slate-900">Get the score and share it</h2>
+  <p class="mt-1 text-sm text-slate-500">These actions use the borrower data collected above. Results are shared automatically with linked organizations.</p>
   <div class="mt-5 grid gap-4 lg:grid-cols-[1fr_auto_auto_auto] lg:items-end">
     <label class="block"><span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Assessment reference</span><input class="input-field" [(ngModel)]="assessmentReference" placeholder="ASM-2026-8801"></label>
     <button class="btn-primary" [disabled]="loading || !assessmentReference" (click)="pushAi()">Send to AI</button>

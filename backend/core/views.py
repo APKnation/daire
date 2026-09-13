@@ -262,6 +262,11 @@ class AssessmentViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=["get"])
     def verify(self, request, assessment_reference=None, pk=None):
         assessment = self.get_object()
+        if not assessment.blockchain_transaction_hash:
+            return Response(
+                {"detail": "This assessment has not been recorded on the blockchain yet, so there is no transaction to verify."},
+                status=status.HTTP_409_CONFLICT,
+            )
         exchange = record_exchange(system=DataExchange.System.BLOCKCHAIN, direction=DataExchange.Direction.PULL,
                                    operation="verify_transaction", borrower=assessment.borrower,
                                    assessment=assessment, fields_sent=["transaction_hash"],

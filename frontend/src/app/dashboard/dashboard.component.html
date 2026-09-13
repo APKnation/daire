@@ -1,9 +1,7 @@
 <!-- Header -->
 <header class="mb-8 flex flex-wrap items-start justify-between gap-4">
   <div>
-    <p class="page-label">Operations / Overview</p>
     <h1 class="page-title">Dashboard</h1>
-    <p class="mt-1 text-sm text-slate-500">Live data from DAIRE Central System</p>
   </div>
   <button (click)="auth.logout()"
     class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-red-300 hover:text-red-600">
@@ -172,7 +170,7 @@
           </div>
           <span class="text-right">
             <span class="text-xl font-bold text-slate-900">{{ a.credit_score ?? '—' }}</span>
-            <small class="text-xs text-slate-400">/100</small>
+            <small class="text-xs text-slate-400">/800</small>
           </span>
           <span [class]="a.verification_status === 'CONFIRMED' ? 'badge-green' : 'badge-slate'" class="hidden sm:inline-flex">
             {{ a.verification_status }}

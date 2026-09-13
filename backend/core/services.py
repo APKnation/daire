@@ -399,12 +399,17 @@ class BlockchainScoreService:
         })
         if "credit_score" not in result or "ruleset_version" not in result:
             raise ExternalServiceUnavailable("Smart contract service returned an incomplete response.")
+        raw_score = int(result["credit_score"])
+        # The contract's public credit scale is 350..800. Keep compatibility
+        # with local development contracts that still return a 0..100 score.
+        credit_score = 350 + round((raw_score / 100) * 450) if 0 <= raw_score <= 100 else raw_score
+        credit_score = max(350, min(800, credit_score))
         smart_result = SmartContractResult.objects.update_or_create(
             assessment=assessment,
             defaults={
-                "credit_score": result["credit_score"], "ruleset_version": result["ruleset_version"],
+                "credit_score": credit_score, "ruleset_version": result["ruleset_version"],
                 "contract_address": os.environ.get("SMART_CONTRACT_ADDRESS", ""),
-                "raw_result": result,
+                "raw_result": {**result, "credit_score": credit_score, "raw_credit_score": raw_score},
             },
         )[0]
         if result.get("transaction_hash"):
