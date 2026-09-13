@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { JsonPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ApiRecord, ApiService, Borrower, Lender, RoutingPolicy } from '../core/api.service';
+import { ApiRecord, ApiService, Borrower, RoutingPolicy } from '../core/api.service';
 
 @Component({
   standalone: true,
@@ -12,9 +12,7 @@ export class DataExchangeComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly cdr = inject(ChangeDetectorRef);
 
-  lenders: Lender[] = [];
   policy: RoutingPolicy | null = null;
-  selectedLenderId: number | null = null;
   borrowerReference = '';
   assessmentReference = '';
   borrower: Borrower | null = null;
@@ -36,7 +34,6 @@ export class DataExchangeComponent implements OnInit {
   ];
 
   ngOnInit(): void {
-    this.api.lenders().subscribe((lenders) => { this.lenders = lenders; this.cdr.markForCheck(); });
     this.api.routingPolicies().subscribe((policies) => {
       this.policy = policies.find((item) => item.active) || policies[0] || null;
       this.cdr.markForCheck();
@@ -62,14 +59,13 @@ export class DataExchangeComponent implements OnInit {
   }
 
   pull(): void {
-    const selected = this.lenders.find((lender) => lender.id === this.selectedLenderId);
-    if (!selected || !this.borrowerReference.trim()) {
-      this.error = 'Select a lender from the Lenders registry and enter a borrower reference.';
+    if (!this.borrowerReference.trim()) {
+      this.error = 'Enter the unique borrower reference.';
       return;
     }
     this.loading = true; this.message = ''; this.error = '';
-    this.api.pullLenderData(selected.id!, this.borrowerReference.trim()).subscribe({
-      next: (borrower) => { this.borrower = borrower; this.loading = false; this.message = 'Lender data pulled and merged into the borrower profile.'; this.cdr.markForCheck(); },
+    this.api.pullFromAllLenders(this.borrowerReference.trim()).subscribe({
+      next: (result) => { this.borrower = result.borrower; this.loading = false; this.message = `Data pulled from ${result.pulled_from.length} lender(s) and merged into the borrower profile.`; this.cdr.markForCheck(); },
       error: (err) => { this.loading = false; this.error = err?.error?.detail || 'Lender pull failed. Check the lender API connection.'; this.cdr.markForCheck(); },
     });
   }
@@ -87,7 +83,15 @@ export class DataExchangeComponent implements OnInit {
   private runPush(request: ReturnType<ApiService['pushAi']>, success: string): void {
     this.loading = true; this.message = ''; this.error = '';
     request.subscribe({
-      next: (result) => { this.lastResult = result; this.loading = false; this.message = success; this.cdr.markForCheck(); },
+      next: (result) => {
+        this.lastResult = result;
+        if (this.borrower?.id) {
+          this.api.broadcastResult(this.borrower.id, 'CREDIT_RESULT', result).subscribe({
+            next: (broadcast) => { this.loading = false; this.message = `${success} Broadcast to ${(broadcast['broadcasts'] as unknown[] || []).length} organization(s).`; this.cdr.markForCheck(); },
+            error: () => { this.loading = false; this.message = `${success} but distribution to organizations failed.`; this.cdr.markForCheck(); },
+          });
+        } else { this.loading = false; this.message = success; this.cdr.markForCheck(); }
+      },
       error: (err) => { this.loading = false; this.error = err?.error?.detail || 'The destination system did not return a result.'; this.cdr.markForCheck(); },
     });
   }

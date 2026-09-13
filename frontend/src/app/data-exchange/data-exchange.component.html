@@ -1,7 +1,7 @@
 <header class="mb-8">
   <p class="page-label">Central orchestration</p>
   <h1 class="page-title">Data exchange</h1>
-  <p class="mt-1 text-sm text-slate-500">Pull vendor data, merge it under one borrower, choose scoring inputs, then broadcast the result.</p>
+  <p class="mt-1 text-sm text-slate-500">Enter one unique borrower ID, collect matching data from every lender, then distribute the returned score.</p>
 </header>
 
 @if (message) { <div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-700">{{ message }}</div> }
@@ -11,15 +11,12 @@
 <section class="mb-6 grid gap-6 xl:grid-cols-2">
   <article class="card p-6">
     <p class="page-label">1 · Pull and merge</p>
-    <h2 class="mt-1 text-base font-semibold text-slate-900">Receive borrower data from a lender</h2>
-    <p class="mt-1 mb-5 text-sm text-slate-500">The lender response is merged into the central borrower record and kept source-linked.</p>
+    <h2 class="mt-1 text-base font-semibold text-slate-900">Receive borrower data from all lenders</h2>
+    <p class="mt-1 mb-5 text-sm text-slate-500">The unique borrower ID is checked across every lender. Matching responses are merged and kept source-linked.</p>
     <div class="space-y-4">
-      <label class="block"><span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Lender from Lenders registry</span>
-        <select class="input-field" [(ngModel)]="selectedLenderId"><option [ngValue]="null">Select lender</option>@for (lender of lenders; track lender.id) {<option [ngValue]="lender.id">{{ lender.institution_name }} · {{ lender.lender_id }} · DB #{{ lender.id }}</option>}</select>
-      </label>
       <label class="block"><span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Canonical borrower reference</span><input class="input-field" [(ngModel)]="borrowerReference" placeholder="BRW-TZ-1001"></label>
-      <button class="btn-primary" [disabled]="loading || !selectedLenderId || !borrowerReference" (click)="pull()">Pull and merge lender data</button>
-      <p class="text-xs text-slate-400">This list is loaded directly from the same lender registry shown under Lenders. DB # is the ID used for the pull request.</p>
+      <button class="btn-primary" [disabled]="loading || !borrowerReference" (click)="pull()">Pull from all lenders</button>
+      <p class="text-xs text-slate-400">No lender is selected, so a lender with stronger or weaker credit cannot be excluded from the assessment.</p>
     </div>
     @if (borrower) { <div class="mt-5 rounded-xl bg-slate-50 p-4 text-sm"><strong class="text-slate-900">{{ borrower.borrower_reference }}</strong><span class="ml-2 text-slate-500">{{ borrower.source_lenders?.join(', ') }} · {{ borrower.loans?.length || 0 }} loan(s)</span></div> }
   </article>
@@ -27,10 +24,10 @@
   <article class="card p-6">
     <p class="page-label">2 · Select data fields</p>
     <h2 class="mt-1 text-base font-semibold text-slate-900">What enters and leaves the center?</h2>
-    <p class="mt-1 mb-4 text-sm text-slate-500">Choose lender pull fields and separate AI/blockchain outbound fields.</p>
+    <p class="mt-1 mb-4 text-sm text-slate-500">Choose fields to pull from lenders. AI and blockchain can only receive approved normalized scoring fields; raw identity and account fields remain in the central system.</p>
     @if (policy; as p) {
       <div class="mb-3 grid grid-cols-[1fr_auto_auto_auto] gap-2 px-3 text-[10px] font-semibold uppercase tracking-wide text-slate-400"><span>Field</span><span>Pull</span><span>AI</span><span>Chain</span></div>
-      <div class="grid gap-2">@for (field of lenderFields; track field) {<div class="grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 rounded-lg border border-slate-100 px-3 py-2 text-xs text-slate-600"><span>{{ field }}</span><input type="checkbox" [checked]="selected('lender_fields', field)" (change)="toggle(field, 'lender_fields')"><input [disabled]="!fields.includes(field)" type="checkbox" [checked]="selected('ai_fields', field)" (change)="toggle(field, 'ai_fields')"><input [disabled]="!fields.includes(field)" type="checkbox" [checked]="selected('blockchain_fields', field)" (change)="toggle(field, 'blockchain_fields')"></div>}</div>
+      <div class="grid gap-2">@for (field of lenderFields; track field) {<div class="grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 rounded-lg border border-slate-100 px-3 py-2 text-xs text-slate-600"><span>{{ field }}</span><input title="Pull this field from lenders" type="checkbox" [checked]="selected('lender_fields', field)" (change)="toggle(field, 'lender_fields')"><input [disabled]="!fields.includes(field)" [title]="fields.includes(field) ? 'Send this normalized field to AI' : 'Raw lender field: kept off the AI boundary'" type="checkbox" [checked]="selected('ai_fields', field)" (change)="toggle(field, 'ai_fields')"><input [disabled]="!fields.includes(field)" [title]="fields.includes(field) ? 'Send this normalized field to blockchain' : 'Raw lender field: blockchain receives only D1-D5 dimensions'" type="checkbox" [checked]="selected('blockchain_fields', field)" (change)="toggle(field, 'blockchain_fields')"></div>}</div>
       <div class="mt-4 flex items-center justify-between"><span class="text-xs text-slate-400">Pull: {{ p.lender_fields.length }} · AI: {{ p.ai_fields.length }} · Blockchain: {{ p.blockchain_fields.length }}</span><button class="btn-primary" (click)="savePolicy()">Save field policy</button></div>
     } @else { <p class="text-sm text-slate-500">No routing policy found. Run migrations first.</p> }
   </article>
@@ -43,8 +40,8 @@
     <label class="block"><span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Assessment reference</span><input class="input-field" [(ngModel)]="assessmentReference" placeholder="ASM-2026-8801"></label>
     <button class="btn-primary" [disabled]="loading || !assessmentReference" (click)="pushAi()">Send to AI</button>
     <button class="btn-primary" [disabled]="loading || !assessmentReference" (click)="pushBlockchain()">Send to blockchain</button>
-    <button class="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-2.5 text-sm font-semibold text-emerald-700 disabled:opacity-50" [disabled]="loading || !borrower || !lastResult" (click)="broadcast()">Broadcast to lenders</button>
+    <button class="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-2.5 text-sm font-semibold text-emerald-700 disabled:opacity-50" [disabled]="loading || !borrower || !lastResult" (click)="broadcast()">Broadcast to organizations</button>
   </div>
   @if (lastResult) { <div class="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4"><p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Latest returned result</p><pre class="overflow-auto text-xs text-slate-700">{{ lastResult | json }}</pre></div> }
-  <p class="mt-4 text-xs text-slate-400">Broadcast uses the borrower ID and sends only the returned result to each distinct lender account linked to that borrower.</p>
+  <p class="mt-4 text-xs text-slate-400">AI and blockchain results are automatically broadcast to every organization linked to the borrower. You can also retry the broadcast above.</p>
 </section>

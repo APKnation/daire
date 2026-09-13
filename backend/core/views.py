@@ -26,6 +26,7 @@ from .services import (
     AIReputationService, BlockchainScoreService, BlockchainVerificationService,
     FeatureGenerationService,
 )
+from .services import blockchain_dimensions
 
 
 class LenderViewSet(viewsets.ModelViewSet):
@@ -102,6 +103,47 @@ class BorrowerViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(accounts__in=account_qs).distinct()
         serializer = UnifiedBorrowerSerializer(queryset, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=["post"], url_path="pull-from-all-lenders")
+    def pull_from_all_lenders(self, request):
+        """Pull a borrower from every lender; the caller never chooses a lender."""
+        borrower_reference = str(request.data.get("borrower_reference") or "").strip()
+        if not borrower_reference:
+            return Response({"detail": "borrower_reference is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        successful, failed = [], []
+        for lender in Lender.objects.all():
+            exchange = record_exchange(
+                system=DataExchange.System.LENDER, direction=DataExchange.Direction.PULL,
+                operation="pull_borrower_data_all_lenders", lender=lender,
+                fields_sent=["borrower_reference"], payload={"borrower_reference": borrower_reference},
+            )
+            try:
+                url = f"{lender.api_base_url.rstrip('/')}/borrowers?{urlencode({'borrower_reference': borrower_reference})}"
+                payload = fields_for_destination(_get_json(url), "lender")
+                profile = merge_vendor_borrower_data(
+                    lender=lender, borrower_reference=borrower_reference, payload=payload,
+                    account_reference=payload.get("account_reference"),
+                )
+                exchange.status = DataExchange.Status.COMPLETED
+                exchange.borrower = profile.borrower
+                exchange.response = {"borrower_reference": borrower_reference, "fields": list(payload.keys())}
+                exchange.save(update_fields=("status", "borrower", "response", "updated_at"))
+                successful.append(lender.institution_name)
+            except (ExternalServiceUnavailable, ValidationError) as exc:
+                exchange.status = DataExchange.Status.FAILED
+                exchange.error_message = str(exc)
+                exchange.save(update_fields=("status", "error_message", "updated_at"))
+                failed.append({"lender": lender.institution_name, "detail": str(exc)})
+
+        borrower = Borrower.objects.filter(borrower_reference=borrower_reference).first()
+        if not borrower:
+            return Response({"detail": "Borrower was not found at any lender.", "failed": failed}, status=status.HTTP_404_NOT_FOUND)
+        return Response({
+            "borrower": UnifiedBorrowerSerializer(borrower).data,
+            "pulled_from": successful,
+            "failed": failed,
+        })
 
     @action(detail=False, methods=["post"], url_path="ingest")
     def ingest(self, request):
@@ -262,6 +304,13 @@ class AssessmentViewSet(viewsets.ReadOnlyModelViewSet):
         features = {feature.name: float(feature.value) for feature in profile.features.all()}
         return fields_for_destination(features, destination)
 
+    def _blockchain_dimensions(self, assessment):
+        profile = CreditProfile.objects.filter(borrower=assessment.borrower).order_by("-created_at").first()
+        if not profile:
+            raise ExternalServiceUnavailable("Credit profile is unavailable.")
+        features = {feature.name: float(feature.value) for feature in profile.features.all()}
+        return blockchain_dimensions(features=features, borrower=assessment.borrower)
+
     @action(detail=True, methods=["post"], url_path="ai-reputation")
     def ai_reputation(self, request, pk=None):
         assessment = self.get_object()
@@ -288,13 +337,13 @@ class AssessmentViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=["post"], url_path="blockchain-score")
     def blockchain_score(self, request, pk=None):
         assessment = self.get_object()
-        features = self._features(assessment, "blockchain")
+        dimensions = self._blockchain_dimensions(assessment)
         exchange = record_exchange(system=DataExchange.System.BLOCKCHAIN, direction=DataExchange.Direction.PUSH,
                                    operation="calculate_credit_score", borrower=assessment.borrower,
                                    assessment=assessment, policy=active_routing_policy(),
-                                   fields_sent=list(features.keys()), payload=features)
+                                   fields_sent=list(dimensions.keys()), payload=dimensions)
         try:
-            result = BlockchainScoreService().calculate(assessment, features)
+            result = BlockchainScoreService().calculate(assessment, dimensions)
         except ExternalServiceUnavailable as exc:
             exchange.status, exchange.error_message = DataExchange.Status.FAILED, str(exc)
             exchange.save(update_fields=("status", "error_message", "updated_at"))

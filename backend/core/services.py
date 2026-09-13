@@ -318,6 +318,58 @@ class FeatureGenerationService:
         return features
 
 
+def _score(value: float) -> int:
+    """Return a deterministic integer score in the contract's 0..100 range."""
+    return max(0, min(100, round(value)))
+
+
+def blockchain_dimensions(*, features: dict[str, Any], borrower: Borrower) -> dict[str, int]:
+    """Collapse central-system features into the five values sent on-chain.
+
+    Raw transactions, balances, repayment rows, and identity evidence stay in
+    the central system. The contract receives only these bounded dimensions.
+    """
+    on_time_bps = float(features.get("on_time_payment_ratio", 0)) * 10000
+    max_days_late = float(features.get("max_days_overdue", 0))
+    missed = float(features.get("missed_payment_count", 0))
+    d1 = 100
+    if on_time_bps < 9800:
+        d1 = 85
+    if on_time_bps < 9000:
+        d1 = 70
+    if on_time_bps < 8000:
+        d1 = 50
+    d1 -= min(20, int(max_days_late // 10) * 2)
+    d1 -= min(30, int(missed * 6))
+
+    transactions = float(features.get("transaction_frequency", 0))
+    income_events = float(features.get("income_frequency", 0))
+    continuity = 100 if transactions > 0 else 0
+    regularity = min(100, income_events / max(transactions, 1) * 100)
+    stability = float(features.get("balance_stability", 0))
+    stability = stability * 100 if stability <= 1 else stability
+    d2 = 0.4 * continuity + 0.3 * regularity + 0.3 * max(0, min(100, stability))
+
+    defaults = float(features.get("defaulted_loan_count", 0))
+    completed = float(features.get("completed_loan_count", 0))
+    debt = float(features.get("total_outstanding_debt", 0))
+    income = float(borrower.income or 0)
+    debt_to_income = debt / max(income, 1)
+    d3 = 100 - defaults * 35 + min(20, completed * 10)
+    if debt_to_income > 0.9:
+        d3 -= 25
+
+    # No raw trend series crosses the chain boundary. This is the stable
+    # activity/regularity proxy until a trend metric is explicitly generated.
+    d4 = 60 + (regularity - 50) * 0.6 - min(30, defaults * 5)
+
+    source_count = borrower.accounts.values("lender_id").distinct().count()
+    source_breadth = min(60, source_count * 20)
+    corroboration = 40 if source_count >= 2 else (20 if source_count == 1 else 0)
+    d5 = source_breadth + corroboration
+    return {f"D{i}": _score(value) for i, value in enumerate((d1, d2, d3, d4, d5), 1)}
+
+
 class AIReputationService:
     def calculate(self, assessment: Any, features: dict[str, Any]) -> AIReputationResult:
         result = _post_json(os.environ.get("AI_ENGINE_URL", ""), {
@@ -338,10 +390,12 @@ class AIReputationService:
 
 
 class BlockchainScoreService:
-    def calculate(self, assessment: Any, features: dict[str, Any]) -> SmartContractResult:
+    def calculate(self, assessment: Any, dimensions: dict[str, int]) -> SmartContractResult:
         result = _post_json(os.environ.get("BLOCKCHAIN_RPC_URL", ""), {
             "method": "calculateScore", "contract_address": os.environ.get("SMART_CONTRACT_ADDRESS", ""),
-            "assessment_reference": assessment.assessment_reference, "features": features,
+            "assessment_reference": assessment.assessment_reference,
+            "dimensions": dimensions,
+            "schema_version": "credit-dimensions-v1",
         })
         if "credit_score" not in result or "ruleset_version" not in result:
             raise ExternalServiceUnavailable("Smart contract service returned an incomplete response.")

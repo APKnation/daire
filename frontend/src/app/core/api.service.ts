@@ -242,6 +242,9 @@ export class ApiService {
   pullLenderData(lenderId: number, borrowerReference: string): Observable<Borrower> {
     return this.http.post<Borrower>(`/api/lenders/${lenderId}/pull-borrower-data/`, { borrower_reference: borrowerReference });
   }
+  pullFromAllLenders(borrowerReference: string): Observable<{ borrower: Borrower; pulled_from: string[]; failed: unknown[] }> {
+    return this.http.post<{ borrower: Borrower; pulled_from: string[]; failed: unknown[] }>(`/api/borrowers/pull-from-all-lenders/`, { borrower_reference: borrowerReference });
+  }
   pushAi(reference: string): Observable<ApiRecord> {
     return this.http.post<ApiRecord>(`/api/assessments/${reference}/ai-reputation/`, {});
   }

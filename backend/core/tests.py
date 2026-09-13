@@ -7,6 +7,7 @@ from .models import Borrower, BorrowerFinancialProfile, BorrowerLoan, Consent, C
 from .services import (
     ExternalServiceUnavailable, FeatureGenerationService, AIReputationService,
     create_integration_request, merge_vendor_borrower_data, validate_and_normalize,
+    blockchain_dimensions,
 )
 
 
@@ -62,6 +63,17 @@ class IntegrationServiceTests(TestCase):
     def test_ai_service_without_url_is_explicitly_unavailable(self):
         with self.assertRaises(ExternalServiceUnavailable):
             AIReputationService().calculate(type("Assessment", (), {"assessment_reference": "A-1"})(), {})
+
+    def test_blockchain_payload_is_five_bounded_dimensions(self):
+        dimensions = blockchain_dimensions(features={
+            "on_time_payment_ratio": 0.95, "max_days_overdue": 4,
+            "missed_payment_count": 0, "transaction_frequency": 10,
+            "income_frequency": 5, "balance_stability": 0.8,
+            "defaulted_loan_count": 0, "completed_loan_count": 2,
+            "total_outstanding_debt": 100,
+        }, borrower=self.borrower)
+        self.assertEqual(set(dimensions), {"D1", "D2", "D3", "D4", "D5"})
+        self.assertTrue(all(0 <= value <= 100 for value in dimensions.values()))
 
     def test_merges_multi_vendor_borrower_profile(self):
         nmb = Lender.objects.create(
