@@ -1,5 +1,6 @@
 from django.shortcuts import get_object_or_404
-from django.contrib.admin.models import LogEntry
+from django.contrib.admin.models import CHANGE, LogEntry
+from django.contrib.contenttypes.models import ContentType
 from django.db.models.deletion import ProtectedError
 from urllib.parse import urlencode
 from rest_framework import status, viewsets
@@ -90,6 +91,23 @@ class BorrowerViewSet(viewsets.ModelViewSet):
         if self.action in ("retrieve", "search", "ingest"):
             return UnifiedBorrowerSerializer
         return super().get_serializer_class()
+
+    def perform_update(self, serializer):
+        previous_active = serializer.instance.is_active
+        borrower = serializer.save()
+        if "is_active" not in self.request.data or previous_active == borrower.is_active:
+            return
+        if not self.request.user.is_authenticated:
+            return
+        action = "activated" if borrower.is_active else "deactivated"
+        LogEntry.objects.log_action(
+            user_id=self.request.user.pk,
+            content_type_id=ContentType.objects.get_for_model(Borrower).pk,
+            object_id=str(borrower.pk),
+            object_repr=borrower.borrower_reference,
+            action_flag=CHANGE,
+            change_message=f"Borrower {action} from the frontend.",
+        )
 
     def destroy(self, request, *args, **kwargs):
         borrower = self.get_object()

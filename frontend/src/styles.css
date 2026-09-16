@@ -102,6 +102,21 @@ body { margin: 0; background: #f1f5f9; color: #0f172a; overflow-x: hidden; }
   font-size: 0.75rem; font-weight: 500; color: #92400e;
 }
 
+/* Borrower activation controls */
+.status-toggle {
+  border: 0;
+  background: transparent;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+.status-toggle:hover { transform: translateY(-1px); }
+.status-toggle.deactivate { color: #dc2626; }
+.status-toggle.deactivate:hover { color: #991b1b; text-decoration: underline; }
+.status-toggle.activate { color: #047857; }
+.status-toggle.activate:hover { color: #065f46; text-decoration: underline; }
+
 /* Table helpers */
 .table-th {
   padding: 0.75rem 1.25rem;
