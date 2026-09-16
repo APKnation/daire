@@ -36,6 +36,7 @@ class Borrower(TimestampedModel):
     income = models.DecimalField(max_digits=16, decimal_places=4, null=True, blank=True)
     business_information = models.JSONField(default=dict, blank=True)
     account_information = models.JSONField(default=dict, blank=True)
+    data_conflicts = models.JSONField(default=list, blank=True)
 
 
 class BorrowerAccount(TimestampedModel):
@@ -144,6 +145,8 @@ class Assessment(TimestampedModel):
     blockchain_transaction_hash = models.CharField(max_length=255, blank=True)
     blockchain_block_number = models.PositiveBigIntegerField(null=True)
     verification_status = models.CharField(max_length=30, default="PENDING")
+    score_inputs = models.JSONField(default=dict, blank=True)
+    score_explanation = models.JSONField(default=list, blank=True)
 
 
 class CreditProfile(TimestampedModel):
@@ -226,6 +229,7 @@ class DataExchange(TimestampedModel):
     system = models.CharField(max_length=20, choices=System.choices)
     direction = models.CharField(max_length=10, choices=Direction.choices)
     operation = models.CharField(max_length=100)
+    batch_reference = models.UUIDField(null=True, blank=True, db_index=True)
     borrower = models.ForeignKey(Borrower, on_delete=models.PROTECT, null=True, blank=True, related_name="data_exchanges")
     lender = models.ForeignKey(Lender, on_delete=models.PROTECT, null=True, blank=True, related_name="data_exchanges")
     assessment = models.ForeignKey(Assessment, on_delete=models.PROTECT, null=True, blank=True, related_name="data_exchanges")
