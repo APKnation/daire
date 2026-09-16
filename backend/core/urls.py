@@ -7,6 +7,7 @@ from .views import (
     DashboardView, IntegrationRequestViewSet, LenderViewSet, AIReputationResultViewSet,
     RepaymentRecordViewSet, SmartContractResultViewSet, BlockchainTransactionViewSet,
     DataExchangeViewSet, DataRoutingPolicyViewSet,
+    AdminLogEntryViewSet,
 )
 
 router = DefaultRouter()
@@ -18,6 +19,7 @@ router.register("repayments", RepaymentRecordViewSet, basename="repayment-record
 router.register("borrower-financial-profiles", BorrowerFinancialProfileViewSet, basename="borrower-financial-profile")
 router.register("routing-policies", DataRoutingPolicyViewSet, basename="routing-policy")
 router.register("data-exchanges", DataExchangeViewSet, basename="data-exchange")
+router.register("audit-logs", AdminLogEntryViewSet, basename="audit-log")
 router.register("consents", ConsentViewSet)
 router.register("assessments", AssessmentViewSet)
 router.register("credit-profiles", CreditProfileViewSet)

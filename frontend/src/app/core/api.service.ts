@@ -17,6 +17,7 @@ export interface Lender {
 export interface Borrower {
   borrower_reference: string;
   id?: number;
+  is_active?: boolean;
   customer_id?: string;
   age?: number | null;
   gender?: string;
@@ -201,6 +202,18 @@ export interface RoutingPolicy {
   version: string;
 }
 
+export interface AdminLogEntry {
+  id: number;
+  action_time: string;
+  username: string;
+  app_label: string;
+  model: string;
+  object_id: string | null;
+  object_repr: string;
+  action_flag: number;
+  change_message: string;
+}
+
 type CollectionResponse<T> = T[] | { results: T[] } | Record<string, T[]>;
 
 function collection<T>(response: CollectionResponse<T>, key?: string): T[] {
@@ -294,6 +307,7 @@ export class ApiService {
   aiReputation(): Observable<AIReputationResult[]> { return this.collectionRecords<AIReputationResult>('/api/ai-reputation/', 'results'); }
   smartContracts(): Observable<SmartContractResult[]> { return this.collectionRecords<SmartContractResult>('/api/smart-contract/', 'results'); }
   blockchain(): Observable<BlockchainTransaction[]> { return this.collectionRecords<BlockchainTransaction>('/api/blockchain/', 'transactions'); }
+  auditLogs(): Observable<AdminLogEntry[]> { return this.collectionRecords<AdminLogEntry>('/api/audit-logs/', 'logs'); }
 
   private collectionRecords<T>(url: string, key: string): Observable<T[]> {
     return this.http.get<CollectionResponse<T>>(url).pipe(

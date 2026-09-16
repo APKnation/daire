@@ -32,8 +32,14 @@ export class DataManagementComponent implements OnInit {
     request.subscribe({ next: () => { this.message = 'Borrower saved.'; this.error = ''; this.borrowerForm = {}; this.reload(); this.cdr.markForCheck(); }, error: (err) => this.showError(err) });
   }
   removeBorrower(item: Borrower): void {
-    if (!item.id || !window.confirm(`Delete borrower ${item.borrower_reference}?`)) return;
-    this.api.deleteBorrower(item.id).subscribe({ next: () => { this.message = 'Borrower deleted.'; this.reload(); this.cdr.markForCheck(); }, error: (err) => this.showError(err) });
+    if (!item.id) return;
+    const nextState = !(item.is_active ?? true);
+    const action = nextState ? 'activate' : 'deactivate';
+    if (!window.confirm(`${action[0].toUpperCase() + action.slice(1)} borrower ${item.borrower_reference}?`)) return;
+    this.api.updateBorrower(item.id, { is_active: nextState }).subscribe({
+      next: () => { this.message = `Borrower ${nextState ? 'activated' : 'deactivated'}.`; this.error = ''; this.reload(); this.cdr.markForCheck(); },
+      error: (err) => this.showError(err),
+    });
   }
   newLender(): void { this.editingLenderId = null; this.lenderForm = { lender_id: '', institution_name: '', institution_type: 'BANK', api_base_url: '', api_status: 'DISCONNECTED', authentication_method: 'API_KEY' }; }
   editLender(item: Lender): void { this.editingLenderId = item.id || null; this.lenderForm = { ...item }; }

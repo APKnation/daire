@@ -28,6 +28,7 @@ class Lender(TimestampedModel):
 
 class Borrower(TimestampedModel):
     borrower_reference = models.CharField(max_length=64, unique=True)
+    is_active = models.BooleanField(default=True)
     customer_id = models.CharField(max_length=64, blank=True, default="")
     age = models.PositiveSmallIntegerField(null=True, blank=True)
     gender = models.CharField(max_length=20, blank=True)

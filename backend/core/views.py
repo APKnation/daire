@@ -1,8 +1,11 @@
 from django.shortcuts import get_object_or_404
+from django.contrib.admin.models import LogEntry
+from django.db.models.deletion import ProtectedError
 from urllib.parse import urlencode
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .models import (
     AIReputationResult, Assessment, BlockchainTransaction, Borrower, BorrowerAccount,
@@ -16,6 +19,7 @@ from .serializers import (
     CreditProfileSerializer, IntegrationRequestSerializer, LenderSerializer,
     RepaymentRecordSerializer, SmartContractResultSerializer, UnifiedBorrowerSerializer,
     DataExchangeSerializer, DataRoutingPolicySerializer,
+    AdminLogEntrySerializer,
 )
 from .services import (
     borrower_routing_payload, create_integration_request, fields_for_destination,
@@ -85,6 +89,27 @@ class BorrowerViewSet(viewsets.ModelViewSet):
         if self.action in ("retrieve", "search", "ingest"):
             return UnifiedBorrowerSerializer
         return super().get_serializer_class()
+
+    def destroy(self, request, *args, **kwargs):
+        borrower = self.get_object()
+        try:
+            borrower.delete()
+        except ProtectedError as exc:
+            protected_by = sorted({
+                obj._meta.verbose_name_plural
+                for obj in exc.protected_objects
+            })
+            return Response(
+                {
+                    "detail": (
+                        "This borrower cannot be deleted because linked records exist. "
+                        "Preserve the credit history or remove the linked records first."
+                    ),
+                    "protected_by": protected_by,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=["get"], url_path="search")
     def search(self, request):
@@ -388,6 +413,12 @@ class DataRoutingPolicyViewSet(viewsets.ModelViewSet):
 class DataExchangeViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = DataExchange.objects.select_related("borrower", "lender", "assessment", "policy").all()
     serializer_class = DataExchangeSerializer
+
+
+class AdminLogEntryViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = LogEntry.objects.select_related("user", "content_type").order_by("-action_time")
+    serializer_class = AdminLogEntrySerializer
+    permission_classes = (IsAuthenticated,)
 
 
 class AIReputationResultViewSet(viewsets.ReadOnlyModelViewSet):

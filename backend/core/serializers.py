@@ -1,4 +1,5 @@
 from django.utils import timezone
+from django.contrib.admin.models import LogEntry
 from rest_framework import serializers
 from .models import (
     AIReputationResult, Assessment, BlockchainTransaction, Borrower, BorrowerAccount, BorrowerFinancialProfile,
@@ -20,7 +21,7 @@ class BorrowerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Borrower
-        fields = ("id", "borrower_reference", "customer_id", "age", "gender", "employment_status", "income", "business_information", "account_information", "financial_profile", "source_lenders", "created_at", "updated_at")
+        fields = ("id", "borrower_reference", "is_active", "customer_id", "age", "gender", "employment_status", "income", "business_information", "account_information", "financial_profile", "source_lenders", "created_at", "updated_at")
         read_only_fields = ("created_at", "updated_at")
 
     def get_financial_profile(self, obj):
@@ -164,3 +165,17 @@ class DataExchangeSerializer(serializers.ModelSerializer):
         model = DataExchange
         fields = "__all__"
         read_only_fields = ("created_at", "updated_at", "status", "response", "error_message")
+
+
+class AdminLogEntrySerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source="user.username", read_only=True)
+    model = serializers.CharField(source="content_type.model", read_only=True)
+    app_label = serializers.CharField(source="content_type.app_label", read_only=True)
+
+    class Meta:
+        model = LogEntry
+        fields = (
+            "id", "action_time", "username", "app_label", "model", "object_id",
+            "object_repr", "action_flag", "change_message",
+        )
+        read_only_fields = fields

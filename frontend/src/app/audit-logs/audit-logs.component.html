@@ -1,0 +1,44 @@
+<header class="mb-8">
+  <p class="page-label">Security and compliance</p>
+  <h1 class="page-title">Audit logs</h1>
+  <p class="mt-1 text-sm text-slate-500">History of changes made through the Django administration system.</p>
+</header>
+
+@if (error) { <div class="mb-5 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">{{ error }}</div> }
+@if (loading) { <div class="card px-6 py-10 text-center text-sm text-slate-500">Loading audit logs…</div> }
+@if (!loading && !error) {
+  <section class="card overflow-hidden">
+    <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+      <div>
+        <h2 class="font-semibold text-slate-900">Administration activity</h2>
+        <p class="mt-1 text-xs text-slate-400">{{ logs.length }} event(s)</p>
+      </div>
+      <span class="badge-slate">Read only</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-[900px] text-left">
+        <thead class="border-b border-slate-100 bg-slate-50">
+          <tr>
+            <th class="table-th">Time</th>
+            <th class="table-th">User</th>
+            <th class="table-th">Action</th>
+            <th class="table-th">Record</th>
+            <th class="table-th">Details</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          @for (log of logs; track log.id) {
+            <tr class="hover:bg-slate-50 transition-colors">
+              <td class="table-td whitespace-nowrap text-slate-500">{{ log.action_time | date:'medium' }}</td>
+              <td class="table-td font-medium text-slate-800">{{ log.username }}</td>
+              <td class="table-td"><span [class]="actionClass(log.action_flag)" class="badge-slate">{{ actionLabel(log.action_flag) }}</span></td>
+              <td class="table-td"><span class="font-medium text-slate-800">{{ log.model }}</span><small class="ml-2 text-slate-400">{{ log.object_repr }}</small></td>
+              <td class="table-td max-w-[360px] text-sm text-slate-500">{{ log.change_message || '—' }}</td>
+            </tr>
+          }
+          @empty { <tr><td colspan="5" class="px-6 py-12 text-center text-sm text-slate-400">No audit events found.</td></tr> }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}
