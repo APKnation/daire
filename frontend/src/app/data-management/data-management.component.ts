@@ -31,7 +31,7 @@ export class DataManagementComponent implements OnInit {
     const request = this.editingBorrowerId ? this.api.updateBorrower(this.editingBorrowerId, this.borrowerForm) : this.api.createBorrower(this.borrowerForm);
     request.subscribe({ next: () => { this.message = 'Borrower saved.'; this.error = ''; this.borrowerForm = {}; this.reload(); this.cdr.markForCheck(); }, error: (err) => this.showError(err) });
   }
-  removeBorrower(item: Borrower): void {
+  toggleBorrower(item: Borrower): void {
     if (!item.id) return;
     const nextState = !(item.is_active ?? true);
     const action = nextState ? 'activate' : 'deactivate';

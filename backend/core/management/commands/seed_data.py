@@ -96,18 +96,21 @@ class Command(BaseCommand):
         # ---------------------------------------------------------------------
         # 2. BORROWERS
         # ---------------------------------------------------------------------
-        borrower_refs = [
-            "BRW-TZ-1001",
-            "BRW-TZ-1002",
-            "BRW-TZ-1003",
-            "BRW-TZ-1004",
-            "apk-09",
-            "apk 01",
+        borrowers_data = [
+            {"borrower_reference": "BRW-TZ-1001", "is_active": True},
+            {"borrower_reference": "BRW-TZ-1002", "is_active": True},
+            {"borrower_reference": "BRW-TZ-1003", "is_active": True},
+            {"borrower_reference": "BRW-TZ-1004", "is_active": True},
+            {"borrower_reference": "apk-09", "is_active": True},
+            {"borrower_reference": "apk 01", "is_active": False},
         ]
         borrowers = {}
-        for ref in borrower_refs:
-            obj, _ = Borrower.objects.get_or_create(borrower_reference=ref)
-            borrowers[ref] = obj
+        for borrower_data in borrowers_data:
+            obj, _ = Borrower.objects.update_or_create(
+                borrower_reference=borrower_data["borrower_reference"],
+                defaults={"is_active": borrower_data["is_active"]},
+            )
+            borrowers[borrower_data["borrower_reference"]] = obj
         self.stdout.write(self.style.SUCCESS(f"✓ Seeded {len(borrowers)} Borrowers"))
 
         # ---------------------------------------------------------------------

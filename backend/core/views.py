@@ -84,6 +84,7 @@ class LenderViewSet(viewsets.ModelViewSet):
 class BorrowerViewSet(viewsets.ModelViewSet):
     queryset = Borrower.objects.prefetch_related("accounts__lender", "loans__repayments").all()
     serializer_class = BorrowerSerializer
+    http_method_names = ("get", "post", "put", "patch", "head", "options")
 
     def get_serializer_class(self):
         if self.action in ("retrieve", "search", "ingest"):
