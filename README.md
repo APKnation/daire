@@ -5,6 +5,7 @@ The first increment provides the Django/DRF central integration layer. It keeps 
 ## Run locally
 
 ```bash
+docker compose up -d postgres
 cd backend
 python -m pip install -r requirements.txt
 cp .env.example .env
@@ -12,6 +13,28 @@ python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
 ```
+
+The backend uses PostgreSQL only. `backend/.env.example` contains the local
+connection string used by the Docker Compose service:
+
+```env
+DATABASE_URL=postgresql://daire:daire@localhost:5432/daire
+```
+
+For an existing PostgreSQL server, replace the username, password, host, port,
+and database name in `DATABASE_URL`. The old `backend/db.sqlite3` file is not
+used by the application. To preserve its existing records, export them before
+switching and load them into PostgreSQL; otherwise run the migrations on the
+new empty database and create fresh seed/admin data.
+
+Stop the local PostgreSQL container with:
+
+```bash
+docker compose down
+```
+
+The named volume keeps the data. Add `-v` only when you intentionally want to
+delete the local PostgreSQL data.
 
 JWT tokens are available at `POST /api/auth/token/`. Use `Bearer <access-token>` for API calls. OpenAPI documentation is at `/api/docs/`.
 

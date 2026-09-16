@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: daire
+      POSTGRES_USER: daire
+      POSTGRES_PASSWORD: daire
+    ports:
+      - "5432:5432"
+    volumes:
+      - daire_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U daire -d daire"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  daire_postgres_data:

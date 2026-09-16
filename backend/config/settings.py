@@ -50,7 +50,9 @@ TEMPLATES = [{
 }]
 WSGI_APPLICATION = "config.wsgi.application"
 
-DATABASES = {"default": env.db("DATABASE_URL", default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")}
+# PostgreSQL is required. Keep the connection string in backend/.env (or in the
+# deployment environment); there is intentionally no SQLite fallback.
+DATABASES = {"default": env.db("DATABASE_URL")}
 AUTH_PASSWORD_VALIDATORS = []
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
