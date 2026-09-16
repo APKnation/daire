@@ -457,6 +457,17 @@ class Command(BaseCommand):
                 "blockchain_transaction_hash": tx_hash,
                 "blockchain_block_number": block_num,
                 "verification_status": ad["verification_status"],
+                "score_inputs": {
+                    "reputation_score": float(ad["reputation_score"]),
+                    "credit_score": ad["credit_score"],
+                    "ruleset_version": ad["ruleset_version"],
+                },
+                "score_explanation": [{
+                    "dimension": "PROFILE",
+                    "name": "Normalized credit profile",
+                    "value": ad["credit_score"],
+                    "reason": ad["behavior_summary"],
+                }],
             }
 
             asm, _ = Assessment.objects.update_or_create(

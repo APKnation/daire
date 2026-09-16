@@ -57,6 +57,7 @@
             <tr class="hover:bg-slate-50 transition-colors">
               <td class="table-td">
                 <span class="font-mono text-xs font-semibold text-slate-900">{{ a.assessment_reference }}</span>
+                @if (a.score_explanation?.length) {<details class="mt-2"><summary class="cursor-pointer text-xs font-semibold text-emerald-700">Why this score?</summary><div class="mt-2 space-y-2 rounded-lg bg-slate-50 p-3">@for (item of a.score_explanation; track item.dimension) {<div class="text-xs"><div class="flex justify-between font-semibold text-slate-700"><span>{{ item.dimension }} · {{ item.name }}</span><span>{{ item.value }}</span></div><p class="mt-0.5 text-slate-500">{{ item.reason }}</p></div>}</div></details>}
               </td>
               <td class="table-td text-slate-600">{{ a.borrower_reference }}</td>
               <td class="table-td">

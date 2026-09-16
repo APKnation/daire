@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { JsonPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ApiRecord, ApiService, Borrower, RoutingPolicy } from '../core/api.service';
+import { ApiRecord, ApiService, Borrower, PullResult, RoutingPolicy } from '../core/api.service';
 
 @Component({
   standalone: true,
@@ -16,6 +16,7 @@ export class DataExchangeComponent implements OnInit {
   borrowerReference = '';
   assessmentReference = '';
   borrower: Borrower | null = null;
+  pullResult: PullResult | null = null;
   lastResult: ApiRecord | null = null;
   loading = false;
   message = '';
@@ -65,7 +66,7 @@ export class DataExchangeComponent implements OnInit {
     }
     this.loading = true; this.message = ''; this.error = '';
     this.api.pullFromAllLenders(this.borrowerReference.trim()).subscribe({
-      next: (result) => { this.borrower = result.borrower; this.loading = false; this.message = `Data pulled from ${result.pulled_from.length} lender(s) and merged into the borrower profile.`; this.cdr.markForCheck(); },
+      next: (result) => { this.pullResult = result; this.borrower = result.borrower; this.loading = false; this.message = `${result.status}: ${result.successful_lenders} of ${result.total_lenders} lender(s) completed.`; this.cdr.markForCheck(); },
       error: (err) => { this.loading = false; this.error = err?.error?.detail || 'Lender pull failed. Check the lender API connection.'; this.cdr.markForCheck(); },
     });
   }

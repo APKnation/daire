@@ -21,7 +21,7 @@ class BorrowerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Borrower
-        fields = ("id", "borrower_reference", "is_active", "customer_id", "age", "gender", "employment_status", "income", "business_information", "account_information", "financial_profile", "source_lenders", "created_at", "updated_at")
+        fields = ("id", "borrower_reference", "is_active", "customer_id", "age", "gender", "employment_status", "income", "business_information", "account_information", "data_conflicts", "financial_profile", "source_lenders", "created_at", "updated_at")
         read_only_fields = ("created_at", "updated_at")
 
     def get_financial_profile(self, obj):

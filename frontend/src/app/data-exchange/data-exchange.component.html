@@ -22,6 +22,24 @@
   </article>
 </section>
 
+@if (pullResult; as pull) {
+  <section class="card mb-6 overflow-hidden">
+    <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+      <div><p class="page-label">Pull status</p><h2 class="mt-1 text-base font-semibold text-slate-900">Lender synchronization</h2></div>
+      <span [class]="pull.status === 'COMPLETED' ? 'badge-green' : pull.status === 'PARTIAL_SUCCESS' ? 'badge-yellow' : 'badge-red'">{{ pull.status }}</span>
+    </div>
+    <div class="grid gap-4 p-6 sm:grid-cols-3">
+      <div><span class="block text-xs text-slate-400">Successful lenders</span><strong class="text-2xl text-slate-900">{{ pull.successful_lenders }}/{{ pull.total_lenders }}</strong></div>
+      <div><span class="block text-xs text-slate-400">Failed lenders</span><strong class="text-2xl text-slate-900">{{ pull.failed_lenders }}</strong></div>
+      <div><span class="block text-xs text-slate-400">Pull reference</span><strong class="break-all font-mono text-xs text-slate-700">{{ pull.pull_reference }}</strong></div>
+    </div>
+    <div class="border-t border-slate-100 px-6 py-4">
+      <div class="grid gap-2">@for (result of pull.results; track result.exchange_id) {<div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm"><span class="text-slate-700">{{ result.lender }}</span><span [class]="result.status === 'COMPLETED' ? 'badge-green' : 'badge-red'">{{ result.status }}</span></div>}</div>
+    </div>
+    @if (pull.conflicts.length) {<div class="border-t border-amber-100 bg-amber-50 px-6 py-4"><p class="text-sm font-semibold text-amber-800">{{ pull.conflicts.length }} data conflict(s) detected</p><p class="mt-1 text-xs text-amber-700">The latest lender value was retained and the source difference was recorded for review.</p></div>}
+  </section>
+}
+
 <details open class="card mb-6 overflow-hidden">
   <summary class="cursor-pointer list-none px-6 py-5 text-sm font-semibold text-slate-900 marker:hidden"><span class="mr-2 text-emerald-600">＋</span>Advanced data permissions <span class="ml-2 font-normal text-slate-400">Optional</span></summary>
   <article class="border-t border-slate-100 p-6">
