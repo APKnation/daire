@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { catchError, map, Observable, of } from 'rxjs';
+import { map, Observable } from 'rxjs';
 
 export interface Lender {
   id?: number;
@@ -237,10 +237,7 @@ export class ApiService {
   private readonly http = inject(HttpClient);
 
   dashboard(): Observable<DashboardData> {
-    const empty: DashboardData = { lenders: [], borrowers: [], consents: [], assessments: [], integrations: [] };
-    return this.http.get<DashboardData>('/api/dashboard/').pipe(
-      catchError((err) => { console.error('Dashboard API error', err); return of(empty); })
-    );
+    return this.http.get<DashboardData>('/api/dashboard/');
   }
 
   lenders(): Observable<Lender[]> {

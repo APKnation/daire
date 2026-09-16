@@ -42,7 +42,7 @@
       </div>
       <strong class="block text-4xl font-bold tracking-tight text-slate-900">{{ connectedLenders(d) }}</strong>
       <span class="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700">
-        <span class="size-1.5 rounded-full bg-emerald-500"></span> API health stable
+        <span class="size-1.5 rounded-full bg-emerald-500"></span> {{ connectedLenders(d) }} of {{ d.lenders.length }} connected
       </span>
     </article>
 
@@ -114,7 +114,7 @@
                     {{ lender.api_status }}
                   </span>
                 </td>
-                <td class="table-td text-slate-400">Today</td>
+                <td class="table-td text-slate-400">{{ lender.updated_at | date:'mediumDate' }}</td>
               </tr>
             }
             @empty {
@@ -170,7 +170,6 @@
           </div>
           <span class="text-right">
             <span class="text-xl font-bold text-slate-900">{{ a.credit_score ?? '—' }}</span>
-            <small class="text-xs text-slate-400">/800</small>
           </span>
           <span [class]="a.verification_status === 'CONFIRMED' ? 'badge-green' : 'badge-slate'" class="hidden sm:inline-flex">
             {{ a.verification_status }}
