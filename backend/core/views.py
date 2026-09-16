@@ -2,6 +2,7 @@ from django.shortcuts import get_object_or_404
 from django.contrib.admin.models import CHANGE, LogEntry
 from django.contrib.contenttypes.models import ContentType
 from django.db.models.deletion import ProtectedError
+import uuid
 from urllib.parse import urlencode
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -26,6 +27,7 @@ from .services import (
     borrower_routing_payload, create_integration_request, fields_for_destination,
     merge_vendor_borrower_data, refresh_borrower_financial_profile, _get_json, _post_json,
     ExternalServiceUnavailable, record_exchange, active_routing_policy,
+    explain_score,
 )
 from .services import (
     AIReputationService, BlockchainScoreService, BlockchainVerificationService,
@@ -155,11 +157,13 @@ class BorrowerViewSet(viewsets.ModelViewSet):
         if not borrower_reference:
             return Response({"detail": "borrower_reference is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        successful, failed = [], []
+        batch_reference = uuid.uuid4()
+        successful, failed, results = [], [], []
         for lender in Lender.objects.all():
             exchange = record_exchange(
                 system=DataExchange.System.LENDER, direction=DataExchange.Direction.PULL,
                 operation="pull_borrower_data_all_lenders", lender=lender,
+                batch_reference=batch_reference,
                 fields_sent=["borrower_reference"], payload={"borrower_reference": borrower_reference},
             )
             try:
@@ -174,19 +178,30 @@ class BorrowerViewSet(viewsets.ModelViewSet):
                 exchange.response = {"borrower_reference": borrower_reference, "fields": list(payload.keys())}
                 exchange.save(update_fields=("status", "borrower", "response", "updated_at"))
                 successful.append(lender.institution_name)
+                results.append({"lender": lender.institution_name, "status": exchange.status, "exchange_id": exchange.id})
             except (ExternalServiceUnavailable, ValidationError) as exc:
                 exchange.status = DataExchange.Status.FAILED
                 exchange.error_message = str(exc)
                 exchange.save(update_fields=("status", "error_message", "updated_at"))
                 failed.append({"lender": lender.institution_name, "detail": str(exc)})
+                results.append({"lender": lender.institution_name, "status": exchange.status, "exchange_id": exchange.id, "detail": str(exc)})
 
         borrower = Borrower.objects.filter(borrower_reference=borrower_reference).first()
         if not borrower:
             return Response({"detail": "Borrower was not found at any lender.", "failed": failed}, status=status.HTTP_404_NOT_FOUND)
+        total = len(results)
+        batch_status = "COMPLETED" if successful and not failed else "PARTIAL_SUCCESS" if successful else "FAILED"
         return Response({
             "borrower": UnifiedBorrowerSerializer(borrower).data,
             "pulled_from": successful,
             "failed": failed,
+            "pull_reference": str(batch_reference),
+            "status": batch_status,
+            "total_lenders": total,
+            "successful_lenders": len(successful),
+            "failed_lenders": len(failed),
+            "conflicts": borrower.data_conflicts or [],
+            "results": results,
         })
 
     @action(detail=False, methods=["post"], url_path="ingest")
@@ -377,7 +392,9 @@ class AssessmentViewSet(viewsets.ReadOnlyModelViewSet):
         assessment.reputation, assessment.reputation_score = result.reputation, result.score
         assessment.risk_level, assessment.behavior_summary = result.risk_level, result.behavior_summary
         assessment.model_version = result.model_version
-        assessment.save(update_fields=("reputation", "reputation_score", "risk_level", "behavior_summary", "model_version", "updated_at"))
+        assessment.score_inputs = features
+        assessment.score_explanation = [{"dimension": "AI", "name": "AI reputation", "value": result.score, "reason": result.behavior_summary or "The AI engine returned a reputation result."}]
+        assessment.save(update_fields=("reputation", "reputation_score", "risk_level", "behavior_summary", "model_version", "score_inputs", "score_explanation", "updated_at"))
         exchange.status = DataExchange.Status.COMPLETED
         exchange.response = AIReputationResultSerializer(result).data
         exchange.save(update_fields=("status", "response", "updated_at"))
@@ -398,7 +415,11 @@ class AssessmentViewSet(viewsets.ReadOnlyModelViewSet):
             exchange.save(update_fields=("status", "error_message", "updated_at"))
             return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         assessment.credit_score, assessment.ruleset_version = result.credit_score, result.ruleset_version
-        assessment.save(update_fields=("credit_score", "ruleset_version", "updated_at"))
+        profile = CreditProfile.objects.filter(borrower=assessment.borrower).order_by("-created_at").first()
+        features = {feature.name: float(feature.value) for feature in profile.features.all()} if profile else {}
+        assessment.score_inputs = dimensions
+        assessment.score_explanation = explain_score(dimensions=dimensions, features=features, borrower=assessment.borrower)
+        assessment.save(update_fields=("credit_score", "ruleset_version", "score_inputs", "score_explanation", "updated_at"))
         exchange.status = DataExchange.Status.COMPLETED
         exchange.response = SmartContractResultSerializer(result).data
         exchange.save(update_fields=("status", "response", "updated_at"))
@@ -432,6 +453,13 @@ class DataRoutingPolicyViewSet(viewsets.ModelViewSet):
 class DataExchangeViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = DataExchange.objects.select_related("borrower", "lender", "assessment", "policy").all()
     serializer_class = DataExchangeSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        batch_reference = self.request.query_params.get("batch_reference")
+        if batch_reference:
+            queryset = queryset.filter(batch_reference=batch_reference)
+        return queryset
 
 
 class AdminLogEntryViewSet(viewsets.ReadOnlyModelViewSet):

@@ -1,6 +1,7 @@
 from dataclasses import asdict, dataclass
 import json
 import os
+import uuid
 from datetime import date
 from decimal import Decimal
 from urllib.error import URLError
@@ -193,8 +194,39 @@ def refresh_borrower_financial_profile(borrower: Borrower) -> BorrowerFinancialP
     return profile
 
 
+def _record_borrower_conflicts(borrower: Borrower, lender: Lender, payload: dict[str, Any]) -> None:
+    """Keep source differences visible while retaining the latest normalized value."""
+    comparable_fields = ("customer_id", "age", "gender", "employment_status", "income")
+    conflicts = list(borrower.data_conflicts or [])
+    for field in comparable_fields:
+        existing = getattr(borrower, field)
+        incoming = payload.get(field)
+        if existing in (None, "") or incoming in (None, ""):
+            continue
+        if str(existing) == str(incoming):
+            continue
+        conflict = {
+            "field": field,
+            "source_lender": lender.institution_name,
+            "existing_value": str(existing),
+            "incoming_value": str(incoming),
+            "resolution": "LATEST_SOURCE_WINS",
+            "detected_at": timezone.now().isoformat(),
+        }
+        conflicts = [item for item in conflicts if not (
+            item.get("field") == field and item.get("source_lender") == lender.institution_name
+        )]
+        conflicts.append(conflict)
+    borrower.data_conflicts = conflicts[-100:]
+    borrower.save(update_fields=("data_conflicts", "updated_at"))
+
+
 def merge_vendor_borrower_data(*, lender: Lender, borrower_reference: str, payload: dict[str, Any], account_reference: str | None = None):
+    returned_reference = str(payload.get("borrower_reference") or borrower_reference).strip()
+    if returned_reference != borrower_reference:
+        raise ValidationError("Lender data borrower_reference does not match the requested borrower.")
     borrower, _ = Borrower.objects.get_or_create(borrower_reference=borrower_reference)
+    _record_borrower_conflicts(borrower, lender, payload)
     borrower.customer_id = payload.get("customer_id") or borrower.customer_id or borrower_reference
     borrower.age = payload.get("age") or borrower.age
     borrower.gender = payload.get("gender") or borrower.gender
@@ -368,6 +400,23 @@ def blockchain_dimensions(*, features: dict[str, Any], borrower: Borrower) -> di
     corroboration = 40 if source_count >= 2 else (20 if source_count == 1 else 0)
     d5 = source_breadth + corroboration
     return {f"D{i}": _score(value) for i, value in enumerate((d1, d2, d3, d4, d5), 1)}
+
+
+def explain_score(*, dimensions: dict[str, int], features: dict[str, Any], borrower: Borrower) -> list[dict[str, Any]]:
+    """Return human-readable, bounded reasons behind the five score dimensions."""
+    source_count = borrower.accounts.values("lender_id").distinct().count()
+    return [
+        {"dimension": "D1", "name": "Repayment history", "value": dimensions["D1"],
+         "reason": f"Payment timeliness, missed payments and maximum overdue days; on-time ratio is {features.get('on_time_payment_ratio', 0)}."},
+        {"dimension": "D2", "name": "Financial activity", "value": dimensions["D2"],
+         "reason": f"Transaction frequency is {features.get('transaction_frequency', 0)} and income frequency is {features.get('income_frequency', 0)}."},
+        {"dimension": "D3", "name": "Debt and loan history", "value": dimensions["D3"],
+         "reason": f"Outstanding debt is {features.get('total_outstanding_debt', 0)} with {features.get('defaulted_loan_count', 0)} defaulted loan(s)."},
+        {"dimension": "D4", "name": "Stability trend", "value": dimensions["D4"],
+         "reason": f"Balance stability is {features.get('balance_stability', 0)} and the profile includes {features.get('completed_loan_count', 0)} completed loan(s)."},
+        {"dimension": "D5", "name": "Cross-lender corroboration", "value": dimensions["D5"],
+         "reason": f"The profile has data from {source_count} lender source(s)."},
+    ]
 
 
 class AIReputationService:
