@@ -263,7 +263,10 @@ export class ApiService {
   }
 
   lenders(): Observable<Lender[]> {
-    return this.http.get<CollectionResponse<Lender>>('/api/lenders/').pipe(map((response) => collection(response, 'lenders')));
+    return this.http.get<CollectionResponse<Lender>>('/api/lenders/').pipe(
+      map((response) => collection(response, 'lenders')),
+      tap((data) => console.log('[api.lenders] emit:', data.length, data)),
+    );
   }
   routingPolicies(): Observable<RoutingPolicy[]> {
     return this.http.get<CollectionResponse<RoutingPolicy>>('/api/routing-policies/').pipe(map((response) => collection(response, 'routing_policies')));
