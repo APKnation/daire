@@ -1,10 +1,12 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
   ApiService, Assessment, BlockchainTransaction, DashboardData, DataExchangeRecord,
   Lender, SmartContractResult,
 } from '../core/api.service';
+import { PagerComponent } from '../core/pager.component';
 
 interface RecentAssessment {
   reference: string;
@@ -154,7 +156,7 @@ interface ActivityChart {
 
 @Component({
   standalone: true,
-  imports: [DatePipe, RouterLink],
+  imports: [DatePipe, RouterLink, FormsModule, PagerComponent],
   templateUrl: './dashboard.component.html',
 })
 export class DashboardComponent implements OnInit {
@@ -178,6 +180,28 @@ export class DashboardComponent implements OnInit {
     { key: 'to-blockchain', label: 'Sent to blockchain' },
     { key: 'blockchain-results', label: 'Received from blockchain' },
   ];
+
+  // =======================================================================
+  // Stage-table search + pagination state. One query/page pair per table,
+  // so each tab keeps its own filter while the user hops between tabs.
+  // =======================================================================
+
+  /** Rows per page for every stage table (matches PAGE_SIZE used app-wide). */
+  readonly stagePageSize = PAGE_SIZE;
+  lenderQuery = '';
+  assessedQuery = '';
+  aiSentQuery = '';
+  aiResultQuery = '';
+  blockchainSentQuery = '';
+  blockchainResultQuery = '';
+  txQuery = '';
+  lenderPage = 1;
+  assessedPage = 1;
+  aiSentPage = 1;
+  aiResultPage = 1;
+  blockchainSentPage = 1;
+  blockchainResultPage = 1;
+  txPage = 1;
 
   ngOnInit(): void {
     this.load();
@@ -485,12 +509,50 @@ export class DashboardComponent implements OnInit {
     this.cdr.markForCheck();
   }
 
-  private static readonly DEFAULT_LIMIT = 20;
+  // =======================================================================
+  // Search + pagination helpers shared by every stage table.
+  // =======================================================================
+
+  /** Case-insensitive needle match against every row value (and its JSON). */
+  private matchesQuery(row: object, query: string): boolean {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return true;
+    return Object.values(row).some((value) =>
+      String(value ?? '').toLowerCase().includes(needle),
+    );
+  }
+
+  /** Search + page a row list; resets the page when the query narrows results. */
+  private stageView<T extends object>(rows: T[], query: string, page: number, pageSetter: (p: number) => void): T[] {
+    const filtered = rows.filter((row) => this.matchesQuery(row, query));
+    const maxPage = Math.max(1, Math.ceil(filtered.length / this.stagePageSize));
+    if (page > maxPage) {
+      pageSetter(maxPage);
+    }
+    return filtered.slice((page - 1) * this.stagePageSize, page * this.stagePageSize);
+  }
+
+  /** Filtered row count for a stage table — the number the pager paginates. */
+  stageCount<T extends object>(rows: T[], query: string): number {
+    return query.trim() ? rows.filter((row) => this.matchesQuery(row, query)).length : rows.length;
+  }
+
+  onStageSearch(): void {
+    // Any new search starts every table back at page 1 — the pager clamps
+    // forward pages on render, so only the reset direction needs handling.
+    this.lenderPage = 1;
+    this.assessedPage = 1;
+    this.aiSentPage = 1;
+    this.aiResultPage = 1;
+    this.blockchainSentPage = 1;
+    this.blockchainResultPage = 1;
+    this.txPage = 1;
+    this.cdr.markForCheck();
+  }
 
   /** Newest-first rows for the "Data received from lenders" table. */
   get lenderExchangeRows(): LenderExchangeRow[] {
     return (this.data?.lender_exchanges ?? [])
-      .slice(0, DashboardComponent.DEFAULT_LIMIT)
       .map((exchange) => {
         const response = exchange.response ?? {};
         const loans = response['loans_received'];
@@ -517,16 +579,14 @@ export class DashboardComponent implements OnInit {
   get assessedRows(): AssessedRow[] {
     return (this.data?.assessments ?? [])
       .filter((a) => a.credit_score == null && a.reputation_score == null)
-      .map((a) => this.toAssessedRow(a))
-      .slice(0, DashboardComponent.DEFAULT_LIMIT);
+      .map((a) => this.toAssessedRow(a));
   }
 
   /** Newest first. */
   get assessedRowsNewestFirst(): AssessedRow[] {
     return (this.data?.assessments ?? [])
       .map((a) => this.toAssessedRow(a))
-      .sort((x, y) => y.when.localeCompare(x.when))
-      .slice(0, DashboardComponent.DEFAULT_LIMIT);
+      .sort((x, y) => y.when.localeCompare(x.when));
   }
 
   /** Stage 3 — payloads sent to the AI engine. */
@@ -541,7 +601,7 @@ export class DashboardComponent implements OnInit {
 
   /** Shared mapper: engine exchanges (AI or blockchain) to sent-payload rows. */
   private toEngineSentRows(exchanges: DataExchangeRecord[]): EngineSentRow[] {
-    return exchanges.slice(0, DashboardComponent.DEFAULT_LIMIT).map((exchange) => ({
+    return exchanges.map((exchange) => ({
       when: exchange.created_at,
       reference: exchange.assessment_reference || '—',
       borrower: exchange.borrower_reference || '—',
@@ -557,7 +617,6 @@ export class DashboardComponent implements OnInit {
   /** Stage 4 — results returned by the AI engine. */
   get aiResultRows(): AiResultRow[] {
     return (this.data?.ai_results ?? [])
-      .slice(0, DashboardComponent.DEFAULT_LIMIT)
       .map((result) => ({
         when: result.created_at,
         reference: result.assessment_reference || `#${result.assessment}`,
@@ -573,7 +632,6 @@ export class DashboardComponent implements OnInit {
   /** Stage 6 — scores sealed by the smart contract. */
   get blockchainResultRows(): BlockchainResultRow[] {
     return (this.data?.smart_contract_results ?? [])
-      .slice(0, DashboardComponent.DEFAULT_LIMIT)
       .map((result) => ({
         when: result.created_at,
         reference: result.assessment_reference || `#${result.assessment}`,
@@ -589,7 +647,6 @@ export class DashboardComponent implements OnInit {
   /** Stage 6 — blockchain transaction records. */
   get blockchainTxRows(): BlockchainTxRow[] {
     return (this.data?.blockchain_transactions ?? [])
-      .slice(0, DashboardComponent.DEFAULT_LIMIT)
       .map((tx) => ({
         when: tx.created_at,
         reference: tx.assessment_reference || `#${tx.assessment}`,
