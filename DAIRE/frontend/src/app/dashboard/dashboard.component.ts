@@ -614,12 +614,12 @@ export class DashboardComponent implements OnInit {
   }
 
   /** Open the read-only detail modal for a stage-table row. */
-  viewRecord(kind: OverviewStage, record: ApiRecord): void {
+  viewRecord(kind: OverviewStage, record: object): void {
     const entries = Object.entries(record).filter(([key]) => !key.endsWith('_id') || key === 'id');
     this.recordModal = {
       kind,
       mode: 'view',
-      id: typeof record['id'] === 'number' ? record['id'] : 0,
+      id: typeof (record as ApiRecord)['id'] === 'number' ? (record as ApiRecord)['id'] as number : 0,
       title: 'Record detail',
       fields: entries.map(([key, value]) => ({
         key,
@@ -633,13 +633,13 @@ export class DashboardComponent implements OnInit {
   }
 
   /** Switch the open modal into edit mode (only whitelisted fields editable). */
-  editRecord(kind: OverviewStage, record: ApiRecord): void {
+  editRecord(kind: OverviewStage, record: object): void {
     const editable = DashboardComponent.EDITABLE_FIELDS[kind] ?? [];
     const entries = Object.entries(record).filter(([key]) => !key.endsWith('_id') || key === 'id');
     this.recordModal = {
       kind,
       mode: 'edit',
-      id: typeof record['id'] === 'number' ? record['id'] : 0,
+      id: typeof (record as ApiRecord)['id'] === 'number' ? (record as ApiRecord)['id'] as number : 0,
       title: 'Edit record',
       fields: entries.map(([key, value]) => ({
         key,
@@ -692,9 +692,9 @@ export class DashboardComponent implements OnInit {
   }
 
   /** Delete a stage-table row. Immutable records get a friendly refusal. */
-  deleteRecord(kind: OverviewStage, record: ApiRecord, event: Event): void {
+  deleteRecord(kind: OverviewStage, record: object, event: Event): void {
     const url = this.recordUrl(kind);
-    const id = this.recordId(kind, record);
+    const id = this.recordId(kind, record as ApiRecord);
     if (!url || id == null || this.recordBusyId != null) return;
     this.recordBusyId = id;
     this.cdr.markForCheck();

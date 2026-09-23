@@ -767,3 +767,48 @@
   </section>
 }
 }
+
+<!-- Record detail / edit modal -->
+@if (recordModal; as modal) {
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-[#1a1a1a]/40 p-4" (click)="closeRecordModal()">
+    <div class="card max-h-[85vh] w-full max-w-2xl overflow-hidden" (click)="$event.stopPropagation()">
+      <div class="flex items-center justify-between gap-3 border-b border-[#e8e8e8] px-6 py-4">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-[#9a9a9a]">{{ modal.mode === 'edit' ? 'Edit record' : 'Record detail' }}</p>
+          <h2 class="mt-0.5 text-base font-semibold text-[#1a1a1a]">{{ modal.title }} · #{{ modal.id }}</h2>
+        </div>
+        <button type="button" (click)="closeRecordModal()" class="grid size-8 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#c2c2c2] hover:text-[#292929]">
+          <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="max-h-[60vh] overflow-y-auto px-6 py-4">
+        <dl class="space-y-3">
+          @for (field of modal.fields; track field.key) {
+            <div class="grid grid-cols-[10rem_1fr] items-start gap-3">
+              <dt class="pt-2 text-xs font-semibold uppercase tracking-wide text-[#9a9a9a]">{{ field.label }}</dt>
+              <dd>
+                @if (modal.mode === 'edit' && field.editable) {
+                  @if (field.multiline) {
+                    <textarea class="input-field min-h-20 font-mono text-xs" [(ngModel)]="field.value"></textarea>
+                  } @else {
+                    <input type="text" class="input-field !min-h-0 px-3 py-1.5 text-sm" [(ngModel)]="field.value">
+                  }
+                } @else {
+                  <pre class="whitespace-pre-wrap break-words rounded-lg bg-[#f7f7f7] px-3 py-2 font-mono text-xs text-[#292929]">{{ field.value }}</pre>
+                }
+              </dd>
+            </div>
+          }
+        </dl>
+      </div>
+      @if (modal.mode === 'edit') {
+        <div class="flex justify-end gap-2 border-t border-[#e8e8e8] bg-[#f7f7f7] px-6 py-4">
+          <button type="button" (click)="closeRecordModal()" class="btn-outline !min-h-0 px-4 py-2 text-xs">Cancel</button>
+          <button type="button" (click)="saveRecord()" [disabled]="recordSaving" class="btn-primary !min-h-0 px-4 py-2 text-xs disabled:opacity-50">
+            {{ recordSaving ? 'Saving…' : 'Save changes' }}
+          </button>
+        </div>
+      }
+    </div>
+  </div>
+}
