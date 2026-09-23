@@ -656,7 +656,7 @@ class PaginationTests(TestCase):
 
 
 class StageRecordActionTests(TestCase):
-    """View/Edit/Delete actions on the dashboard stage tables."""
+    """Stage tables are view-only: detail lookups work, mutations are refused."""
 
     def setUp(self):
         self.lender = Lender.objects.create(
@@ -672,42 +672,43 @@ class StageRecordActionTests(TestCase):
             borrower=self.borrower,
         )
 
-    def test_exchange_patch_updates_operation(self):
+    def test_exchange_detail_is_viewable(self):
+        response = self.client.get(f"/api/data-exchanges/{self.exchange.id}/")
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["operation"], "pull_borrower_data")
+        self.assertEqual(body["lender_name"], "Action Bank")
+
+    def test_exchange_patch_is_rejected(self):
         response = self.client.patch(
             f"/api/data-exchanges/{self.exchange.id}/",
             data='{"operation": "renamed_operation"}',
             content_type="application/json",
         )
-        self.assertEqual(response.status_code, 200)
+        self.assertIn(response.status_code, (403, 405))
         self.exchange.refresh_from_db()
-        self.assertEqual(self.exchange.operation, "renamed_operation")
+        self.assertEqual(self.exchange.operation, "pull_borrower_data")
 
-    def test_exchange_delete_is_allowed(self):
+    def test_exchange_delete_is_rejected(self):
         response = self.client.delete(f"/api/data-exchanges/{self.exchange.id}/")
-        self.assertIn(response.status_code, (200, 204))
-        self.assertFalse(DataExchange.objects.filter(id=self.exchange.id).exists())
+        self.assertIn(response.status_code, (403, 405))
+        self.assertTrue(DataExchange.objects.filter(id=self.exchange.id).exists())
 
-    def test_immutable_assessment_delete_is_rejected(self):
+    def test_assessment_patch_and_delete_are_rejected(self):
         assessment = Assessment.objects.create(
             assessment_reference="ASM-ACTION-0001", borrower=self.borrower,
         )
-        response = self.client.delete(f"/api/assessments/{assessment.assessment_reference}/")
-        self.assertEqual(response.status_code, 409)
-        self.assertTrue(Assessment.objects.filter(id=assessment.id).exists())
-
-    def test_assessment_patch_updates_risk_level(self):
-        assessment = Assessment.objects.create(
-            assessment_reference="ASM-ACTION-0002", borrower=self.borrower,
-        )
-        response = self.client.patch(
+        patch = self.client.patch(
             f"/api/assessments/{assessment.assessment_reference}/",
             data='{"risk_level": "LOW"}',
             content_type="application/json",
         )
-        self.assertEqual(response.status_code, 200)
+        self.assertIn(patch.status_code, (403, 405))
+        delete = self.client.delete(f"/api/assessments/{assessment.assessment_reference}/")
+        self.assertIn(delete.status_code, (403, 405))
         assessment.refresh_from_db()
-        self.assertEqual(assessment.risk_level, "LOW")
+        self.assertEqual(assessment.risk_level, "")
 
-    def test_dashboard_smoke_after_record_actions(self):
+    def test_dashboard_smoke(self):
         response = self.client.get("/api/dashboard/")
         self.assertEqual(response.status_code, 200)

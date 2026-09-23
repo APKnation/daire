@@ -383,16 +383,6 @@ export class ApiService {
     );
   }
 
-  /** Patch any API record (stage-table row edit). */
-  updateRecord(url: string, id: number, data: Partial<ApiRecord>): Observable<ApiRecord> {
-    return this.http.patch<ApiRecord>(`${url}${id}/`, data);
-  }
-
-  /** Delete any API record (stage-table row delete). */
-  deleteRecord(url: string, id: number): Observable<void> {
-    return this.http.delete<void>(`${url}${id}/`);
-  }
-
   /** One page of a paginated ViewSet list (PAGE_SIZE rows). */
   paged<T>(url: string, page = 1): Observable<Paged<T>> {
     const sep = url.includes('?') ? '&' : '?';
