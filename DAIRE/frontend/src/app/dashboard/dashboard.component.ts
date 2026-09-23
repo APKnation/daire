@@ -170,6 +170,8 @@ interface HistogramBin {
   count: number;
   /** 0–1 height relative to the tallest bin. */
   height: number;
+  /** Ready-to-bind percent for the template (min 2%, floor 6% if any data). */
+  heightPct: number;
   color: string;
 }
 
@@ -850,6 +852,142 @@ export class DashboardComponent implements OnInit {
 
   lenderStatusClass(lender: Lender): string {
     return lender.api_status === 'CONNECTED' ? 'badge-green' : lender.api_status === 'DEGRADED' ? 'badge-yellow' : 'badge-slate';
+  }
+
+  // =======================================================================
+  // Charts dashboard — line, donut, histogram and bars above the inner
+  // navbar. All series derive from the same dashboard payload, all rendering
+  // is responsive SVG (viewBox + preserveAspectRatio).
+  // =======================================================================
+
+  private static readonly DONUT_COLORS = ['#024ad8', '#296ef9', '#356373', '#0e3191', '#c2c2c2'];
+
+  /** Describe an SVG arc for the donut: one path per segment, 100×100 viewBox. */
+  private static donutArc(startAngle: number, endAngle: number): string {
+    const cx = 50;
+    const cy = 50;
+    const r = 38;
+    const a0 = startAngle * 2 * Math.PI - Math.PI / 2;
+    const a1 = endAngle * 2 * Math.PI - Math.PI / 2;
+    const x0 = cx + r * Math.cos(a0);
+    const y0 = cy + r * Math.sin(a0);
+    const x1 = cx + r * Math.cos(a1);
+    const y1 = cy + r * Math.sin(a1);
+    const large = endAngle - startAngle > 0.5 ? 1 : 0;
+    return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+  }
+
+  /** Stage composition of every pipeline record as donut slices. */
+  get stageDonut(): DonutSegment[] {
+    const parts = [
+      { label: 'Lender data', count: (this.data?.lender_exchanges ?? []).length },
+      { label: 'Assessments', count: (this.data?.assessments ?? []).length },
+      { label: 'Sent to AI', count: (this.data?.ai_exchanges ?? []).length },
+      { label: 'AI results', count: (this.data?.ai_results ?? []).length },
+      { label: 'On-chain', count: (this.data?.smart_contract_results ?? []).length },
+    ];
+    const total = parts.reduce((sum, p) => sum + p.count, 0);
+    let acc = 0;
+    return parts.map((part, i) => {
+      const pct = total ? part.count / total : 0;
+      const start = acc;
+      acc += pct;
+      return {
+        label: part.label,
+        count: part.count,
+        color: DashboardComponent.DONUT_COLORS[i % DashboardComponent.DONUT_COLORS.length],
+        pct,
+        arc: pct > 0 ? DashboardComponent.donutArc(start, Math.max(acc, start + 0.0001)) : '',
+      };
+    }).filter((segment) => segment.count > 0);
+  }
+
+  get stageDonutTotal(): number {
+    return this.stageDonut.reduce((sum, s) => sum + s.count, 0);
+  }
+
+  /** Score histogram — credit scores bucketed across the 350–800 range. */
+  get scoreHistogram(): HistogramBin[] {
+    const bins = [
+      { label: '350–424', min: 350, max: 424, color: '#024ad8' },
+      { label: '425–499', min: 425, max: 499, color: '#024ad8' },
+      { label: '500–574', min: 500, max: 574, color: '#296ef9' },
+      { label: '575–649', min: 575, max: 649, color: '#296ef9' },
+      { label: '650–724', min: 650, max: 724, color: '#356373' },
+      { label: '725–800', min: 725, max: 800, color: '#0e3191' },
+    ];
+    const scores = this.scoredList();
+    const counts = bins.map((bin) => scores.filter((s) => s >= bin.min && s <= bin.max).length);
+    const peak = Math.max(...counts, 1);
+    return bins.map((bin, i) => ({
+      label: bin.label,
+      count: counts[i],
+      height: counts[i] / peak,
+      heightPct: counts[i] ? Math.max((counts[i] / peak) * 100, 6) : 2,
+      color: bin.color,
+    }));
+  }
+
+  /** Per-lender data contribution (exchange counts), busiest first. */
+  get lenderBars(): LenderBar[] {
+    const counts = new Map<string, number>();
+    for (const exchange of this.data?.lender_exchanges ?? []) {
+      const key = exchange.lender_name || exchange.lender_id || 'Unknown';
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    const bars = [...counts.entries()]
+      .map(([label, count]) => ({ label, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+    const peak = Math.max(...bars.map((b) => b.count), 1);
+    return bars.map((bar) => ({
+      ...bar,
+      full: bar.label,
+      width: bar.count / peak,
+    }));
+  }
+
+  /** Monthly average-credit-score trend for the line chart. */
+  get scoreTrendLine(): TrendPoint[] {
+    const byMonth = new Map<string, number[]>();
+    for (const assessment of this.data?.assessments ?? []) {
+      const created = (assessment as AssessmentWithTimestamp).created_at ?? '';
+      const score = assessment.credit_score;
+      if (!created || score == null) continue;
+      const month = created.slice(0, 7); // YYYY-MM
+      const list = byMonth.get(month) ?? [];
+      list.push(score);
+      byMonth.set(month, list);
+    }
+    const months = [...byMonth.keys()].sort();
+    if (!months.length) return [];
+    const step = 100 / Math.max(months.length - 1, 1);
+    return months.map((month, i) => {
+      const list = byMonth.get(month)!;
+      const avg = Math.round(list.reduce((s, v) => s + v, 0) / list.length);
+      const y = 38 - ((avg - 350) / 450) * 32;
+      return { label: month.slice(5), score: avg, x: i * step, y };
+    });
+  }
+
+  /** Smooth SVG path through the monthly score trend (100×42 viewBox). */
+  get scoreTrendPath(): string {
+    const points = this.scoreTrendLine;
+    if (points.length < 2) return '';
+    let d = `M${points[0].x.toFixed(2)},${points[0].y.toFixed(2)}`;
+    for (let i = 1; i < points.length; i++) {
+      const p0 = points[i - 1];
+      const p1 = points[i];
+      const mx = (p0.x + p1.x) / 2;
+      d += ` C${mx.toFixed(2)},${p0.y.toFixed(2)} ${mx.toFixed(2)},${p1.y.toFixed(2)} ${p1.x.toFixed(2)},${p1.y.toFixed(2)}`;
+    }
+    return d;
+  }
+
+  get scoreTrendArea(): string {
+    const points = this.scoreTrendLine;
+    const line = this.scoreTrendPath;
+    return points.length >= 2 && line ? `${line} L100,42 L0,42 Z` : '';
   }
 
   private static readonly BANDS: ScoreBand[] = [
