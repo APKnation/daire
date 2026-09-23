@@ -1012,7 +1012,11 @@ class DashboardView(APIView):
         )
         totals = {
             "lenders": Lender.objects.count(),
-            "connected_lenders": Lender.objects.filter(api_status="CONNECTED").count(),
+            # Available = CONNECTED or DEGRADED with a base URL — the same set
+            # pull-from-all-lenders targets, so the KPI card matches the pipeline.
+            "connected_lenders": Lender.objects.filter(
+                api_status__in=("CONNECTED", "DEGRADED"),
+            ).exclude(api_base_url="").count(),
             "borrowers": Borrower.objects.count(),
             "active_borrowers": Borrower.objects.filter(is_active=True).count(),
             "assessments": Assessment.objects.count(),

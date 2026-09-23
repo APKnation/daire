@@ -141,11 +141,6 @@ interface KpiCard {
   sparkBars: SparkBar[];
 }
 
-interface ChartPoint {
-  label: string;
-  value: number;
-}
-
 interface ScoreBand {
   label: string;
   min: number;
@@ -173,13 +168,6 @@ interface LenderBar {
   width: number;
 }
 
-interface ActivityChart {
-  points: ChartPoint[];
-  max: number;
-  /** Pre-built SVG path for the normalized avg-score line. */
-  scoreLine: string;
-}
-
 @Component({
   standalone: true,
   imports: [DatePipe, RouterLink, FormsModule, PagerComponent],
@@ -190,10 +178,6 @@ export class DashboardComponent implements OnInit {
   private readonly cdr = inject(ChangeDetectorRef);
   data: DashboardData | null = null;
   error = '';
-
-  /** Range switch for the activity chart, mirroring the reference design. */
-  chartRange: 'week' | 'month' | 'year' = 'month';
-  readonly chartRanges = ['week', 'month', 'year'] as const;
 
   /** Active tab of the inner navbar inside the Overview page. */
   stage: OverviewStage = 'snapshot';
@@ -255,8 +239,11 @@ export class DashboardComponent implements OnInit {
     return this.data?.totals;
   }
 
+  /** Available lenders = the same set the pull pipeline targets (CONNECTED + DEGRADED). */
   get connectedLenders(): number {
-    return this.totals?.connected_lenders ?? this.data?.lenders.filter((l) => l.api_status === 'CONNECTED').length ?? 0;
+    return this.totals?.connected_lenders
+      ?? this.data?.lenders.filter((l) => l.api_status !== 'DISCONNECTED').length
+      ?? 0;
   }
 
   get scoredAssessments(): number {
@@ -427,7 +414,7 @@ export class DashboardComponent implements OnInit {
       sparkBars: this.toSparkBars(series),
     });
     return [
-      card('Lender network', `${this.connectedLenders}/${this.data?.lenders.length ?? 0}`, `${this.connectedLenders} connected`,
+      card('Lender network', `${this.connectedLenders}/${this.totals?.lenders ?? this.data?.lenders.length ?? 0}`, `${this.connectedLenders} available`,
         this.connectedLenders > 0, '#024ad8', 'bg-white/25', 'dots', this.lenderSpark()),
       card('Borrowers', String(this.activeBorrowers), 'unified across institutions', true,
         '#296ef9', 'bg-white/25', 'wave', this.borrowersSpark()),
@@ -436,102 +423,6 @@ export class DashboardComponent implements OnInit {
       card('Assessments', `${this.scoredAssessments}/${total}`, `${this.verifiedAssessments} on-chain`, this.verifiedAssessments > 0,
         '#024ad8', 'bg-white/25', 'bars', this.assessmentsSpark()),
     ];
-  }
-
-  /** Assessments grouped by the selected range, plus the normalized score trend line. */
-  get activityChart(): ActivityChart {
-    const scoresByTime = (this.data?.assessments ?? [])
-      .filter((a) => a.credit_score != null)
-      .sort((x, y) => ((x as AssessmentWithTimestamp).created_at ?? '').localeCompare((y as AssessmentWithTimestamp).created_at ?? ''))
-      .map((a) => a.credit_score as number);
-    const base = this.activityBuckets();
-    return { ...base, scoreLine: this.scoreLinePath(scoresByTime) };
-  }
-
-  /** Time-bucketed assessment counts for the active range. */
-  private activityBuckets(): { points: ChartPoint[]; max: number } {
-    const stamps = (this.data?.assessments ?? [])
-      .map((a) => (a as AssessmentWithTimestamp).created_at ?? '')
-      .filter(Boolean)
-      .map((s) => new Date(s).getTime())
-      .filter((t) => !Number.isNaN(t))
-      .sort((a, b) => a - b);
-
-    if (this.chartRange === 'year') {
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      const now = new Date();
-      const points = months.map((label, i) => {
-        const count = stamps.filter((t) => {
-          const d = new Date(t);
-          return d.getFullYear() === now.getFullYear() && d.getMonth() === i;
-        }).length;
-        return { label, value: count };
-      });
-      return this.finishChart(points);
-    }
-    const days = this.chartRange === 'week' ? 7 : 30;
-    const now = new Date();
-    const points: ChartPoint[] = [];
-    for (let i = days - 1; i >= 0; i--) {
-      const day = new Date(now);
-      day.setDate(now.getDate() - i);
-      const start = new Date(day.getFullYear(), day.getMonth(), day.getDate()).getTime();
-      const end = start + 86_400_000;
-      const label = this.chartRange === 'week'
-        ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][day.getDay()]
-        : String(day.getDate());
-      points.push({ label, value: stamps.filter((t) => t >= start && t < end).length });
-    }
-    return this.finishChart(points);
-  }
-
-  private finishChart(points: ChartPoint[]): { points: ChartPoint[]; max: number } {
-    const max = Math.max(4, ...points.map((p) => p.value));
-    return { points, max };
-  }
-
-  /**
-   * Smooth path for the score-trend line (green in the reference): scores are
-   * placed left→right in time order across the same viewBox as the count line.
-   */
-  private scoreLinePath(scores: number[]): string {
-    if (scores.length < 2) return '';
-    const min = 350;
-    const max = 800;
-    const step = 100 / (scores.length - 1);
-    let d = '';
-    let prev: { x: number; y: number } | null = null;
-    scores.forEach((s, i) => {
-      const x = i * step;
-      const y = 34 - ((s - min) / (max - min)) * 30;
-      const p = { x, y };
-      if (!prev) {
-        d = `M${x.toFixed(2)},${y.toFixed(2)}`;
-      } else {
-        const mx = (prev.x + p.x) / 2;
-        d += ` C${mx.toFixed(2)},${prev.y.toFixed(2)} ${mx.toFixed(2)},${p.y.toFixed(2)} ${p.x.toFixed(2)},${p.y.toFixed(2)}`;
-      }
-      prev = p;
-    });
-    return d;
-  }
-
-  /** SVG polyline path for the activity chart, drawn in a 100×36 viewBox. */
-  chartPath(values: number[]): string {
-    if (values.length < 2) return '';
-    const step = 100 / (values.length - 1);
-    return values
-      .map((v, i) => {
-        const x = i * step;
-        const y = 34 - (v / this.activityChart.max) * 30;
-        return `${i === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`;
-      })
-      .join(' ');
-  }
-
-  chartAreaPath(values: number[]): string {
-    const line = this.chartPath(values);
-    return line ? `${line} L100,36 L0,36 Z` : '';
   }
 
   // =======================================================================
