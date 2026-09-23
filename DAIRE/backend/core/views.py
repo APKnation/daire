@@ -12,6 +12,29 @@ from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+
+class ImmutableDeleteGuardMixin:
+    """Turn the DB-level 'immutable' trigger error into a friendly 409.
+
+    Assessment, AI-result, contract-result and transaction rows carry SQLite
+    delete triggers (immutability.py). This mixin intercepts the resulting
+    IntegrityError so the API answers 409 with an explanation instead of a
+    raw 500 — deletion of externally-produced records stays impossible.
+    """
+
+    def destroy(self, request, *args, **kwargs):
+        from django.db.utils import IntegrityError
+
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except IntegrityError as exc:
+            if "immutable" in str(exc).lower():
+                return Response(
+                    {"detail": "This record is immutable: assessment, AI and blockchain results cannot be deleted."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            raise
 from .models import (
     AIReputationResult, Assessment, BlockchainTransaction, Borrower, BorrowerAccount,
     BorrowerFinancialProfile, BorrowerLoan, Consent, CreditFeature, CreditProfile,
@@ -679,10 +702,14 @@ class ConsentViewSet(viewsets.ModelViewSet):
     serializer_class = ConsentSerializer
 
 
-class AssessmentViewSet(mixins.CreateModelMixin, viewsets.ReadOnlyModelViewSet):
+class AssessmentViewSet(
+    mixins.CreateModelMixin, mixins.UpdateModelMixin, mixins.DestroyModelMixin,
+    ImmutableDeleteGuardMixin, viewsets.ReadOnlyModelViewSet,
+):
     queryset = Assessment.objects.select_related("borrower")
     serializer_class = AssessmentSerializer
     lookup_field = "assessment_reference"
+    http_method_names = ("get", "post", "patch", "delete", "head", "options")
 
     def create(self, request, *args, **kwargs):
         """Open an assessment on merged lender data.
@@ -854,9 +881,13 @@ class DataRoutingPolicyViewSet(viewsets.ModelViewSet):
     serializer_class = DataRoutingPolicySerializer
 
 
-class DataExchangeViewSet(viewsets.ReadOnlyModelViewSet):
+class DataExchangeViewSet(
+    mixins.UpdateModelMixin, mixins.DestroyModelMixin, ImmutableDeleteGuardMixin,
+    viewsets.ReadOnlyModelViewSet,
+):
     queryset = DataExchange.objects.select_related("borrower", "lender", "assessment", "policy").all()
     serializer_class = DataExchangeSerializer
+    http_method_names = ("get", "patch", "delete", "head", "options")
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -961,18 +992,37 @@ class MockLenderBroadcastView(APIView):
 
 
 class AIReputationResultViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = AIReputationResult.objects.all()
+    queryset = AIReputationResult.objects.select_related("assessment").all()
     serializer_class = AIReputationResultSerializer
+    http_method_names = ("get", "patch", "head", "options")
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        self._sync_assessment(instance)
+
+    def _sync_assessment(self, result):
+        """Mirror editable AI fields onto the parent assessment row."""
+        assessment = result.assessment
+        updated = False
+        for field in ("reputation", "risk_level", "behavior_summary", "model_version"):
+            new_value = getattr(result, field)
+            if getattr(assessment, field) != new_value:
+                setattr(assessment, field, new_value)
+                updated = True
+        if updated:
+            assessment.save(update_fields=("reputation", "risk_level", "behavior_summary", "model_version", "updated_at"))
 
 
 class SmartContractResultViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = SmartContractResult.objects.all()
+    queryset = SmartContractResult.objects.select_related("assessment").all()
     serializer_class = SmartContractResultSerializer
+    http_method_names = ("get", "patch", "head", "options")
 
 
 class BlockchainTransactionViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = BlockchainTransaction.objects.all()
+    queryset = BlockchainTransaction.objects.select_related("assessment").all()
     serializer_class = BlockchainTransactionSerializer
+    http_method_names = ("get", "patch", "head", "options")
 
 
 class IntegrationRequestViewSet(viewsets.ModelViewSet):
