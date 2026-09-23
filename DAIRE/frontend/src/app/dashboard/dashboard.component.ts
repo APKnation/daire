@@ -7,7 +7,6 @@ import {
   Lender, PAGE_SIZE, SmartContractResult,
 } from '../core/api.service';
 import { PagerComponent } from '../core/pager.component';
-import { alertNear, toast } from '../core/notify';
 
 interface RecentAssessment {
   reference: string;

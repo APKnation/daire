@@ -311,17 +311,9 @@
               <td class="table-td"><span [class]="row.statusClass">{{ row.status }}</span></td>
               <td class="table-td">
                 <div class="flex justify-end gap-1">
-                  <button type="button" (click)="viewRecord('lender-data', row.record)" title="View"
+                  <button type="button" (click)="viewRecord('lender-data', 'Data received from lenders', row.record)" title="View"
                           class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
                     <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                  </button>
-                  <button type="button" (click)="editRecord('lender-data', row.record)" title="Edit"
-                          class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
-                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                  </button>
-                  <button type="button" (click)="deleteRecord('lender-data', row.record, $event)" [disabled]="recordBusyId === row.record['id']" title="Delete"
-                          class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#b3262b] hover:text-[#b3262b] disabled:opacity-40">
-                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                   </button>
                 </div>
               </td>
@@ -383,18 +375,11 @@
               <td class="table-td max-w-72 truncate font-mono text-xs text-[#636363]" [title]="row.inputs">{{ row.inputs }}</td>
               <td class="table-td">
                 <div class="flex justify-end gap-1">
-                  <button type="button" (click)="viewRecord('assessed', row.record)" title="View"
+                  <button type="button" (click)="viewRecord('assessed', 'Assessment record', row.record)" title="View"
                           class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
                     <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                   </button>
-                  <button type="button" (click)="editRecord('assessed', row.record)" title="Edit"
-                          class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
-                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                  </button>
-                  <button type="button" (click)="deleteRecord('assessed', row.record, $event)" [disabled]="recordBusyId === row.record['id']" title="Delete"
-                          class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#b3262b] hover:text-[#b3262b] disabled:opacity-40">
-                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                  </button>
+
                 </div>
               </td>
             </tr>
@@ -458,18 +443,11 @@
               </td>
               <td class="table-td">
                 <div class="flex justify-end gap-1">
-                  <button type="button" (click)="viewRecord('to-ai', row.record)" title="View"
+                  <button type="button" (click)="viewRecord('to-ai', 'Payload sent to AI', row.record)" title="View"
                           class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
                     <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                   </button>
-                  <button type="button" (click)="editRecord('to-ai', row.record)" title="Edit"
-                          class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
-                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                  </button>
-                  <button type="button" (click)="deleteRecord('to-ai', row.record, $event)" [disabled]="recordBusyId === row.record['id']" title="Delete"
-                          class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#b3262b] hover:text-[#b3262b] disabled:opacity-40">
-                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                  </button>
+
                 </div>
               </td>
             </tr>
@@ -532,17 +510,9 @@
               <td class="table-td max-w-72 truncate text-xs text-[#636363]" [title]="row.summary">{{ row.summary }}</td>
               <td class="table-td">
                 <div class="flex justify-end gap-1">
-                  <button type="button" (click)="viewRecord('ai-results', row.record)" title="View"
+                  <button type="button" (click)="viewRecord('ai-results', 'AI reputation result', row.record)" title="View"
                           class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
                     <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                  </button>
-                  <button type="button" (click)="editRecord('ai-results', row.record)" title="Edit"
-                          class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
-                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                  </button>
-                  <button type="button" title="Protected record — AI results are immutable" disabled
-                          class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] opacity-40">
-                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                   </button>
                 </div>
               </td>
@@ -607,18 +577,11 @@
               </td>
               <td class="table-td">
                 <div class="flex justify-end gap-1">
-                  <button type="button" (click)="viewRecord('to-blockchain', row.record)" title="View"
+                  <button type="button" (click)="viewRecord('to-blockchain', 'Payload sent to blockchain', row.record)" title="View"
                           class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
                     <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                   </button>
-                  <button type="button" (click)="editRecord('to-blockchain', row.record)" title="Edit"
-                          class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
-                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                  </button>
-                  <button type="button" (click)="deleteRecord('to-blockchain', row.record, $event)" [disabled]="recordBusyId === row.record['id']" title="Delete"
-                          class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#b3262b] hover:text-[#b3262b] disabled:opacity-40">
-                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                  </button>
+
                 </div>
               </td>
             </tr>
@@ -683,17 +646,9 @@
               <td class="table-td">{{ row.block ?? '—' }}</td>
               <td class="table-td">
                 <div class="flex justify-end gap-1">
-                  <button type="button" (click)="viewRecord('blockchain-results', row.record)" title="View"
+                  <button type="button" (click)="viewRecord('blockchain-results', 'On-chain score result', row.record)" title="View"
                           class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
                     <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                  </button>
-                  <button type="button" (click)="editRecord('blockchain-results', row.record)" title="Edit"
-                          class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
-                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.832l8.586-8.586z"/></svg>
-                  </button>
-                  <button type="button" title="Protected record — blockchain results are immutable" disabled
-                          class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] opacity-40">
-                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                   </button>
                 </div>
               </td>
@@ -742,17 +697,9 @@
                   <td class="table-td"><span [class]="tx.statusClass">{{ tx.status }}</span></td>
                   <td class="table-td">
                     <div class="flex justify-end gap-1">
-                      <button type="button" (click)="viewRecord('blockchain-results', tx.record)" title="View"
+                      <button type="button" (click)="viewRecord('blockchain-results', 'Blockchain transaction', tx.record)" title="View"
                               class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
                         <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                      </button>
-                      <button type="button" title="Protected record — blockchain transactions are immutable" disabled
-                              class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] opacity-40">
-                        <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                      </button>
-                      <button type="button" title="Protected record — blockchain transactions are immutable" disabled
-                              class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] opacity-40">
-                        <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                       </button>
                     </div>
                   </td>
@@ -768,47 +715,34 @@
 }
 }
 
-<!-- Record detail / edit modal -->
+<!-- Record detail modal (view-only) -->
 @if (recordModal; as modal) {
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-[#1a1a1a]/40 p-4" (click)="closeRecordModal()">
     <div class="card max-h-[85vh] w-full max-w-2xl overflow-hidden" (click)="$event.stopPropagation()">
       <div class="flex items-center justify-between gap-3 border-b border-[#e8e8e8] px-6 py-4">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-wider text-[#9a9a9a]">{{ modal.mode === 'edit' ? 'Edit record' : 'Record detail' }}</p>
+          <p class="text-xs font-semibold uppercase tracking-wider text-[#9a9a9a]">Record detail — read only</p>
           <h2 class="mt-0.5 text-base font-semibold text-[#1a1a1a]">{{ modal.title }} · #{{ modal.id }}</h2>
         </div>
         <button type="button" (click)="closeRecordModal()" class="grid size-8 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#c2c2c2] hover:text-[#292929]">
           <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
-      <div class="max-h-[60vh] overflow-y-auto px-6 py-4">
+      <div class="max-h-[65vh] overflow-y-auto px-6 py-4">
         <dl class="space-y-3">
           @for (field of modal.fields; track field.key) {
             <div class="grid grid-cols-[10rem_1fr] items-start gap-3">
               <dt class="pt-2 text-xs font-semibold uppercase tracking-wide text-[#9a9a9a]">{{ field.label }}</dt>
               <dd>
-                @if (modal.mode === 'edit' && field.editable) {
-                  @if (field.multiline) {
-                    <textarea class="input-field min-h-20 font-mono text-xs" [(ngModel)]="field.value"></textarea>
-                  } @else {
-                    <input type="text" class="input-field !min-h-0 px-3 py-1.5 text-sm" [(ngModel)]="field.value">
-                  }
-                } @else {
-                  <pre class="whitespace-pre-wrap break-words rounded-lg bg-[#f7f7f7] px-3 py-2 font-mono text-xs text-[#292929]">{{ field.value }}</pre>
-                }
+                <pre class="whitespace-pre-wrap break-words rounded-lg bg-[#f7f7f7] px-3 py-2 font-mono text-xs text-[#292929]">{{ field.value }}</pre>
               </dd>
             </div>
           }
         </dl>
       </div>
-      @if (modal.mode === 'edit') {
-        <div class="flex justify-end gap-2 border-t border-[#e8e8e8] bg-[#f7f7f7] px-6 py-4">
-          <button type="button" (click)="closeRecordModal()" class="btn-outline !min-h-0 px-4 py-2 text-xs">Cancel</button>
-          <button type="button" (click)="saveRecord()" [disabled]="recordSaving" class="btn-primary !min-h-0 px-4 py-2 text-xs disabled:opacity-50">
-            {{ recordSaving ? 'Saving…' : 'Save changes' }}
-          </button>
-        </div>
-      }
+      <div class="flex justify-end border-t border-[#e8e8e8] bg-[#f7f7f7] px-6 py-4">
+        <button type="button" (click)="closeRecordModal()" class="btn-outline !min-h-0 px-4 py-2 text-xs">Close</button>
+      </div>
     </div>
   </div>
 }
