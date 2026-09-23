@@ -403,7 +403,7 @@ export class DashboardComponent implements OnInit {
   /** The four hero KPI cards, styled after the colored reference design. */
   get kpiCards(): KpiCard[] {
     const trend = this.scoreTrend();
-    const total = this.data?.assessments.length ?? 0;
+    const total = this.totals?.assessments ?? this.data?.assessments.length ?? 0;
     const card = (
       label: string,
       value: string,
