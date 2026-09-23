@@ -795,7 +795,7 @@ export class DashboardComponent implements OnInit {
   get aiResultRows(): AiResultRow[] {
     return (this.data?.ai_results ?? [])
       .map((result) => ({
-        record: result,
+        record: result as unknown as ApiRecord,
         when: result.created_at,
         reference: result.assessment_reference || `#${result.assessment}`,
         reputation: result.reputation || '—',
