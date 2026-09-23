@@ -441,6 +441,7 @@
             <th class="table-th">Operation</th>
             <th class="table-th">Payload</th>
             <th class="table-th">Status</th>
+            <th class="table-th text-right">Actions</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-[#e8e8e8]">
@@ -455,9 +456,25 @@
                 <span [class]="row.statusClass">{{ row.status }}</span>
                 @if (row.error !== '—') { <small class="mt-1 block max-w-56 truncate text-[11px] text-[#b3262b]" [title]="row.error">{{ row.error }}</small> }
               </td>
+              <td class="table-td">
+                <div class="flex justify-end gap-1">
+                  <button type="button" (click)="viewRecord('to-ai', row.record)" title="View"
+                          class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
+                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                  </button>
+                  <button type="button" (click)="editRecord('to-ai', row.record)" title="Edit"
+                          class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
+                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                  </button>
+                  <button type="button" (click)="deleteRecord('to-ai', row.record, $event)" [disabled]="recordBusyId === row.record.id" title="Delete"
+                          class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#b3262b] hover:text-[#b3262b] disabled:opacity-40">
+                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                  </button>
+                </div>
+              </td>
             </tr>
           } @empty {
-            <tr><td colspan="6" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">
+            <tr><td colspan="7" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">
               @if (stageNoMatch(aiSentRows, aiSentQuery)) {
                 No records match "{{ aiSentQuery }}" — clear the search to see all AI submissions.
               } @else {
@@ -500,6 +517,7 @@
             <th class="table-th">Risk</th>
             <th class="table-th">Model</th>
             <th class="table-th">Behaviour summary</th>
+            <th class="table-th text-right">Actions</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-[#e8e8e8]">
@@ -512,9 +530,25 @@
               <td class="table-td">{{ row.risk }}</td>
               <td class="table-td font-mono text-xs">{{ row.model }}</td>
               <td class="table-td max-w-72 truncate text-xs text-[#636363]" [title]="row.summary">{{ row.summary }}</td>
+              <td class="table-td">
+                <div class="flex justify-end gap-1">
+                  <button type="button" (click)="viewRecord('ai-results', row.record)" title="View"
+                          class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
+                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                  </button>
+                  <button type="button" (click)="editRecord('ai-results', row.record)" title="Edit"
+                          class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
+                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                  </button>
+                  <button type="button" title="Protected record — AI results are immutable" disabled
+                          class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] opacity-40">
+                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                  </button>
+                </div>
+              </td>
             </tr>
           } @empty {
-            <tr><td colspan="7" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">
+            <tr><td colspan="8" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">
               @if (stageNoMatch(aiResultRows, aiResultQuery)) {
                 No records match "{{ aiResultQuery }}" — clear the search to see all AI results.
               } @else {
@@ -556,6 +590,7 @@
             <th class="table-th">Operation</th>
             <th class="table-th">Dimensions / payload</th>
             <th class="table-th">Status</th>
+            <th class="table-th text-right">Actions</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-[#e8e8e8]">
@@ -570,9 +605,25 @@
                 <span [class]="row.statusClass">{{ row.status }}</span>
                 @if (row.error !== '—') { <small class="mt-1 block max-w-56 truncate text-[11px] text-[#b3262b]" [title]="row.error">{{ row.error }}</small> }
               </td>
+              <td class="table-td">
+                <div class="flex justify-end gap-1">
+                  <button type="button" (click)="viewRecord('to-blockchain', row.record)" title="View"
+                          class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
+                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                  </button>
+                  <button type="button" (click)="editRecord('to-blockchain', row.record)" title="Edit"
+                          class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
+                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                  </button>
+                  <button type="button" (click)="deleteRecord('to-blockchain', row.record, $event)" [disabled]="recordBusyId === row.record.id" title="Delete"
+                          class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#b3262b] hover:text-[#b3262b] disabled:opacity-40">
+                    <svg class="size-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                  </button>
+                </div>
+              </td>
             </tr>
           } @empty {
-            <tr><td colspan="6" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">
+            <tr><td colspan="7" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">
               @if (stageNoMatch(blockchainSentRows, blockchainSentQuery)) {
                 No records match "{{ blockchainSentQuery }}" — clear the search to see all blockchain submissions.
               } @else {
