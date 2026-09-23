@@ -212,6 +212,8 @@ export class DashboardComponent implements OnInit {
     this.api.dashboard().subscribe({
       next: (data) => {
         this.data = data;
+        // Fresh data can shrink a table below the current page — start over.
+        this.resetStagePages();
         this.cdr.markForCheck();
       },
       error: (err) => {
@@ -522,13 +524,10 @@ export class DashboardComponent implements OnInit {
     );
   }
 
-  /** Search + page a row list; resets the page when the query narrows results. */
-  private stageView<T extends object>(rows: T[], query: string, page: number, pageSetter: (p: number) => void): T[] {
-    const filtered = rows.filter((row) => this.matchesQuery(row, query));
-    const maxPage = Math.max(1, Math.ceil(filtered.length / this.stagePageSize));
-    if (page > maxPage) {
-      pageSetter(maxPage);
-    }
+  /** Search + page a row list. Pages stay valid because every search and
+   * every data reload resets all tables back to page 1 (see below). */
+  private stageView<T extends object>(rows: T[], query: string, page: number): T[] {
+    const filtered = query.trim() ? rows.filter((row) => this.matchesQuery(row, query)) : rows;
     return filtered.slice((page - 1) * this.stagePageSize, page * this.stagePageSize);
   }
 
@@ -537,9 +536,19 @@ export class DashboardComponent implements OnInit {
     return query.trim() ? rows.filter((row) => this.matchesQuery(row, query)).length : rows.length;
   }
 
+  /** True when a search is active but matches nothing — drives the empty state. */
+  stageNoMatch<T extends object>(rows: T[], query: string): boolean {
+    return Boolean(query.trim()) && this.stageCount(rows, query) === 0;
+  }
+
   onStageSearch(): void {
-    // Any new search starts every table back at page 1 — the pager clamps
-    // forward pages on render, so only the reset direction needs handling.
+    // Every keystroke starts all tables back at page 1; the pager buttons
+    // keep navigation within range afterwards.
+    this.resetStagePages();
+    this.cdr.markForCheck();
+  }
+
+  private resetStagePages(): void {
     this.lenderPage = 1;
     this.assessedPage = 1;
     this.aiSentPage = 1;
@@ -547,7 +556,6 @@ export class DashboardComponent implements OnInit {
     this.blockchainSentPage = 1;
     this.blockchainResultPage = 1;
     this.txPage = 1;
-    this.cdr.markForCheck();
   }
 
   /** Newest-first rows for the "Data received from lenders" table. */
