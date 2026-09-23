@@ -565,6 +565,165 @@ export class DashboardComponent implements OnInit {
     this.txPage = 1;
   }
 
+  // =======================================================================
+  // Record actions — View / Edit / Delete on every stage-table row.
+  // =======================================================================
+
+  /** REST base URL of each stage record kind — used for PATCH/DELETE. */
+  private static readonly RECORD_URLS: Partial<Record<OverviewStage, string>> = {
+    'lender-data': '/api/data-exchanges/',
+    assessed: '/api/assessments/',
+    'to-ai': '/api/data-exchanges/',
+    'ai-results': '/api/ai-reputation/',
+    'to-blockchain': '/api/data-exchanges/',
+    'blockchain-results': '/api/smart-contract/',
+  };
+
+  /** The record currently shown in the detail modal (view or edit mode). */
+  recordModal: {
+    kind: OverviewStage;
+    mode: 'view' | 'edit';
+    id: number;
+    title: string;
+    fields: Array<{ key: string; label: string; value: string; editable: boolean; multiline?: boolean }>;
+  } | null = null;
+  recordSaving = false;
+  recordBusyId: number | null = null;
+
+  /** Editable field config per record kind. */
+  private static readonly EDITABLE_FIELDS: Partial<Record<OverviewStage, string[]>> = {
+    'lender-data': ['operation'],
+    assessed: ['reputation', 'risk_level'],
+    'to-ai': ['operation'],
+    'to-blockchain': ['operation'],
+    'ai-results': ['reputation', 'risk_level', 'behavior_summary'],
+    'blockchain-results': ['credit_score'],
+  };
+
+  private recordUrl(kind: OverviewStage): string | null {
+    return DashboardComponent.RECORD_URLS[kind] ?? null;
+  }
+
+  private recordId(kind: OverviewStage, record: ApiRecord): number | null {
+    const id = record['id'];
+    return typeof id === 'number' ? id : null;
+  }
+
+  private static fieldLabel(key: string): string {
+    return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  /** Open the read-only detail modal for a stage-table row. */
+  viewRecord(kind: OverviewStage, record: ApiRecord): void {
+    const entries = Object.entries(record).filter(([key]) => !key.endsWith('_id') || key === 'id');
+    this.recordModal = {
+      kind,
+      mode: 'view',
+      id: typeof record['id'] === 'number' ? record['id'] : 0,
+      title: 'Record detail',
+      fields: entries.map(([key, value]) => ({
+        key,
+        label: DashboardComponent.fieldLabel(key),
+        value: this.displayValue(value),
+        editable: false,
+        multiline: typeof value === 'object' && value !== null,
+      })),
+    };
+    this.cdr.markForCheck();
+  }
+
+  /** Switch the open modal into edit mode (only whitelisted fields editable). */
+  editRecord(kind: OverviewStage, record: ApiRecord): void {
+    const editable = DashboardComponent.EDITABLE_FIELDS[kind] ?? [];
+    const entries = Object.entries(record).filter(([key]) => !key.endsWith('_id') || key === 'id');
+    this.recordModal = {
+      kind,
+      mode: 'edit',
+      id: typeof record['id'] === 'number' ? record['id'] : 0,
+      title: 'Edit record',
+      fields: entries.map(([key, value]) => ({
+        key,
+        label: DashboardComponent.fieldLabel(key),
+        value: this.displayValue(value),
+        editable: editable.includes(key),
+        multiline: typeof value === 'object' && value !== null,
+      })),
+    };
+    this.cdr.markForCheck();
+  }
+
+  closeRecordModal(): void {
+    this.recordModal = null;
+    this.cdr.markForCheck();
+  }
+
+  /** PATCH the editable fields of the record in the modal. */
+  saveRecord(): void {
+    const modal = this.recordModal;
+    const url = modal ? this.recordUrl(modal.kind) : null;
+    if (!modal || !url || this.recordSaving) return;
+    const data: ApiRecord = {};
+    for (const field of modal.fields) {
+      if (!field.editable) continue;
+      const raw = typeof field.value === 'string' ? field.value.trim() : field.value;
+      if (raw === '') continue;
+      data[field.key] = raw;
+    }
+    if (!Object.keys(data).length) {
+      this.closeRecordModal();
+      return;
+    }
+    this.recordSaving = true;
+    this.cdr.markForCheck();
+    this.api.updateRecord(url, modal.id, data).subscribe({
+      next: () => {
+        this.recordSaving = false;
+        this.recordModal = null;
+        void toast('Record updated');
+        this.load();
+      },
+      error: (err) => {
+        this.recordSaving = false;
+        this.recordModal = null;
+        void alertNear(null, 'Update failed', err?.error?.detail || 'The record could not be updated.', 'error');
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  /** Delete a stage-table row. Immutable records get a friendly refusal. */
+  deleteRecord(kind: OverviewStage, record: ApiRecord, event: Event): void {
+    const url = this.recordUrl(kind);
+    const id = this.recordId(kind, record);
+    if (!url || id == null || this.recordBusyId != null) return;
+    this.recordBusyId = id;
+    this.cdr.markForCheck();
+    this.api.deleteRecord(url, id).subscribe({
+      next: () => {
+        this.recordBusyId = null;
+        void toast('Record deleted');
+        this.load();
+      },
+      error: (err) => {
+        this.recordBusyId = null;
+        void alertNear(
+          event.target as HTMLElement,
+          'Delete failed',
+          err?.error?.detail || 'The record could not be deleted.',
+          'error',
+        );
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  /** Human-friendly one-line rendering of any record value. */
+  private displayValue(value: unknown): string {
+    if (value === null || value === undefined || value === '') return '—';
+    if (typeof value === 'object') return JSON.stringify(value, null, 2);
+    return String(value);
+  }
+
   /** Newest-first rows for the "Data received from lenders" table. */
   get lenderExchangeRows(): LenderExchangeRow[] {
     return (this.data?.lender_exchanges ?? [])
