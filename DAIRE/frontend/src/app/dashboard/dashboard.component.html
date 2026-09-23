@@ -18,6 +18,25 @@
   </div>
 }
 
+<!-- Inner navbar — pipeline stages inside the Overview page -->
+<nav class="card mb-6 overflow-x-auto" aria-label="Overview pipeline stages">
+  <div class="flex min-w-max items-stretch divide-x divide-[#e8e8e8]">
+    @for (tab of stageTabs; track tab.key) {
+      <button (click)="selectStage(tab.key)" type="button"
+              class="relative flex items-center gap-2 whitespace-nowrap px-4 py-3.5 text-sm font-semibold transition sm:px-5"
+              [class]="stage === tab.key
+                ? 'bg-[#f7f7f7] text-[#1a1a1a]'
+                : 'text-[#636363] hover:bg-[#f7f7f7] hover:text-[#292929]'"
+              [attr.aria-current]="stage === tab.key ? 'page' : null">
+        @if (stage === tab.key) {
+          <span class="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-[#024ad8]"></span>
+        }
+        {{ tab.label }}
+      </button>
+    }
+  </div>
+</nav>
+
 @if (!data) {
   <!-- Loading skeleton -->
   <div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -28,6 +47,7 @@
 }
 
 @if (data; as d) {
+@if (stage === 'snapshot') {
   <!-- Colored KPI cards, after the reference design -->
   <section class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
     @for (card of kpiCards; track card.label) {
@@ -238,9 +258,324 @@
           </span>
           <span class="shrink-0" [class]="a.verified ? 'badge-green' : 'badge-slate'">{{ a.verified ? 'On-chain ✓' : 'Unverified' }}</span>
         </div>
-      } @empty {
+      }
+      @empty {
         <div class="px-6 py-12 text-center text-sm text-[#9a9a9a]">No assessments have been created.</div>
       }
     </div>
   </section>
+}
+
+<!-- =======================================================================
+     Stage 1 — Data received from lenders
+     ======================================================================= -->
+@if (stage === 'lender-data') {
+  <section class="card mb-6 overflow-hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8e8e8] px-6 py-4">
+      <div class="min-w-0">
+        <p class="text-xs font-semibold uppercase tracking-wider text-[#9a9a9a]">Pipeline · Stage 1</p>
+        <h2 class="mt-0.5 text-base font-semibold text-[#1a1a1a]">Data received from lenders</h2>
+        <p class="mt-0.5 text-xs text-[#9a9a9a]">Every push and pull exchange logged when borrower data arrived from lender systems.</p>
+      </div>
+      <span class="badge-slate">{{ lenderExchangeRows.length }} record(s)</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
+          <tr>
+            <th class="table-th">Received at</th>
+            <th class="table-th">Direction</th>
+            <th class="table-th">Lender</th>
+            <th class="table-th">Borrower</th>
+            <th class="table-th">Operation</th>
+            <th class="table-th">Fields</th>
+            <th class="table-th">Detail</th>
+            <th class="table-th">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[#e8e8e8]">
+          @for (row of lenderExchangeRows; track $index) {
+            <tr class="transition-colors hover:bg-[#f7f7f7]">
+              <td class="table-td whitespace-nowrap">{{ row.when | date:'medium' }}</td>
+              <td class="table-td"><span [class]="row.direction === 'PUSH' ? 'badge-yellow' : 'badge-slate'">{{ row.direction }}</span></td>
+              <td class="table-td font-semibold text-[#1a1a1a]">{{ row.lender }}</td>
+              <td class="table-td font-mono text-xs">{{ row.borrower }}</td>
+              <td class="table-td">{{ prettyOperation(row.operation) }}</td>
+              <td class="table-td max-w-40 truncate text-xs text-[#636363]" [title]="row.fields">{{ row.fields }}</td>
+              <td class="table-td max-w-44 truncate text-xs text-[#636363]" [title]="row.detail">{{ row.detail }}</td>
+              <td class="table-td"><span [class]="row.statusClass">{{ row.status }}</span></td>
+            </tr>
+          } @empty {
+            <tr><td colspan="8" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">No lender data has been received yet — pull or receive data in Data exchange.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}
+
+<!-- =======================================================================
+     Stage 2 — Data assessed before the engines ran
+     ======================================================================= -->
+@if (stage === 'assessed') {
+  <section class="card mb-6 overflow-hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8e8e8] px-6 py-4">
+      <div class="min-w-0">
+        <p class="text-xs font-semibold uppercase tracking-wider text-[#9a9a9a]">Pipeline · Stage 2</p>
+        <h2 class="mt-0.5 text-base font-semibold text-[#1a1a1a]">Data assessed before the engines</h2>
+        <p class="mt-0.5 text-xs text-[#9a9a9a]">Assessment snapshots as they were captured before any AI or blockchain scoring ran.</p>
+      </div>
+      <span class="badge-slate">{{ assessedRowsNewestFirst.length }} record(s)</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
+          <tr>
+            <th class="table-th">Assessed at</th>
+            <th class="table-th">Assessment</th>
+            <th class="table-th">Borrower</th>
+            <th class="table-th">Reputation</th>
+            <th class="table-th">Risk</th>
+            <th class="table-th">Score inputs</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[#e8e8e8]">
+          @for (row of assessedRowsNewestFirst; track row.reference) {
+            <tr class="transition-colors hover:bg-[#f7f7f7]">
+              <td class="table-td whitespace-nowrap">{{ row.when | date:'medium' }}</td>
+              <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]">{{ row.reference }}</td>
+              <td class="table-td">{{ row.borrower }}</td>
+              <td class="table-td"><span [class]="reputationClass(row.reputation)">{{ row.reputation }}</span></td>
+              <td class="table-td">{{ row.risk }}</td>
+              <td class="table-td max-w-72 truncate font-mono text-xs text-[#636363]" [title]="row.inputs">{{ row.inputs }}</td>
+            </tr>
+          } @empty {
+            <tr><td colspan="6" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">No assessments yet — open one in Data exchange.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}
+
+<!-- =======================================================================
+     Stage 3 — Data sent to the AI engine
+     ======================================================================= -->
+@if (stage === 'to-ai') {
+  <section class="card mb-6 overflow-hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8e8e8] px-6 py-4">
+      <div class="min-w-0">
+        <p class="text-xs font-semibold uppercase tracking-wider text-[#9a9a9a]">Pipeline · Stage 3</p>
+        <h2 class="mt-0.5 text-base font-semibold text-[#1a1a1a]">Data sent to the AI engine</h2>
+        <p class="mt-0.5 text-xs text-[#9a9a9a]">Payloads pushed to the AI reputation service for every assessment.</p>
+      </div>
+      <span class="badge-slate">{{ aiSentRows.length }} record(s)</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
+          <tr>
+            <th class="table-th">Sent at</th>
+            <th class="table-th">Assessment</th>
+            <th class="table-th">Borrower</th>
+            <th class="table-th">Operation</th>
+            <th class="table-th">Payload</th>
+            <th class="table-th">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[#e8e8e8]">
+          @for (row of aiSentRows; track $index) {
+            <tr class="transition-colors hover:bg-[#f7f7f7]">
+              <td class="table-td whitespace-nowrap">{{ row.when | date:'medium' }}</td>
+              <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]">{{ row.reference }}</td>
+              <td class="table-td">{{ row.borrower }}</td>
+              <td class="table-td">{{ prettyOperation(row.operation) }}</td>
+              <td class="table-td max-w-80 truncate font-mono text-xs text-[#636363]" [title]="row.payload">{{ row.payload }}</td>
+              <td class="table-td">
+                <span [class]="row.statusClass">{{ row.status }}</span>
+                @if (row.error !== '—') { <small class="mt-1 block max-w-56 truncate text-[11px] text-[#b3262b]" [title]="row.error">{{ row.error }}</small> }
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="6" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">No AI requests yet — run an assessment analysis first.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}
+
+<!-- =======================================================================
+     Stage 4 — Data received from the AI engine
+     ======================================================================= -->
+@if (stage === 'ai-results') {
+  <section class="card mb-6 overflow-hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8e8e8] px-6 py-4">
+      <div class="min-w-0">
+        <p class="text-xs font-semibold uppercase tracking-wider text-[#9a9a9a]">Pipeline · Stage 4</p>
+        <h2 class="mt-0.5 text-base font-semibold text-[#1a1a1a]">Data received from the AI engine</h2>
+        <p class="mt-0.5 text-xs text-[#9a9a9a]">Reputation results returned by the AI model for every scored assessment.</p>
+      </div>
+      <span class="badge-slate">{{ aiResultRows.length }} record(s)</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
+          <tr>
+            <th class="table-th">Received at</th>
+            <th class="table-th">Assessment</th>
+            <th class="table-th">Reputation</th>
+            <th class="table-th">AI score</th>
+            <th class="table-th">Risk</th>
+            <th class="table-th">Model</th>
+            <th class="table-th">Behaviour summary</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[#e8e8e8]">
+          @for (row of aiResultRows; track $index) {
+            <tr class="transition-colors hover:bg-[#f7f7f7]">
+              <td class="table-td whitespace-nowrap">{{ row.when | date:'medium' }}</td>
+              <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]">{{ row.reference }}</td>
+              <td class="table-td"><span [class]="row.reputationClass">{{ row.reputation }}</span></td>
+              <td class="table-td font-semibold text-[#1a1a1a]">{{ row.score }}</td>
+              <td class="table-td">{{ row.risk }}</td>
+              <td class="table-td font-mono text-xs">{{ row.model }}</td>
+              <td class="table-td max-w-72 truncate text-xs text-[#636363]" [title]="row.summary">{{ row.summary }}</td>
+            </tr>
+          } @empty {
+            <tr><td colspan="7" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">No AI results yet — the AI engine has not returned any reputation scores.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}
+
+<!-- =======================================================================
+     Stage 5 — Data sent to the blockchain
+     ======================================================================= -->
+@if (stage === 'to-blockchain') {
+  <section class="card mb-6 overflow-hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8e8e8] px-6 py-4">
+      <div class="min-w-0">
+        <p class="text-xs font-semibold uppercase tracking-wider text-[#9a9a9a]">Pipeline · Stage 5</p>
+        <h2 class="mt-0.5 text-base font-semibold text-[#1a1a1a]">Data sent to the blockchain</h2>
+        <p class="mt-0.5 text-xs text-[#9a9a9a]">Dimensions and features submitted to the smart contract for on-chain scoring.</p>
+      </div>
+      <span class="badge-slate">{{ blockchainSentRows.length }} record(s)</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
+          <tr>
+            <th class="table-th">Sent at</th>
+            <th class="table-th">Assessment</th>
+            <th class="table-th">Borrower</th>
+            <th class="table-th">Operation</th>
+            <th class="table-th">Dimensions / payload</th>
+            <th class="table-th">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[#e8e8e8]">
+          @for (row of blockchainSentRows; track $index) {
+            <tr class="transition-colors hover:bg-[#f7f7f7]">
+              <td class="table-td whitespace-nowrap">{{ row.when | date:'medium' }}</td>
+              <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]">{{ row.reference }}</td>
+              <td class="table-td">{{ row.borrower }}</td>
+              <td class="table-td">{{ prettyOperation(row.operation) }}</td>
+              <td class="table-td max-w-80 truncate font-mono text-xs text-[#636363]" [title]="row.payload">{{ row.payload }}</td>
+              <td class="table-td">
+                <span [class]="row.statusClass">{{ row.status }}</span>
+                @if (row.error !== '—') { <small class="mt-1 block max-w-56 truncate text-[11px] text-[#b3262b]" [title]="row.error">{{ row.error }}</small> }
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="6" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">No blockchain submissions yet — run a blockchain score first.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}
+
+<!-- =======================================================================
+     Stage 6 — Data received from the blockchain
+     ======================================================================= -->
+@if (stage === 'blockchain-results') {
+  <section class="card mb-6 overflow-hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8e8e8] px-6 py-4">
+      <div class="min-w-0">
+        <p class="text-xs font-semibold uppercase tracking-wider text-[#9a9a9a]">Pipeline · Stage 6</p>
+        <h2 class="mt-0.5 text-base font-semibold text-[#1a1a1a]">Data received from the blockchain</h2>
+        <p class="mt-0.5 text-xs text-[#9a9a9a]">On-chain scores returned by the smart contract, plus their transaction records.</p>
+      </div>
+      <span class="badge-slate">{{ blockchainResultRows.length + blockchainTxRows.length }} record(s)</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
+          <tr>
+            <th class="table-th">Received at</th>
+            <th class="table-th">Assessment</th>
+            <th class="table-th">Credit score</th>
+            <th class="table-th">Risk band</th>
+            <th class="table-th">Ruleset</th>
+            <th class="table-th">Transaction</th>
+            <th class="table-th">Block</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[#e8e8e8]">
+          @for (row of blockchainResultRows; track $index) {
+            <tr class="transition-colors hover:bg-[#f7f7f7]">
+              <td class="table-td whitespace-nowrap">{{ row.when | date:'medium' }}</td>
+              <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]">{{ row.reference }}</td>
+              <td class="table-td">
+                <span class="text-xl font-bold text-[#1a1a1a]">{{ row.score ?? '—' }}</span>
+              </td>
+              <td class="table-td"><span [class]="reputationClass(row.band)">{{ row.band }}</span></td>
+              <td class="table-td font-mono text-xs">{{ row.ruleset }}</td>
+              <td class="table-td max-w-56 truncate font-mono text-xs text-[#636363]" [title]="row.txHash">{{ row.txHash }}</td>
+              <td class="table-td">{{ row.block ?? '—' }}</td>
+            </tr>
+          } @empty {
+            <tr><td colspan="7" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">No on-chain scores yet — the smart contract has not returned any results.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (blockchainTxRows.length) {
+      <div class="border-t border-[#e8e8e8]">
+        <div class="px-6 pt-4">
+          <p class="text-xs font-semibold uppercase tracking-wider text-[#9a9a9a]">Transaction ledger</p>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
+              <tr>
+                <th class="table-th">Created</th>
+                <th class="table-th">Assessment</th>
+                <th class="table-th">Transaction hash</th>
+                <th class="table-th">Network</th>
+                <th class="table-th">Block</th>
+                <th class="table-th">Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-[#e8e8e8]">
+              @for (tx of blockchainTxRows; track tx.txHash) {
+                <tr class="transition-colors hover:bg-[#f7f7f7]">
+                  <td class="table-td whitespace-nowrap">{{ tx.when | date:'medium' }}</td>
+                  <td class="table-td font-mono text-xs">{{ tx.reference }}</td>
+                  <td class="table-td max-w-64 truncate font-mono text-xs text-[#636363]" [title]="tx.txHash">{{ tx.txHash }}</td>
+                  <td class="table-td">{{ tx.network }}</td>
+                  <td class="table-td">{{ tx.block ?? '—' }}</td>
+                  <td class="table-td"><span [class]="tx.statusClass">{{ tx.status }}</span></td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  </section>
+}
 }

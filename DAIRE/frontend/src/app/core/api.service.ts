@@ -173,6 +173,7 @@ export interface CreditFeature {
 export interface AIReputationResult {
   id: number;
   assessment: number;
+  assessment_reference?: string;
   reputation: string;
   score: string | number;
   risk_level: string;
@@ -184,15 +185,44 @@ export interface AIReputationResult {
 export interface SmartContractResult {
   id: number;
   assessment: number;
+  assessment_reference?: string;
   credit_score: number;
   ruleset_version: string;
   contract_address: string;
+  transaction_hash?: string;
+  block_number?: number | null;
+  risk_band?: string;
+  raw_result?: Record<string, unknown>;
   created_at: string;
+}
+
+/** One recorded data exchange — the audit trail of a pipeline stage. */
+export interface DataExchangeRecord {
+  id: number;
+  system: 'LENDER' | 'AI' | 'BLOCKCHAIN' | string;
+  direction: 'PUSH' | 'PULL' | string;
+  operation: string;
+  batch_reference?: string | null;
+  borrower?: number | null;
+  borrower_reference?: string | null;
+  lender?: number | null;
+  lender_id?: string | null;
+  lender_name?: string | null;
+  assessment?: number | null;
+  assessment_reference?: string | null;
+  status: 'STARTED' | 'COMPLETED' | 'FAILED' | string;
+  fields_sent?: string[];
+  payload?: Record<string, unknown>;
+  response?: Record<string, unknown>;
+  error_message?: string;
+  created_at: string;
+  updated_at?: string;
 }
 
 export interface BlockchainTransaction {
   id: number;
   assessment: number;
+  assessment_reference?: string;
   transaction_hash: string;
   network: string;
   block_number: number | null;
@@ -244,6 +274,13 @@ export interface DashboardData {
   consents: Consent[];
   assessments: Assessment[];
   integrations: IntegrationRequest[];
+  /** Per-stage pipeline records for the Overview inner tabs. */
+  lender_exchanges?: DataExchangeRecord[];
+  ai_exchanges?: DataExchangeRecord[];
+  blockchain_exchanges?: DataExchangeRecord[];
+  ai_results?: AIReputationResult[];
+  smart_contract_results?: SmartContractResult[];
+  blockchain_transactions?: BlockchainTransaction[];
 }
 
 export interface PullResult {

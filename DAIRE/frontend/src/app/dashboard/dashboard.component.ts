@@ -1,7 +1,10 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ApiService, Assessment, DashboardData, Lender } from '../core/api.service';
+import {
+  ApiService, Assessment, BlockchainTransaction, DashboardData, DataExchangeRecord,
+  Lender, SmartContractResult,
+} from '../core/api.service';
 
 interface RecentAssessment {
   reference: string;
@@ -11,6 +14,92 @@ interface RecentAssessment {
   risk: string;
   verified: boolean;
   when: string;
+}
+
+/** Tabs of the inner navbar inside the Overview page. */
+type OverviewStage =
+  | 'snapshot'
+  | 'lender-data'
+  | 'assessed'
+  | 'to-ai'
+  | 'ai-results'
+  | 'to-blockchain'
+  | 'blockchain-results';
+
+interface StageTab {
+  key: OverviewStage;
+  label: string;
+}
+
+/** Stage 1 — one row per data exchange received from a lender. */
+interface LenderExchangeRow {
+  when: string;
+  direction: string;
+  operation: string;
+  lender: string;
+  borrower: string;
+  status: string;
+  statusClass: string;
+  fields: string;
+  detail: string;
+}
+
+/** Stage 2 — assessment snapshot taken before the engines run. */
+interface AssessedRow {
+  when: string;
+  reference: string;
+  borrower: string;
+  reputation: string;
+  risk: string;
+  inputs: string;
+}
+
+/** Stage 3/5 — one row per payload pushed to the AI or blockchain engine. */
+interface EngineSentRow {
+  when: string;
+  reference: string;
+  borrower: string;
+  operation: string;
+  direction: string;
+  status: string;
+  statusClass: string;
+  payload: string;
+  error: string;
+}
+
+/** Stage 4 — one row per result returned by the AI engine. */
+interface AiResultRow {
+  when: string;
+  reference: string;
+  reputation: string;
+  reputationClass: string;
+  score: string;
+  risk: string;
+  model: string;
+  summary: string;
+}
+
+/** Stage 6 — one row per score sealed by the smart contract. */
+interface BlockchainResultRow {
+  when: string;
+  reference: string;
+  score: number | null;
+  band: string;
+  ruleset: string;
+  contract: string;
+  txHash: string;
+  block: number | null;
+}
+
+/** Stage 6 — one row per blockchain transaction record. */
+interface BlockchainTxRow {
+  when: string;
+  reference: string;
+  txHash: string;
+  network: string;
+  block: number | null;
+  status: string;
+  statusClass: string;
 }
 
 /** Assessment with an optional created_at (present on API payloads, absent in the index-signature type). */
@@ -77,6 +166,18 @@ export class DashboardComponent implements OnInit {
   /** Range switch for the activity chart, mirroring the reference design. */
   chartRange: 'week' | 'month' | 'year' = 'month';
   readonly chartRanges = ['week', 'month', 'year'] as const;
+
+  /** Active tab of the inner navbar inside the Overview page. */
+  stage: OverviewStage = 'snapshot';
+  readonly stageTabs: StageTab[] = [
+    { key: 'snapshot', label: 'Snapshot' },
+    { key: 'lender-data', label: 'Data received from lenders' },
+    { key: 'assessed', label: 'Data assessed (pre-engine)' },
+    { key: 'to-ai', label: 'Sent to AI' },
+    { key: 'ai-results', label: 'Received from AI' },
+    { key: 'to-blockchain', label: 'Sent to blockchain' },
+    { key: 'blockchain-results', label: 'Received from blockchain' },
+  ];
 
   ngOnInit(): void {
     this.load();
@@ -375,6 +476,156 @@ export class DashboardComponent implements OnInit {
     return line ? `${line} L100,36 L0,36 Z` : '';
   }
 
+  // =======================================================================
+  // Inner-navbar stage tables — one table per pipeline stage.
+  // =======================================================================
+
+  selectStage(stage: OverviewStage): void {
+    this.stage = stage;
+    this.cdr.markForCheck();
+  }
+
+  private static readonly DEFAULT_LIMIT = 20;
+
+  /** Newest-first rows for the "Data received from lenders" table. */
+  get lenderExchangeRows(): LenderExchangeRow[] {
+    return (this.data?.lender_exchanges ?? [])
+      .slice(0, DashboardComponent.DEFAULT_LIMIT)
+      .map((exchange) => {
+        const response = exchange.response ?? {};
+        const loans = response['loans_received'];
+        const txs = response['transaction_count'];
+        const detailBits = [
+          typeof loans === 'number' ? `${loans} loan(s)` : '',
+          typeof txs === 'number' ? `${txs} transaction(s)` : '',
+        ].filter(Boolean);
+        return {
+          when: exchange.created_at,
+          direction: exchange.direction,
+          operation: exchange.operation,
+          lender: exchange.lender_name || exchange.lender_id || '—',
+          borrower: exchange.borrower_reference || '—',
+          status: exchange.status,
+          statusClass: this.exchangeStatusClass(exchange.status),
+          fields: (exchange.fields_sent ?? []).join(', ') || '—',
+          detail: detailBits.join(' · ') || exchange.error_message || '—',
+        };
+      });
+  }
+
+  /** Stage 2 — assessments captured before any engine call. */
+  get assessedRows(): AssessedRow[] {
+    return (this.data?.assessments ?? [])
+      .filter((a) => a.credit_score == null && a.reputation_score == null)
+      .map((a) => this.toAssessedRow(a))
+      .slice(0, DashboardComponent.DEFAULT_LIMIT);
+  }
+
+  /** Newest first. */
+  get assessedRowsNewestFirst(): AssessedRow[] {
+    return (this.data?.assessments ?? [])
+      .map((a) => this.toAssessedRow(a))
+      .sort((x, y) => y.when.localeCompare(x.when))
+      .slice(0, DashboardComponent.DEFAULT_LIMIT);
+  }
+
+  /** Stage 3 — payloads sent to the AI engine. */
+  get aiSentRows(): EngineSentRow[] {
+    return this.toEngineSentRows(this.data?.ai_exchanges ?? []);
+  }
+
+  /** Stage 5 — payloads sent to the blockchain engine. */
+  get blockchainSentRows(): EngineSentRow[] {
+    return this.toEngineSentRows(this.data?.blockchain_exchanges ?? []);
+  }
+
+  /** Shared mapper: engine exchanges (AI or blockchain) to sent-payload rows. */
+  private toEngineSentRows(exchanges: DataExchangeRecord[]): EngineSentRow[] {
+    return exchanges.slice(0, DashboardComponent.DEFAULT_LIMIT).map((exchange) => ({
+      when: exchange.created_at,
+      reference: exchange.assessment_reference || '—',
+      borrower: exchange.borrower_reference || '—',
+      operation: exchange.operation,
+      direction: exchange.direction,
+      status: exchange.status,
+      statusClass: this.exchangeStatusClass(exchange.status),
+      payload: this.summarizePayload(exchange.payload),
+      error: exchange.error_message || '—',
+    }));
+  }
+
+  /** Stage 4 — results returned by the AI engine. */
+  get aiResultRows(): AiResultRow[] {
+    return (this.data?.ai_results ?? [])
+      .slice(0, DashboardComponent.DEFAULT_LIMIT)
+      .map((result) => ({
+        when: result.created_at,
+        reference: result.assessment_reference || `#${result.assessment}`,
+        reputation: result.reputation || '—',
+        reputationClass: this.reputationClass(result.reputation || ''),
+        score: result.score != null ? String(result.score) : '—',
+        risk: result.risk_level || '—',
+        model: result.model_version || '—',
+        summary: result.behavior_summary || '—',
+      }));
+  }
+
+  /** Stage 6 — scores sealed by the smart contract. */
+  get blockchainResultRows(): BlockchainResultRow[] {
+    return (this.data?.smart_contract_results ?? [])
+      .slice(0, DashboardComponent.DEFAULT_LIMIT)
+      .map((result) => ({
+        when: result.created_at,
+        reference: result.assessment_reference || `#${result.assessment}`,
+        score: result.credit_score,
+        band: result.risk_band || '—',
+        ruleset: result.ruleset_version ? `v${result.ruleset_version}` : '—',
+        contract: result.contract_address || '—',
+        txHash: result.transaction_hash || '—',
+        block: result.block_number ?? null,
+      }));
+  }
+
+  /** Stage 6 — blockchain transaction records. */
+  get blockchainTxRows(): BlockchainTxRow[] {
+    return (this.data?.blockchain_transactions ?? [])
+      .slice(0, DashboardComponent.DEFAULT_LIMIT)
+      .map((tx) => ({
+        when: tx.created_at,
+        reference: tx.assessment_reference || `#${tx.assessment}`,
+        txHash: tx.transaction_hash || '—',
+        network: tx.network || '—',
+        block: tx.block_number,
+        status: tx.status || '—',
+        statusClass: tx.status === 'CONFIRMED' ? 'badge-green' : tx.status === 'FAILED' ? 'badge-red' : 'badge-slate',
+      }));
+  }
+
+  /** Badge class for a DataExchange status. */
+  exchangeStatusClass(status: string): string {
+    if (status === 'COMPLETED') return 'badge-green';
+    if (status === 'FAILED') return 'badge-red';
+    return 'badge-slate'; // STARTED / pending
+  }
+
+  /** Compact one-line preview of a JSON payload for the sent-to-engine tables. */
+  summarizePayload(payload: Record<string, unknown> | undefined): string {
+    if (!payload || !Object.keys(payload).length) return '—';
+    return Object.entries(payload)
+      .map(([key, value]) => {
+        if (value === null || value === undefined) return `${key}=—`;
+        if (typeof value === 'object') return `${key}={…}`;
+        return `${key}=${String(value)}`;
+      })
+      .join('  ');
+  }
+
+  /** Title-case an operation slug for readability. */
+  prettyOperation(operation: string): string {
+    if (!operation) return '—';
+    return operation.replace(/_/g, ' ');
+  }
+
   /** Live lenders first, then by name — keep the overview compact. */
   get sortedLenders(): Lender[] {
     return [...(this.data?.lenders ?? [])].sort((a, b) => {
@@ -383,6 +634,19 @@ export class DashboardComponent implements OnInit {
       }
       return a.institution_name.localeCompare(b.institution_name);
     }).slice(0, 3);
+  }
+
+  /** Stage 2 — assessment snapshot rows (newest first). */
+  private toAssessedRow(a: Assessment): AssessedRow {
+    const created = (a as AssessmentWithTimestamp).created_at ?? '';
+    return {
+      when: created,
+      reference: a.assessment_reference,
+      borrower: a.borrower_name || a.borrower_reference,
+      reputation: a.reputation || 'PENDING',
+      risk: a.risk_level || '—',
+      inputs: this.summarizePayload(a.score_inputs ?? {}),
+    };
   }
 
   /** Newest three scored assessments as a compact activity feed. */

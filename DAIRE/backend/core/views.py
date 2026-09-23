@@ -994,7 +994,23 @@ from rest_framework.views import APIView
 
 
 class DashboardView(APIView):
+    # Per-stage record cap for the Overview tabs — the dashboard stays light
+    # even when the exchange log grows into the thousands.
+    STAGE_LIMIT = 100
+
     def get(self, request):
+        # Pipeline stage records for the Overview inner tabs. Each stage shows
+        # the raw records that flowed through that pipeline step.
+        exchange_qs = DataExchange.objects.select_related("borrower", "lender", "assessment", "policy")
+        lender_exchanges = exchange_qs.filter(
+            system=DataExchange.System.LENDER,
+        ).order_by("-created_at")[: self.STAGE_LIMIT]
+        ai_exchanges = exchange_qs.filter(
+            system=DataExchange.System.AI,
+        ).order_by("-created_at")[: self.STAGE_LIMIT]
+        blockchain_exchanges = exchange_qs.filter(
+            system=DataExchange.System.BLOCKCHAIN,
+        ).order_by("-created_at")[: self.STAGE_LIMIT]
         return Response({
             "lenders": LenderSerializer(Lender.objects.all(), many=True).data,
             "borrowers": BorrowerSerializer(Borrower.objects.all(), many=True).data,
@@ -1004,6 +1020,27 @@ class DashboardView(APIView):
             ).data,
             "integrations": IntegrationRequestSerializer(
                 IntegrationRequest.objects.select_related("lender", "borrower", "consent"), many=True
+            ).data,
+            # Stage 1 — data received from lenders (push + pull exchanges).
+            "lender_exchanges": DataExchangeSerializer(lender_exchanges, many=True).data,
+            # Stage 2 — data assessed before any engine is called.
+            "assessed_data": AssessmentSerializer(
+                Assessment.objects.select_related("borrower").order_by("-created_at"), many=True
+            ).data,
+            # Stage 3 — payload sent to the AI engine / Stage 5 — payload sent
+            # to the blockchain engine (exchange request payloads).
+            "ai_exchanges": DataExchangeSerializer(ai_exchanges, many=True).data,
+            "blockchain_exchanges": DataExchangeSerializer(blockchain_exchanges, many=True).data,
+            # Stage 4 — results returned by the AI engine.
+            "ai_results": AIReputationResultSerializer(
+                AIReputationResult.objects.select_related("assessment").order_by("-created_at")[: self.STAGE_LIMIT], many=True
+            ).data,
+            # Stage 6 — data received back from the blockchain (scores + txs).
+            "smart_contract_results": SmartContractResultSerializer(
+                SmartContractResult.objects.select_related("assessment").order_by("-created_at")[: self.STAGE_LIMIT], many=True
+            ).data,
+            "blockchain_transactions": BlockchainTransactionSerializer(
+                BlockchainTransaction.objects.select_related("assessment").order_by("-created_at")[: self.STAGE_LIMIT], many=True
             ).data,
         })
 
