@@ -3,6 +3,7 @@ from django.utils import timezone
 from django.contrib.admin.models import CHANGE, LogEntry
 from django.contrib.contenttypes.models import ContentType
 from django.db.models.deletion import ProtectedError
+from django.db.models import Avg, Count
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlencode, urlsplit, parse_qsl
@@ -1004,6 +1005,21 @@ class DashboardView(APIView):
         # Pipeline stage records for the Overview inner tabs. Each stage shows
         # the raw records that flowed through that pipeline step.
         exchange_qs = DataExchange.objects.select_related("borrower", "lender", "assessment", "policy")
+        # Database-wide totals for the KPI cards — not derived from the capped
+        # row lists below, so the cards stay accurate as history grows.
+        score_agg = Assessment.objects.filter(credit_score__isnull=False).aggregate(
+            avg=Avg("credit_score"), scored=Count("id"),
+        )
+        totals = {
+            "lenders": Lender.objects.count(),
+            "connected_lenders": Lender.objects.filter(api_status="CONNECTED").count(),
+            "borrowers": Borrower.objects.count(),
+            "active_borrowers": Borrower.objects.filter(is_active=True).count(),
+            "assessments": Assessment.objects.count(),
+            "scored_assessments": score_agg["scored"],
+            "verified_assessments": Assessment.objects.filter(verification_status="CONFIRMED").count(),
+            "average_credit_score": (round(score_agg["avg"]) if score_agg["avg"] is not None else None),
+        }
         lender_exchanges = exchange_qs.filter(
             system=DataExchange.System.LENDER,
         ).order_by("-created_at")[: self.STAGE_LIMIT]
@@ -1014,6 +1030,8 @@ class DashboardView(APIView):
             system=DataExchange.System.BLOCKCHAIN,
         ).order_by("-created_at")[: self.STAGE_LIMIT]
         return Response({
+            # KPI card numbers straight from the DB (full history, uncapped).
+            "totals": totals,
             "lenders": LenderSerializer(Lender.objects.all(), many=True).data,
             "borrowers": BorrowerSerializer(Borrower.objects.all(), many=True).data,
             "consents": ConsentSerializer(Consent.objects.all(), many=True).data,

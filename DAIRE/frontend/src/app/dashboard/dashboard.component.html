@@ -18,55 +18,55 @@
   </div>
 }
 
+@if (data) {
+  <!-- Colored KPI cards — always at the top, above the data visualization -->
+  <section class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    @for (card of kpiCards; track card.label) {
+      <article class="relative flex min-w-0 flex-col justify-between overflow-hidden rounded-2xl p-4 text-white shadow-lg"
+               [style.background]="card.bg">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="truncate text-sm font-medium text-white/90">{{ card.label }}</p>
+            <strong class="block text-3xl font-bold tracking-tight">{{ card.value }}</strong>
+          </div>
+          <span class="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold {{ card.chip }}">
+            <span>{{ card.trendUp ? '▲' : '▼' }}</span>
+            <span class="max-w-24 truncate">{{ card.trend }}</span>
+          </span>
+        </div>
+        <!-- Sparkline: dotted, wave, or bars — matching the reference card styles -->
+        <svg viewBox="0 0 100 24" preserveAspectRatio="none" class="mt-3 h-8 w-full" aria-hidden="true">
+          @switch (card.sparkType) {
+            @case ('dots') {
+              <polyline [attr.points]="card.sparkPoints" fill="none" stroke="rgba(255,255,255,0.55)"
+                        stroke-width="1" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+              @for (dot of card.sparkDots; track $index) {
+                <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="1.6" fill="#ffffff"/>
+              }
+            }
+            @case ('wave') {
+              <path [attr.d]="card.sparkWave" fill="none" stroke="rgba(255,255,255,0.9)"
+                    stroke-width="1.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+            }
+            @case ('bars') {
+              @for (bar of card.sparkBars; track $index) {
+                <rect [attr.x]="bar.x" [attr.y]="bar.y" [attr.width]="bar.w" [attr.height]="bar.h"
+                      rx="0.8" fill="rgba(255,255,255,0.75)"/>
+              }
+            }
+          }
+        </svg>
+      </article>
+    }
+  </section>
+}
+
 <!-- =======================================================================
-     Charts dashboard — line, donut, histogram, bars. Pure SVG with viewBox
+     Data visualization — donut + per-lender bars. Pure SVG with viewBox
      scaling so every chart reflows fluidly at any screen width.
      ======================================================================= -->
 @if (data) {
 <section class="mb-6 grid gap-4 lg:grid-cols-3">
-  <!-- Line chart: monthly average credit-score trend -->
-  <article class="card min-w-0 overflow-hidden lg:col-span-2">
-    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8e8e8] px-5 py-4">
-      <div class="min-w-0">
-        <p class="text-xs font-semibold uppercase tracking-wider text-[#9a9a9a]">Line graph</p>
-        <h2 class="mt-0.5 text-base font-semibold text-[#1a1a1a]">Average credit score by month</h2>
-      </div>
-      <span class="badge-slate">350–800 scale</span>
-    </div>
-    <div class="px-4 pb-4 pt-3 sm:px-5">
-      @if (scoreTrendLine.length >= 2) {
-        <div class="relative w-full">
-          <svg viewBox="0 0 100 42" preserveAspectRatio="none" class="h-44 w-full sm:h-52" aria-hidden="true">
-            <defs>
-              <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#024ad8" stop-opacity="0.35"/>
-                <stop offset="100%" stop-color="#024ad8" stop-opacity="0.03"/>
-              </linearGradient>
-            </defs>
-            <line x1="0" y1="10" x2="100" y2="10" stroke="#e8e8e8" stroke-width="0.4" vector-effect="non-scaling-stroke"/>
-            <line x1="0" y1="22" x2="100" y2="22" stroke="#e8e8e8" stroke-width="0.4" vector-effect="non-scaling-stroke"/>
-            <line x1="0" y1="34" x2="100" y2="34" stroke="#e8e8e8" stroke-width="0.4" vector-effect="non-scaling-stroke"/>
-            <path [attr.d]="scoreTrendArea" fill="url(#trendFill)"/>
-            <path [attr.d]="scoreTrendPath" fill="none" stroke="#024ad8" stroke-width="1.4"
-                  vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          @for (p of scoreTrendLine; track p.label + $index) {
-            <span class="absolute bottom-0 -translate-x-1/2 text-[9px] text-[#9a9a9a] sm:text-[10px]"
-                  [style.left.%]="p.x">{{ p.label }}</span>
-          }
-        </div>
-        <div class="mt-5 grid grid-cols-2 gap-2 border-t border-[#e8e8e8] pt-3 sm:grid-cols-4">
-          <div><span class="block text-[10px] uppercase tracking-wide text-[#9a9a9a]">Avg</span><strong class="text-sm text-[#1a1a1a]">{{ averageCreditScore ?? '—' }}</strong></div>
-          <div><span class="block text-[10px] uppercase tracking-wide text-[#9a9a9a]">Scored</span><strong class="text-sm text-[#1a1a1a]">{{ scoredAssessments }}</strong></div>
-          <div><span class="block text-[10px] uppercase tracking-wide text-[#9a9a9a]">On-chain</span><strong class="text-sm text-[#1a1a1a]">{{ verifiedAssessments }}</strong></div>
-          <div><span class="block text-[10px] uppercase tracking-wide text-[#9a9a9a]">Months</span><strong class="text-sm text-[#1a1a1a]">{{ scoreTrendLine.length }}</strong></div>
-        </div>
-      } @else {
-        <div class="grid h-44 place-items-center text-sm text-[#9a9a9a] sm:h-52">Score at least two different months to draw the trend.</div>
-      }
-    </div>
-  </article>
-
   <!-- Donut chart: pipeline stage composition -->
   <article class="card min-w-0 overflow-hidden">
     <div class="border-b border-[#e8e8e8] px-5 py-4">
@@ -100,30 +100,6 @@
           <li class="text-sm text-[#9a9a9a]">No pipeline records yet.</li>
         }
       </ul>
-    </div>
-  </article>
-
-  <!-- Histogram: credit-score distribution -->
-  <article class="card min-w-0 overflow-hidden">
-    <div class="border-b border-[#e8e8e8] px-5 py-4">
-      <p class="text-xs font-semibold uppercase tracking-wider text-[#9a9a9a]">Histogram</p>
-      <h2 class="mt-0.5 text-base font-semibold text-[#1a1a1a]">Score distribution</h2>
-    </div>
-    <div class="px-5 pb-5 pt-4">
-      <div class="flex h-36 items-end gap-1.5 sm:h-40">
-        @for (bin of scoreHistogram; track bin.label) {
-          <div class="flex min-w-0 flex-1 flex-col items-center gap-1">
-            <span class="text-[10px] font-semibold text-[#636363]">{{ bin.count || '' }}</span>
-            <div class="w-full rounded-t-md transition-all" [style.background]="bin.color"
-                 [style.height.%]="bin.heightPct"
-                 [title]="bin.label + ': ' + bin.count"></div>
-            <span class="w-full truncate text-center text-[9px] text-[#9a9a9a]">{{ bin.label }}</span>
-          </div>
-        }
-      </div>
-      <p class="mt-3 border-t border-[#e8e8e8] pt-2 text-center text-[10px] uppercase tracking-wide text-[#9a9a9a]">
-        {{ scoredAssessments }} scored assessment(s) across the 350–800 range
-      </p>
     </div>
   </article>
 
@@ -183,47 +159,6 @@
 
 @if (data; as d) {
 @if (stage === 'snapshot') {
-  <!-- Colored KPI cards, after the reference design -->
-  <section class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-    @for (card of kpiCards; track card.label) {
-      <article class="relative flex min-w-0 flex-col justify-between overflow-hidden rounded-2xl p-4 text-white shadow-lg"
-               [style.background]="card.bg">
-        <div class="flex items-start justify-between gap-3">
-          <div class="min-w-0">
-            <p class="truncate text-sm font-medium text-white/90">{{ card.label }}</p>
-            <strong class="block text-3xl font-bold tracking-tight">{{ card.value }}</strong>
-          </div>
-          <span class="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold {{ card.chip }}">
-            <span>{{ card.trendUp ? '▲' : '▼' }}</span>
-            <span class="max-w-24 truncate">{{ card.trend }}</span>
-          </span>
-        </div>
-        <!-- Sparkline: dotted, wave, or bars — matching the reference card styles -->
-        <svg viewBox="0 0 100 24" preserveAspectRatio="none" class="mt-3 h-8 w-full" aria-hidden="true">
-          @switch (card.sparkType) {
-            @case ('dots') {
-              <polyline [attr.points]="card.sparkPoints" fill="none" stroke="rgba(255,255,255,0.55)"
-                        stroke-width="1" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
-              @for (dot of card.sparkDots; track $index) {
-                <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="1.6" fill="#ffffff"/>
-              }
-            }
-            @case ('wave') {
-              <path [attr.d]="card.sparkWave" fill="none" stroke="rgba(255,255,255,0.9)"
-                    stroke-width="1.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
-            }
-            @case ('bars') {
-              @for (bar of card.sparkBars; track $index) {
-                <rect [attr.x]="bar.x" [attr.y]="bar.y" [attr.width]="bar.w" [attr.height]="bar.h"
-                      rx="0.8" fill="rgba(255,255,255,0.75)"/>
-              }
-            }
-          }
-        </svg>
-      </article>
-    }
-  </section>
-
   <!-- Activity chart (traffic style) -->
   <section class="card mb-6 min-w-0 overflow-hidden">
     <div class="flex flex-wrap items-center justify-between gap-3 px-6 pb-2 pt-5">

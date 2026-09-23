@@ -268,7 +268,21 @@ function collection<T>(response: CollectionResponse<T>, key?: string): T[] {
   return [];
 }
 
+/** Database-wide counts used by the Overview KPI cards (uncapped, full history). */
+export interface DashboardTotals {
+  lenders: number;
+  connected_lenders: number;
+  borrowers: number;
+  active_borrowers: number;
+  assessments: number;
+  scored_assessments: number;
+  verified_assessments: number;
+  average_credit_score: number | null;
+}
+
 export interface DashboardData {
+  /** True DB totals for the KPI cards — absent on older API payloads. */
+  totals?: DashboardTotals;
   lenders: Lender[];
   borrowers: Borrower[];
   consents: Consent[];
