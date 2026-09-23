@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
   ApiService, Assessment, BlockchainTransaction, DashboardData, DataExchangeRecord,
-  Lender, SmartContractResult,
+  Lender, PAGE_SIZE, SmartContractResult,
 } from '../core/api.service';
 import { PagerComponent } from '../core/pager.component';
 
@@ -526,7 +526,7 @@ export class DashboardComponent implements OnInit {
 
   /** Search + page a row list. Pages stay valid because every search and
    * every data reload resets all tables back to page 1 (see below). */
-  private stageView<T extends object>(rows: T[], query: string, page: number): T[] {
+  stageView<T extends object>(rows: T[], query: string, page: number): T[] {
     const filtered = query.trim() ? rows.filter((row) => this.matchesQuery(row, query)) : rows;
     return filtered.slice((page - 1) * this.stagePageSize, page * this.stagePageSize);
   }
@@ -583,14 +583,7 @@ export class DashboardComponent implements OnInit {
       });
   }
 
-  /** Stage 2 — assessments captured before any engine call. */
-  get assessedRows(): AssessedRow[] {
-    return (this.data?.assessments ?? [])
-      .filter((a) => a.credit_score == null && a.reputation_score == null)
-      .map((a) => this.toAssessedRow(a));
-  }
-
-  /** Newest first. */
+  /** Stage 2 — assessment snapshots, newest first. */
   get assessedRowsNewestFirst(): AssessedRow[] {
     return (this.data?.assessments ?? [])
       .map((a) => this.toAssessedRow(a))

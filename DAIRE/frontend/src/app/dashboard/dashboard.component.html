@@ -277,7 +277,11 @@
         <h2 class="mt-0.5 text-base font-semibold text-[#1a1a1a]">Data received from lenders</h2>
         <p class="mt-0.5 text-xs text-[#9a9a9a]">Every push and pull exchange logged when borrower data arrived from lender systems.</p>
       </div>
-      <span class="badge-slate">{{ lenderExchangeRows.length }} record(s)</span>
+      <div class="flex shrink-0 flex-wrap items-center gap-2">
+        <input type="search" class="input-field !min-h-0 w-48 px-3 py-1.5 text-sm" placeholder="Search lender, borrower…"
+               [(ngModel)]="lenderQuery" (ngModelChange)="onStageSearch()" aria-label="Search lender data table">
+        <span class="badge-slate">{{ stageCount(lenderExchangeRows, lenderQuery) }} record(s)</span>
+      </div>
     </div>
     <div class="overflow-x-auto">
       <table class="w-full text-left">
@@ -294,7 +298,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-[#e8e8e8]">
-          @for (row of lenderExchangeRows; track $index) {
+          @for (row of stageView(lenderExchangeRows, lenderQuery, lenderPage); track $index) {
             <tr class="transition-colors hover:bg-[#f7f7f7]">
               <td class="table-td whitespace-nowrap">{{ row.when | date:'medium' }}</td>
               <td class="table-td"><span [class]="row.direction === 'PUSH' ? 'badge-yellow' : 'badge-slate'">{{ row.direction }}</span></td>
@@ -306,11 +310,18 @@
               <td class="table-td"><span [class]="row.statusClass">{{ row.status }}</span></td>
             </tr>
           } @empty {
-            <tr><td colspan="8" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">No lender data has been received yet — pull or receive data in Data exchange.</td></tr>
+            <tr><td colspan="8" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">
+              @if (stageNoMatch(lenderExchangeRows, lenderQuery)) {
+                No records match "{{ lenderQuery }}" — clear the search to see all lender data.
+              } @else {
+                No lender data has been received yet — pull or receive data in Data exchange.
+              }
+            </td></tr>
           }
         </tbody>
       </table>
     </div>
+    <app-pager [page]="lenderPage" [count]="stageCount(lenderExchangeRows, lenderQuery)" [pageSize]="stagePageSize" (pageChange)="lenderPage = $event"/>
   </section>
 }
 
@@ -325,7 +336,11 @@
         <h2 class="mt-0.5 text-base font-semibold text-[#1a1a1a]">Data assessed before the engines</h2>
         <p class="mt-0.5 text-xs text-[#9a9a9a]">Assessment snapshots as they were captured before any AI or blockchain scoring ran.</p>
       </div>
-      <span class="badge-slate">{{ assessedRowsNewestFirst.length }} record(s)</span>
+      <div class="flex shrink-0 flex-wrap items-center gap-2">
+        <input type="search" class="input-field !min-h-0 w-48 px-3 py-1.5 text-sm" placeholder="Search assessment, borrower…"
+               [(ngModel)]="assessedQuery" (ngModelChange)="onStageSearch()" aria-label="Search assessed data table">
+        <span class="badge-slate">{{ stageCount(assessedRowsNewestFirst, assessedQuery) }} record(s)</span>
+      </div>
     </div>
     <div class="overflow-x-auto">
       <table class="w-full text-left">
@@ -340,7 +355,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-[#e8e8e8]">
-          @for (row of assessedRowsNewestFirst; track row.reference) {
+          @for (row of stageView(assessedRowsNewestFirst, assessedQuery, assessedPage); track row.reference) {
             <tr class="transition-colors hover:bg-[#f7f7f7]">
               <td class="table-td whitespace-nowrap">{{ row.when | date:'medium' }}</td>
               <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]">{{ row.reference }}</td>
@@ -350,11 +365,18 @@
               <td class="table-td max-w-72 truncate font-mono text-xs text-[#636363]" [title]="row.inputs">{{ row.inputs }}</td>
             </tr>
           } @empty {
-            <tr><td colspan="6" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">No assessments yet — open one in Data exchange.</td></tr>
+            <tr><td colspan="6" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">
+              @if (stageNoMatch(assessedRowsNewestFirst, assessedQuery)) {
+                No records match "{{ assessedQuery }}" — clear the search to see all assessments.
+              } @else {
+                No assessments yet — open one in Data exchange.
+              }
+            </td></tr>
           }
         </tbody>
       </table>
     </div>
+    <app-pager [page]="assessedPage" [count]="stageCount(assessedRowsNewestFirst, assessedQuery)" [pageSize]="stagePageSize" (pageChange)="assessedPage = $event"/>
   </section>
 }
 
@@ -369,7 +391,11 @@
         <h2 class="mt-0.5 text-base font-semibold text-[#1a1a1a]">Data sent to the AI engine</h2>
         <p class="mt-0.5 text-xs text-[#9a9a9a]">Payloads pushed to the AI reputation service for every assessment.</p>
       </div>
-      <span class="badge-slate">{{ aiSentRows.length }} record(s)</span>
+      <div class="flex shrink-0 flex-wrap items-center gap-2">
+        <input type="search" class="input-field !min-h-0 w-48 px-3 py-1.5 text-sm" placeholder="Search assessment, payload…"
+               [(ngModel)]="aiSentQuery" (ngModelChange)="onStageSearch()" aria-label="Search sent-to-AI table">
+        <span class="badge-slate">{{ stageCount(aiSentRows, aiSentQuery) }} record(s)</span>
+      </div>
     </div>
     <div class="overflow-x-auto">
       <table class="w-full text-left">
@@ -384,7 +410,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-[#e8e8e8]">
-          @for (row of aiSentRows; track $index) {
+          @for (row of stageView(aiSentRows, aiSentQuery, aiSentPage); track $index) {
             <tr class="transition-colors hover:bg-[#f7f7f7]">
               <td class="table-td whitespace-nowrap">{{ row.when | date:'medium' }}</td>
               <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]">{{ row.reference }}</td>
@@ -397,11 +423,18 @@
               </td>
             </tr>
           } @empty {
-            <tr><td colspan="6" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">No AI requests yet — run an assessment analysis first.</td></tr>
+            <tr><td colspan="6" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">
+              @if (stageNoMatch(aiSentRows, aiSentQuery)) {
+                No records match "{{ aiSentQuery }}" — clear the search to see all AI submissions.
+              } @else {
+                No AI requests yet — run an assessment analysis first.
+              }
+            </td></tr>
           }
         </tbody>
       </table>
     </div>
+    <app-pager [page]="aiSentPage" [count]="stageCount(aiSentRows, aiSentQuery)" [pageSize]="stagePageSize" (pageChange)="aiSentPage = $event"/>
   </section>
 }
 
@@ -416,7 +449,11 @@
         <h2 class="mt-0.5 text-base font-semibold text-[#1a1a1a]">Data received from the AI engine</h2>
         <p class="mt-0.5 text-xs text-[#9a9a9a]">Reputation results returned by the AI model for every scored assessment.</p>
       </div>
-      <span class="badge-slate">{{ aiResultRows.length }} record(s)</span>
+      <div class="flex shrink-0 flex-wrap items-center gap-2">
+        <input type="search" class="input-field !min-h-0 w-48 px-3 py-1.5 text-sm" placeholder="Search assessment, reputation…"
+               [(ngModel)]="aiResultQuery" (ngModelChange)="onStageSearch()" aria-label="Search AI results table">
+        <span class="badge-slate">{{ stageCount(aiResultRows, aiResultQuery) }} record(s)</span>
+      </div>
     </div>
     <div class="overflow-x-auto">
       <table class="w-full text-left">
@@ -432,7 +469,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-[#e8e8e8]">
-          @for (row of aiResultRows; track $index) {
+          @for (row of stageView(aiResultRows, aiResultQuery, aiResultPage); track $index) {
             <tr class="transition-colors hover:bg-[#f7f7f7]">
               <td class="table-td whitespace-nowrap">{{ row.when | date:'medium' }}</td>
               <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]">{{ row.reference }}</td>
@@ -443,11 +480,18 @@
               <td class="table-td max-w-72 truncate text-xs text-[#636363]" [title]="row.summary">{{ row.summary }}</td>
             </tr>
           } @empty {
-            <tr><td colspan="7" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">No AI results yet — the AI engine has not returned any reputation scores.</td></tr>
+            <tr><td colspan="7" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">
+              @if (stageNoMatch(aiResultRows, aiResultQuery)) {
+                No records match "{{ aiResultQuery }}" — clear the search to see all AI results.
+              } @else {
+                No AI results yet — the AI engine has not returned any reputation scores.
+              }
+            </td></tr>
           }
         </tbody>
       </table>
     </div>
+    <app-pager [page]="aiResultPage" [count]="stageCount(aiResultRows, aiResultQuery)" [pageSize]="stagePageSize" (pageChange)="aiResultPage = $event"/>
   </section>
 }
 
@@ -462,7 +506,11 @@
         <h2 class="mt-0.5 text-base font-semibold text-[#1a1a1a]">Data sent to the blockchain</h2>
         <p class="mt-0.5 text-xs text-[#9a9a9a]">Dimensions and features submitted to the smart contract for on-chain scoring.</p>
       </div>
-      <span class="badge-slate">{{ blockchainSentRows.length }} record(s)</span>
+      <div class="flex shrink-0 flex-wrap items-center gap-2">
+        <input type="search" class="input-field !min-h-0 w-48 px-3 py-1.5 text-sm" placeholder="Search assessment, dimensions…"
+               [(ngModel)]="blockchainSentQuery" (ngModelChange)="onStageSearch()" aria-label="Search sent-to-blockchain table">
+        <span class="badge-slate">{{ stageCount(blockchainSentRows, blockchainSentQuery) }} record(s)</span>
+      </div>
     </div>
     <div class="overflow-x-auto">
       <table class="w-full text-left">
@@ -477,7 +525,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-[#e8e8e8]">
-          @for (row of blockchainSentRows; track $index) {
+          @for (row of stageView(blockchainSentRows, blockchainSentQuery, blockchainSentPage); track $index) {
             <tr class="transition-colors hover:bg-[#f7f7f7]">
               <td class="table-td whitespace-nowrap">{{ row.when | date:'medium' }}</td>
               <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]">{{ row.reference }}</td>
@@ -490,11 +538,18 @@
               </td>
             </tr>
           } @empty {
-            <tr><td colspan="6" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">No blockchain submissions yet — run a blockchain score first.</td></tr>
+            <tr><td colspan="6" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">
+              @if (stageNoMatch(blockchainSentRows, blockchainSentQuery)) {
+                No records match "{{ blockchainSentQuery }}" — clear the search to see all blockchain submissions.
+              } @else {
+                No blockchain submissions yet — run a blockchain score first.
+              }
+            </td></tr>
           }
         </tbody>
       </table>
     </div>
+    <app-pager [page]="blockchainSentPage" [count]="stageCount(blockchainSentRows, blockchainSentQuery)" [pageSize]="stagePageSize" (pageChange)="blockchainSentPage = $event"/>
   </section>
 }
 
@@ -509,7 +564,11 @@
         <h2 class="mt-0.5 text-base font-semibold text-[#1a1a1a]">Data received from the blockchain</h2>
         <p class="mt-0.5 text-xs text-[#9a9a9a]">On-chain scores returned by the smart contract, plus their transaction records.</p>
       </div>
-      <span class="badge-slate">{{ blockchainResultRows.length + blockchainTxRows.length }} record(s)</span>
+      <div class="flex shrink-0 flex-wrap items-center gap-2">
+        <input type="search" class="input-field !min-h-0 w-48 px-3 py-1.5 text-sm" placeholder="Search score, hash, band…"
+               [(ngModel)]="blockchainResultQuery" (ngModelChange)="onStageSearch()" aria-label="Search blockchain results table">
+        <span class="badge-slate">{{ stageCount(blockchainResultRows, blockchainResultQuery) }} record(s)</span>
+      </div>
     </div>
     <div class="overflow-x-auto">
       <table class="w-full text-left">
@@ -525,7 +584,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-[#e8e8e8]">
-          @for (row of blockchainResultRows; track $index) {
+          @for (row of stageView(blockchainResultRows, blockchainResultQuery, blockchainResultPage); track $index) {
             <tr class="transition-colors hover:bg-[#f7f7f7]">
               <td class="table-td whitespace-nowrap">{{ row.when | date:'medium' }}</td>
               <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]">{{ row.reference }}</td>
@@ -538,15 +597,24 @@
               <td class="table-td">{{ row.block ?? '—' }}</td>
             </tr>
           } @empty {
-            <tr><td colspan="7" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">No on-chain scores yet — the smart contract has not returned any results.</td></tr>
+            <tr><td colspan="7" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">
+              @if (stageNoMatch(blockchainResultRows, blockchainResultQuery)) {
+                No records match "{{ blockchainResultQuery }}" — clear the search to see all on-chain scores.
+              } @else {
+                No on-chain scores yet — the smart contract has not returned any results.
+              }
+            </td></tr>
           }
         </tbody>
       </table>
     </div>
+    <app-pager [page]="blockchainResultPage" [count]="stageCount(blockchainResultRows, blockchainResultQuery)" [pageSize]="stagePageSize" (pageChange)="blockchainResultPage = $event"/>
     @if (blockchainTxRows.length) {
       <div class="border-t border-[#e8e8e8]">
-        <div class="px-6 pt-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 px-6 pt-4">
           <p class="text-xs font-semibold uppercase tracking-wider text-[#9a9a9a]">Transaction ledger</p>
+          <input type="search" class="input-field !min-h-0 w-48 px-3 py-1.5 text-sm" placeholder="Search hash, network…"
+                 [(ngModel)]="txQuery" (ngModelChange)="onStageSearch()" aria-label="Search transaction ledger">
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-left">
@@ -561,7 +629,7 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-[#e8e8e8]">
-              @for (tx of blockchainTxRows; track tx.txHash) {
+              @for (tx of stageView(blockchainTxRows, txQuery, txPage); track tx.txHash) {
                 <tr class="transition-colors hover:bg-[#f7f7f7]">
                   <td class="table-td whitespace-nowrap">{{ tx.when | date:'medium' }}</td>
                   <td class="table-td font-mono text-xs">{{ tx.reference }}</td>
@@ -574,6 +642,7 @@
             </tbody>
           </table>
         </div>
+        <app-pager [page]="txPage" [count]="stageCount(blockchainTxRows, txQuery)" [pageSize]="stagePageSize" (pageChange)="txPage = $event"/>
       </div>
     }
   </section>
