@@ -191,6 +191,8 @@ class CreditFeatureSerializer(serializers.ModelSerializer):
 
 
 class AIReputationResultSerializer(serializers.ModelSerializer):
+    assessment_reference = serializers.CharField(source="assessment.assessment_reference", read_only=True)
+
     class Meta:
         model = AIReputationResult
         fields = "__all__"
@@ -198,6 +200,7 @@ class AIReputationResultSerializer(serializers.ModelSerializer):
 
 
 class SmartContractResultSerializer(serializers.ModelSerializer):
+    assessment_reference = serializers.CharField(source="assessment.assessment_reference", read_only=True)
     transaction_hash = serializers.CharField(source="assessment.blockchain_transaction_hash", read_only=True)
     block_number = serializers.IntegerField(source="assessment.blockchain_block_number", read_only=True)
     risk_band = serializers.SerializerMethodField()
@@ -214,6 +217,8 @@ class SmartContractResultSerializer(serializers.ModelSerializer):
 
 
 class BlockchainTransactionSerializer(serializers.ModelSerializer):
+    assessment_reference = serializers.CharField(source="assessment.assessment_reference", read_only=True)
+
     class Meta:
         model = BlockchainTransaction
         fields = "__all__"
@@ -238,6 +243,11 @@ class DataRoutingPolicySerializer(serializers.ModelSerializer):
 
 
 class DataExchangeSerializer(serializers.ModelSerializer):
+    borrower_reference = serializers.CharField(source="borrower.borrower_reference", read_only=True)
+    lender_id = serializers.CharField(source="lender.lender_id", read_only=True)
+    lender_name = serializers.CharField(source="lender.institution_name", read_only=True)
+    assessment_reference = serializers.CharField(source="assessment.assessment_reference", read_only=True)
+
     class Meta:
         model = DataExchange
         fields = "__all__"
