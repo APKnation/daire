@@ -3,10 +3,11 @@ import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
-  ApiService, Assessment, BlockchainTransaction, DashboardData, DataExchangeRecord,
+  ApiService, ApiRecord, Assessment, BlockchainTransaction, DashboardData, DataExchangeRecord,
   Lender, PAGE_SIZE, SmartContractResult,
 } from '../core/api.service';
 import { PagerComponent } from '../core/pager.component';
+import { alertNear, toast } from '../core/notify';
 
 interface RecentAssessment {
   reference: string;
@@ -586,7 +587,15 @@ export class DashboardComponent implements OnInit {
   /** Stage 2 — assessment snapshots, newest first. */
   get assessedRowsNewestFirst(): AssessedRow[] {
     return (this.data?.assessments ?? [])
-      .map((a) => this.toAssessedRow(a))
+      .map((a) => ({
+        record: a,
+        when: (a as AssessmentWithTimestamp).created_at ?? '',
+        reference: a.assessment_reference,
+        borrower: a.borrower_name || a.borrower_reference,
+        reputation: a.reputation || 'PENDING',
+        risk: a.risk_level || '—',
+        inputs: this.summarizePayload(a.score_inputs ?? {}),
+      }))
       .sort((x, y) => y.when.localeCompare(x.when));
   }
 
@@ -603,6 +612,7 @@ export class DashboardComponent implements OnInit {
   /** Shared mapper: engine exchanges (AI or blockchain) to sent-payload rows. */
   private toEngineSentRows(exchanges: DataExchangeRecord[]): EngineSentRow[] {
     return exchanges.map((exchange) => ({
+      record: exchange,
       when: exchange.created_at,
       reference: exchange.assessment_reference || '—',
       borrower: exchange.borrower_reference || '—',
@@ -619,6 +629,7 @@ export class DashboardComponent implements OnInit {
   get aiResultRows(): AiResultRow[] {
     return (this.data?.ai_results ?? [])
       .map((result) => ({
+        record: result,
         when: result.created_at,
         reference: result.assessment_reference || `#${result.assessment}`,
         reputation: result.reputation || '—',
@@ -634,6 +645,7 @@ export class DashboardComponent implements OnInit {
   get blockchainResultRows(): BlockchainResultRow[] {
     return (this.data?.smart_contract_results ?? [])
       .map((result) => ({
+        record: result,
         when: result.created_at,
         reference: result.assessment_reference || `#${result.assessment}`,
         score: result.credit_score,
@@ -649,6 +661,7 @@ export class DashboardComponent implements OnInit {
   get blockchainTxRows(): BlockchainTxRow[] {
     return (this.data?.blockchain_transactions ?? [])
       .map((tx) => ({
+        record: tx,
         when: tx.created_at,
         reference: tx.assessment_reference || `#${tx.assessment}`,
         txHash: tx.transaction_hash || '—',
