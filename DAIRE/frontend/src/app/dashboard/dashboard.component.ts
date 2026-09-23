@@ -877,6 +877,7 @@ export class DashboardComponent implements OnInit {
   private toAssessedRow(a: Assessment): AssessedRow {
     const created = (a as AssessmentWithTimestamp).created_at ?? '';
     return {
+      record: a,
       when: created,
       reference: a.assessment_reference,
       borrower: a.borrower_name || a.borrower_reference,
