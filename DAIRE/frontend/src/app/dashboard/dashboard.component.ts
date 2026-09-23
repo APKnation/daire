@@ -36,6 +36,7 @@ interface StageTab {
 
 /** Stage 1 — one row per data exchange received from a lender. */
 interface LenderExchangeRow {
+  record: DataExchangeRecord;
   when: string;
   direction: string;
   operation: string;
@@ -49,6 +50,7 @@ interface LenderExchangeRow {
 
 /** Stage 2 — assessment snapshot taken before the engines run. */
 interface AssessedRow {
+  record: Assessment;
   when: string;
   reference: string;
   borrower: string;
@@ -59,6 +61,7 @@ interface AssessedRow {
 
 /** Stage 3/5 — one row per payload pushed to the AI or blockchain engine. */
 interface EngineSentRow {
+  record: DataExchangeRecord;
   when: string;
   reference: string;
   borrower: string;
@@ -72,6 +75,7 @@ interface EngineSentRow {
 
 /** Stage 4 — one row per result returned by the AI engine. */
 interface AiResultRow {
+  record: ApiRecord;
   when: string;
   reference: string;
   reputation: string;
@@ -84,6 +88,7 @@ interface AiResultRow {
 
 /** Stage 6 — one row per score sealed by the smart contract. */
 interface BlockchainResultRow {
+  record: SmartContractResult;
   when: string;
   reference: string;
   score: number | null;
@@ -96,6 +101,7 @@ interface BlockchainResultRow {
 
 /** Stage 6 — one row per blockchain transaction record. */
 interface BlockchainTxRow {
+  record: BlockchainTransaction;
   when: string;
   reference: string;
   txHash: string;
@@ -571,6 +577,7 @@ export class DashboardComponent implements OnInit {
           typeof txs === 'number' ? `${txs} transaction(s)` : '',
         ].filter(Boolean);
         return {
+          record: exchange,
           when: exchange.created_at,
           direction: exchange.direction,
           operation: exchange.operation,
