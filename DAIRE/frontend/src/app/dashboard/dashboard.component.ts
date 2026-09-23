@@ -153,6 +153,43 @@ interface ScoreBand {
   color: string;
 }
 
+/** Slice of the pipeline-stage donut chart. */
+interface DonutSegment {
+  label: string;
+  count: number;
+  color: string;
+  /** 0–1 share of the whole circle. */
+  pct: number;
+  /** Pre-computed SVG arc path in a 100×100 viewBox. */
+  arc: string;
+}
+
+/** One bar of the score-distribution histogram (350–800 range). */
+interface HistogramBin {
+  label: string;
+  count: number;
+  /** 0–1 height relative to the tallest bin. */
+  height: number;
+  color: string;
+}
+
+/** One per-lender bar: how much data each institution has contributed. */
+interface LenderBar {
+  label: string;
+  full: string;
+  count: number;
+  /** 0–1 width relative to the busiest lender. */
+  width: number;
+}
+
+/** One point of the score-trend line chart. */
+interface TrendPoint {
+  label: string;
+  score: number | null;
+  x: number;
+  y: number;
+}
+
 interface ActivityChart {
   points: ChartPoint[];
   max: number;
