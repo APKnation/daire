@@ -11,7 +11,15 @@ from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
+from rest_framework.exceptions import APIException
+
+
+class ImmutableRecord(APIException):
+    """409 raised when a DB delete trigger blocks an immutable record."""
+
+    status_code = status.HTTP_409_CONFLICT
+    default_detail = "This record is immutable: assessment, AI and blockchain results cannot be deleted."
+    default_code = "immutable_record"
 
 
 class ImmutableDeleteGuardMixin:
@@ -23,17 +31,14 @@ class ImmutableDeleteGuardMixin:
     raw 500 — deletion of externally-produced records stays impossible.
     """
 
-    def destroy(self, request, *args, **kwargs):
+    def perform_destroy(self, instance):
         from django.db.utils import IntegrityError
 
         try:
-            return super().destroy(request, *args, **kwargs)
+            instance.delete()
         except IntegrityError as exc:
             if "immutable" in str(exc).lower():
-                return Response(
-                    {"detail": "This record is immutable: assessment, AI and blockchain results cannot be deleted."},
-                    status=status.HTTP_409_CONFLICT,
-                )
+                raise ImmutableRecord()
             raise
 from .models import (
     AIReputationResult, Assessment, BlockchainTransaction, Borrower, BorrowerAccount,

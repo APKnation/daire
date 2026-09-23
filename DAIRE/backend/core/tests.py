@@ -5,7 +5,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
-from .models import Borrower, BorrowerAccount, BorrowerFinancialProfile, BorrowerLoan, Consent, CreditProfile, Lender
+from .models import AIReputationResult, Assessment, Borrower, BorrowerAccount, BorrowerFinancialProfile, BorrowerLoan, Consent, CreditProfile, DataExchange, Lender
 from .services import (
     ExternalServiceUnavailable, FeatureGenerationService, AIReputationService,
     create_integration_request, merge_vendor_borrower_data, validate_and_normalize,
