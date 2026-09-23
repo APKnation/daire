@@ -1,0 +1,24 @@
+import { Routes } from '@angular/router';
+import { authGuard } from './core/auth.guard';
+import { LoginComponent } from './login/login.component';
+import { DashboardComponent } from './dashboard/dashboard.component';
+import { AssessmentsComponent } from './assessments/assessments.component';
+import { RecordsComponent } from './records/records.component';
+import { DataExchangeComponent } from './data-exchange/data-exchange.component';
+import { DataManagementComponent } from './data-management/data-management.component';
+
+export const routes: Routes = [
+  { path: '', component: LoginComponent },
+  { path: 'login', component: LoginComponent },
+  { path: 'dashboard', canActivate: [authGuard], component: DashboardComponent },
+  { path: 'assessments', canActivate: [authGuard], component: AssessmentsComponent },
+  { path: 'data-exchange', canActivate: [authGuard], component: DataExchangeComponent },
+  { path: 'data-management', canActivate: [authGuard], component: DataManagementComponent },
+  { path: 'lenders', canActivate: [authGuard], component: RecordsComponent, data: { kind: 'lenders' } },
+  { path: 'borrowers', canActivate: [authGuard], component: RecordsComponent, data: { kind: 'borrowers' } },
+  { path: 'consents', canActivate: [authGuard], component: RecordsComponent, data: { kind: 'consents' } },
+  { path: 'integrations', canActivate: [authGuard], component: RecordsComponent, data: { kind: 'integrations' } },
+  { path: 'ai-reputation', canActivate: [authGuard], component: RecordsComponent, data: { kind: 'ai-reputation' } },
+  { path: 'blockchain', canActivate: [authGuard], component: RecordsComponent, data: { kind: 'blockchain' } },
+  { path: '**', redirectTo: '' },
+];

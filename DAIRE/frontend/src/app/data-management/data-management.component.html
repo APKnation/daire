@@ -1,0 +1,172 @@
+<header class="mb-8 flex flex-wrap items-start justify-between gap-4">
+  <div>
+    <p class="page-label">Administration</p>
+    <h1 class="page-title">Data management</h1>
+    <p class="mt-1 text-sm text-[#636363]">Register lender connections and manage the borrower registry behind every assessment.</p>
+  </div>
+  <a routerLink="/data-exchange" class="btn-primary">Open data exchange →</a>
+</header>
+
+@if (message) { <div class="mb-5 rounded-xl border border-[rgb(53,99,115,0.35)] bg-[rgb(201,224,252,0.4)] px-5 py-4 text-sm text-[#356373]">{{ message }}</div> }
+@if (error) { <div class="mb-5 rounded-xl border border-[rgb(179,38,43,0.3)] bg-[#f9d4d2] px-5 py-4 text-sm text-[#b3262b]">{{ error }}</div> }
+
+<!-- Registry summary -->
+<section class="mb-6 grid gap-4 sm:grid-cols-3">
+  <article class="card flex min-w-0 items-center gap-4 p-5">
+    <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-[rgb(2,74,216,0.08)] text-[#0e3191]">
+      <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+    </span>
+    <div class="min-w-0">
+      <strong class="block text-2xl font-bold text-[#1a1a1a]">{{ borrowerCount }}</strong>
+      <span class="block truncate text-xs text-[#9a9a9a]">Borrowers · {{ activeBorrowerCount }} active on this page</span>
+    </div>
+  </article>
+  <article class="card flex min-w-0 items-center gap-4 p-5">
+    <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-[rgb(201,224,252,0.5)] text-[#356373]">
+      <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+    </span>
+    <div class="min-w-0">
+      <strong class="block text-2xl font-bold text-[#1a1a1a]">{{ lenderCount }}</strong>
+      <span class="block truncate text-xs text-[#9a9a9a]">Lenders · {{ connectedLenderCount }} connected on this page</span>
+    </div>
+  </article>
+  <article class="card flex min-w-0 items-center gap-4 p-5">
+    <span class="grid size-11 shrink-0 place-items-center rounded-xl bg-[rgb(142,189,206,0.25)] text-[#356373]">
+      <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 12.632a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"/></svg>
+    </span>
+    <div class="min-w-0">
+      <strong class="block text-2xl font-bold text-[#1a1a1a]">Lender push API</strong>
+      <span class="block break-all font-mono text-[11px] leading-snug text-[#9a9a9a]">{{ centralPushUrl }}</span>
+    </div>
+  </article>
+</section>
+
+<section class="grid gap-6 xl:grid-cols-2">
+  <!-- Borrowers -->
+  <article class="card min-w-0 overflow-hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8e8e8] px-6 py-4">
+      <div class="min-w-0">
+        <h2 class="mt-0.5 font-semibold text-[#1a1a1a]">Borrowers</h2>
+      </div>
+    </div>
+
+    <div class="border-b border-[#e8e8e8] px-6 py-3">
+      <input class="input-field" [(ngModel)]="borrowerQuery" (ngModelChange)="borrowerQuery = $event" (keyup.enter)="loadBorrowers(1)" placeholder="Search by borrower reference, then press Enter…">
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
+          <tr>
+            <th class="table-th">Borrower</th>
+            <th class="table-th">Institutions</th>
+            <th class="table-th">Status</th>
+            <th class="table-th text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[#e8e8e8]">
+          @for (item of borrowers; track item.id) {
+            <tr class="hover:bg-[#f7f7f7] transition-colors">
+              <td class="table-td">
+                <strong class="block max-w-[14rem] truncate font-semibold text-[#1a1a1a]">{{ item.name || item.borrower_reference }}</strong>
+                <small class="block max-w-[14rem] truncate font-mono text-xs text-[#9a9a9a]">{{ item.borrower_reference }}</small>
+              </td>
+              <td class="table-td max-w-[12rem] truncate text-xs text-[#636363]">{{ item.source_lenders?.join(', ') || '—' }}</td>
+              <td class="table-td"><span [class]="item.is_active === false ? 'badge-red' : 'badge-green'">{{ item.is_active === false ? 'Inactive' : 'Active' }}</span></td>
+              <td class="table-td text-right">
+                <button class="status-toggle inline-block px-2 py-2" [class.deactivate]="item.is_active !== false" [class.activate]="item.is_active === false" (click)="toggleBorrower(item)">{{ item.is_active === false ? 'Activate' : 'Deactivate' }}</button>
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="4" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">No borrowers {{ borrowerQuery ? 'match "' + borrowerQuery + '"' : 'found' }}.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <!-- Lenders -->
+  <article class="card min-w-0 overflow-hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8e8e8] px-6 py-4">
+      <div class="min-w-0">
+        <h2 class="mt-0.5 font-semibold text-[#1a1a1a]">Lender connections</h2>
+      </div>
+      <button class="btn-primary sm:w-auto" (click)="newLender()">+ New lender</button>
+    </div>
+
+    <div class="border-b border-[#e8e8e8] px-6 py-3">
+      <input class="input-field" [(ngModel)]="lenderQuery" (ngModelChange)="loadLenders(1)" placeholder="Filter by name, ID, type or URL…">
+    </div>
+
+    @if (lenderForm.lender_id !== undefined) {
+      <div class="border-b border-[#e8e8e8] bg-[#f7f7f7] p-5">
+        <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-[#9a9a9a]">{{ editingLenderId ? 'Edit lender' : 'Register lender' }}</p>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="block"><span class="mb-1 block text-xs font-medium text-[#636363]">Lender ID *</span><input class="input-field" [(ngModel)]="lenderForm.lender_id" placeholder="NMB-001"></label>
+          <label class="block"><span class="mb-1 block text-xs font-medium text-[#636363]">Institution name *</span><input class="input-field" [(ngModel)]="lenderForm.institution_name" placeholder="NMB Bank"></label>
+          <label class="block"><span class="mb-1 block text-xs font-medium text-[#636363]">Institution type</span>
+            <select class="input-field" [(ngModel)]="lenderForm.institution_type">
+              <option>COMMERCIAL_BANK</option><option>MICROFINANCE</option><option>MOBILE_MONEY</option><option>SAVINGS_AND_CREDIT</option><option>OTHER</option>
+            </select>
+          </label>
+          <label class="block"><span class="mb-1 block text-xs font-medium text-[#636363]">API base URL *</span><input class="input-field" [(ngModel)]="lenderForm.api_base_url" placeholder="https://lender.example.com"></label>
+          <label class="block"><span class="mb-1 block text-xs font-medium text-[#636363]">Connection status</span>
+            <select class="input-field" [(ngModel)]="lenderForm.api_status">
+              <option>CONNECTED</option><option>DEGRADED</option><option>DISCONNECTED</option>
+            </select>
+          </label>
+        </div>
+        <div class="mt-3 flex gap-2">
+          <button class="btn-primary" (click)="saveLender()">{{ editingLenderId ? 'Save changes' : 'Register lender' }}</button>
+          <button class="rounded-xl border border-[#e8e8e8] px-4 py-2 text-sm text-[#3d3d3d]" (click)="lenderForm = {}">Cancel</button>
+        </div>
+      </div>
+    }
+
+    @if (newApiKey; as k) {
+      <div class="border-b border-[rgb(53,99,115,0.4)] bg-[rgb(201,224,252,0.38)] p-5">
+        <p class="text-sm font-semibold text-[#356373]">API key for {{ k.lender_id }} — copy now, it will never be shown again</p>
+        <p class="mt-2 break-all rounded-lg bg-white p-3 font-mono text-xs text-[#292929]">{{ k.api_key }}</p>
+        <p class="mt-3 text-xs font-semibold uppercase tracking-wide text-[#356373]">Send this to the lender developer</p>
+        <pre class="mt-1 overflow-x-auto whitespace-pre-wrap break-all rounded-lg bg-[#1a1a1a] p-3 font-mono text-[11px] leading-relaxed text-[#296ef9]">POST {{ centralPushUrl }}
+X-API-Key: {{ k.api_key }}</pre>
+        <button class="mt-2 text-xs font-semibold text-[#636363]" (click)="newApiKey = null">Dismiss</button>
+      </div>
+    }
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
+          <tr>
+            <th class="table-th">Institution</th>
+            <th class="table-th">Endpoint</th>
+            <th class="table-th">Status</th>
+            <th class="table-th text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[#e8e8e8]">
+          @for (item of lenders; track item.id) {
+            <tr class="hover:bg-[#f7f7f7] transition-colors">
+              <td class="table-td">
+                <strong class="block max-w-[12rem] truncate font-semibold text-[#1a1a1a]">{{ item.institution_name }}</strong>
+                <small class="block max-w-[12rem] truncate font-mono text-xs text-[#9a9a9a]">{{ item.lender_id }} · {{ item.institution_type }}</small>
+              </td>
+              <td class="table-td max-w-[16rem]">
+                <small class="block truncate font-mono text-xs text-[#636363]">{{ item.api_base_url }}</small>
+                <small [class]="lenderKind(item) === 'mock' ? 'text-xs text-[#0e3191]' : 'text-xs text-[#356373]'">{{ lenderKind(item) === 'mock' ? 'dev stand-in' : 'live subsystem' }}</small>
+              </td>
+              <td class="table-td"><span [class]="item.api_status === 'CONNECTED' ? 'badge-green' : 'badge-slate'">{{ item.api_status }}</span></td>
+              <td class="table-td text-right">
+                <button class="inline-block rounded-lg px-2 py-2 text-sm font-semibold text-[#024ad8]" (click)="editLender(item)">Edit</button>
+                <button class="inline-block rounded-lg px-2 py-2 text-sm font-semibold text-[#356373]" (click)="regenerateKey(item)">New key</button>
+                <button class="inline-block rounded-lg px-2 py-2 text-sm font-semibold text-[#b3262b]" (click)="removeLender(item)">Delete</button>
+              </td>
+            </tr>
+          } @empty {
+            <tr><td colspan="4" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">No lenders {{ lenderQuery ? 'match "' + lenderQuery + '"' : 'registered' }}.</td></tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </article>
+</section>

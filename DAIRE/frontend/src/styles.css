@@ -1,0 +1,271 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+/* ==========================================================================
+   DAIRE Console — HP design language (frontend/DESIGN.md)
+   Pure white canvas · ink #1a1a1a slabs · HP Electric Blue #024ad8 is the
+   lone CTA/link color. Buttons/inputs sharp at 4px; cards soft at 16px.
+   Manrope substitutes Forma DJR Micro at weights 400/500/600/700/800.
+   ========================================================================== */
+
+:root {
+  font-family: 'Manrope', Arial, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+
+  /* HP token mapping (frontend/DESIGN.md) */
+  --c-primary: #024ad8;        /* HP Electric Blue — the lone signal CTA */
+  --c-primary-bright: #296ef9; /* brighter variant for dark slabs */
+  --c-primary-deep: #0e3191;   /* pressed state / visited links */
+  --c-primary-soft: #c9e0fc;   /* pale-blue tint surfaces */
+  --c-ink: #1a1a1a;            /* near-black slabs + primary text */
+  --c-ink-soft: #292929;
+  --c-canvas: #ffffff;
+  --c-cloud: #f7f7f7;          /* lightest gray band */
+  --c-fog: #e8e8e8;            /* gray band / hairline */
+  --c-steel: #c2c2c2;          /* strong hairline, disabled fill */
+  --c-charcoal: #3d3d3d;       /* secondary text on white */
+  --c-graphite: #636363;       /* fine print */
+  --c-error: #b3262b;
+}
+
+body { margin: 0; background: var(--c-cloud); color: var(--c-ink); overflow-x: hidden; }
+
+/* ==========================================================================
+   Application sidebar — ink slab, blue active edge, rail/drawer modes
+   ========================================================================== */
+.app-sidebar {
+  height: 100vh;
+  overflow-y: auto;
+}
+
+/* Nav link: blue active edge (the lone signal) + icon/label states */
+.nav-link { min-height: 44px; }
+.nav-edge {
+  position: absolute;
+  left: 0; top: 50%;
+  height: 0; width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--c-primary-bright);
+  transform: translateY(-50%);
+  transition: height 0.18s ease;
+}
+.nav-link.nav-active {
+  background: rgb(255 255 255 / 0.1);
+  color: #ffffff;
+}
+.nav-link.nav-active .nav-edge { height: 60%; }
+.nav-link.nav-active svg { color: var(--c-primary-bright); }
+
+/* Rail-mode tooltip (desktop collapsed) */
+.nav-tooltip {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%) scale(0.95);
+  white-space: nowrap;
+  background: #000;
+  color: #fff;
+  font-size: 12px; font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  z-index: 60;
+}
+.nav-link:hover .nav-tooltip { opacity: 1; transform: translateY(-50%) scale(1); }
+
+/* Collapsed rail: hide labels, keep icons centered */
+.rail-collapsed .nav-label,
+.rail-collapsed .app-nav > p { display: none; }
+
+/* High-contrast application navigation */
+.app-nav a { color: #d6d6d6; }
+.app-nav a:hover { color: #ffffff; }
+.app-nav summary { color: #9a9a9a; }
+.app-sidebar small { color: #9a9a9a; }
+
+/* Responsive shell: content padding + compact tables on small screens.
+   Sidebar responsiveness is handled by the drawer/rail classes in the
+   component template (slide-in < lg, persistent ≥ lg). */
+@media (max-width: 767px) {
+  main > div { padding: 1rem; }
+  .page-title { font-size: 1.5rem; }
+  .table-th { padding: 0.65rem 0.75rem; white-space: nowrap; }
+  .table-td { padding: 0.75rem; }
+  .card { border-radius: 0.75rem; }
+  .btn-primary { width: 100%; }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  main > div { padding: 1.25rem; }
+  .app-sidebar { width: 13rem; }
+}
+
+@media (max-width: 480px) {
+  .page-title { font-size: 1.35rem; }
+  header { margin-bottom: 1.25rem !important; }
+  .grid { min-width: 0; }
+  input, select, textarea { max-width: 100%; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--c-steel); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--c-graphite); }
+
+/* Card — soft 16px, hairline + soft lift (product-tile workhorse) */
+.card {
+  border-radius: 1rem;
+  border: 1px solid var(--c-fog);
+  background-color: var(--c-canvas);
+  box-shadow: 0 2px 8px rgb(26 26 26 / 0.08);
+}
+
+/* Badges — pill, ink-outline language */
+.badge-green {
+  display: inline-flex; align-items: center;
+  border-radius: 9999px;
+  background-color: var(--c-primary-soft);
+  padding: 0.125rem 0.625rem;
+  font-size: 0.75rem; font-weight: 700; color: var(--c-primary-deep);
+}
+.badge-slate {
+  display: inline-flex; align-items: center;
+  border-radius: 9999px;
+  background-color: var(--c-cloud);
+  border: 1px solid var(--c-fog);
+  padding: 0.125rem 0.625rem;
+  font-size: 0.75rem; font-weight: 500; color: var(--c-charcoal);
+}
+.badge-red {
+  display: inline-flex; align-items: center;
+  border-radius: 9999px;
+  background-color: #f9d4d2; /* bloom-rose */
+  padding: 0.125rem 0.625rem;
+  font-size: 0.75rem; font-weight: 700; color: var(--c-error);
+}
+.badge-yellow {
+  display: inline-flex; align-items: center;
+  border-radius: 9999px;
+  background-color: var(--c-fog);
+  padding: 0.125rem 0.625rem;
+  font-size: 0.75rem; font-weight: 700; color: var(--c-charcoal);
+}
+
+/* Borrower activation controls */
+.status-toggle {
+  border: 0;
+  background: transparent;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+.status-toggle:hover { transform: translateY(-1px); }
+.status-toggle.deactivate { color: var(--c-error); }
+.status-toggle.deactivate:hover { color: #8c1e22; text-decoration: underline; }
+.status-toggle.activate { color: var(--c-primary); }
+.status-toggle.activate:hover { color: var(--c-primary-deep); text-decoration: underline; }
+
+/* Table helpers */
+.table-th {
+  padding: 0.75rem 1.25rem;
+  text-align: left;
+  font-size: 0.7rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--c-graphite);
+}
+.table-td {
+  padding: 1rem 1.25rem;
+  font-size: 0.875rem;
+  color: var(--c-charcoal);
+}
+
+/* Typography helpers — weight 500 displays, ink text */
+.page-label {
+  font-size: 0.7rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.2em;
+  color: var(--c-primary);
+}
+.page-title {
+  margin-top: 0.5rem;
+  font-size: 1.875rem; font-weight: 500; letter-spacing: -0.01em;
+  color: var(--c-ink);
+}
+
+/* Buttons — sharp 4px, uppercase, the lone blue signal */
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  border-radius: 4px;
+  background-color: var(--c-primary);
+  padding: 0.75rem 1.5rem;
+  font-size: 0.75rem; font-weight: 700;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  color: #fff;
+  transition: background-color 0.15s;
+  cursor: pointer; border: none;
+  min-height: 44px;
+}
+.btn-primary:hover { background-color: var(--c-primary-deep); }
+.btn-primary:disabled { background-color: var(--c-steel); color: #fff; cursor: not-allowed; }
+
+/* Ink button — for secondary strong actions (design.md button-ink) */
+.btn-ink {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  border-radius: 4px;
+  background-color: var(--c-ink);
+  padding: 0.75rem 1.5rem;
+  font-size: 0.75rem; font-weight: 700;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  color: #fff;
+  transition: background-color 0.15s;
+  cursor: pointer; border: none;
+  min-height: 44px;
+}
+.btn-ink:hover { background-color: #000; }
+
+/* Outline button — blue text on canvas (design.md button-outline) */
+.btn-outline {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  border-radius: 4px;
+  background-color: var(--c-canvas);
+  border: 1px solid var(--c-primary);
+  padding: 0.75rem 1.5rem;
+  font-size: 0.75rem; font-weight: 700;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--c-primary);
+  transition: background-color 0.15s;
+  cursor: pointer;
+  min-height: 44px;
+}
+.btn-outline:hover { background-color: var(--c-primary-soft); }
+
+/* Input — sharp 4px, steel border, ink focus (no halo) */
+.input-field {
+  width: 100%;
+  border-radius: 4px;
+  border: 1px solid var(--c-steel);
+  background-color: var(--c-canvas);
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem; color: var(--c-ink);
+  outline: none;
+  transition: border-color 0.15s;
+  min-height: 44px;
+}
+.input-field::placeholder { color: var(--c-graphite); }
+.input-field:focus { border-color: var(--c-ink); box-shadow: none; }
+
+/* Select arrow spacing sanity */
+select.input-field { appearance: auto; }
+
+/* HP chevron decoration — hero-only architectural motif (see DESIGN.md).
+   Two parallel blue slashes echoing the wordmark; use sparingly. */
+.hp-chevron {
+  display: inline-block;
+  width: 10px; height: 26px;
+  background: var(--c-primary);
+  transform: skewX(-18deg);
+}
+.hp-chevron + .hp-chevron { margin-left: 6px; }

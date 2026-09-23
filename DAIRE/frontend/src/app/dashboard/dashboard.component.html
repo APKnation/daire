@@ -1,0 +1,246 @@
+<!-- Header -->
+<header class="mb-8 flex flex-wrap items-start justify-between gap-4">
+  <div>
+    <p class="mt-2 max-w-2xl text-base leading-relaxed text-[#024ad8] sm:text-lg">Live state of the lender network, borrower registry and credit scoring pipeline.</p>
+  </div>
+  <div class="flex items-center gap-2">
+    <button (click)="load()" title="Refresh"
+      class="grid size-10 place-items-center rounded-xl border border-[#e8e8e8] bg-white text-[#636363] shadow-sm transition hover:border-[#c2c2c2] hover:text-[#292929]">
+      <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+    </button>
+  </div>
+</header>
+
+@if (error) {
+  <div class="mb-6 flex items-center gap-3 rounded-xl border border-[rgb(179,38,43,0.3)] bg-[#f9d4d2] px-5 py-4 text-sm text-[#b3262b]">
+    <svg class="size-5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
+    {{ error }}
+  </div>
+}
+
+@if (!data) {
+  <!-- Loading skeleton -->
+  <div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    @for (_ of [1,2,3,4]; track $index) {
+      <div class="card h-36 animate-pulse bg-[#e8e8e8]"></div>
+    }
+  </div>
+}
+
+@if (data; as d) {
+  <!-- Colored KPI cards, after the reference design -->
+  <section class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    @for (card of kpiCards; track card.label) {
+      <article class="relative flex min-w-0 flex-col justify-between overflow-hidden rounded-2xl p-4 text-white shadow-lg"
+               [style.background]="card.bg">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="truncate text-sm font-medium text-white/90">{{ card.label }}</p>
+            <strong class="block text-3xl font-bold tracking-tight">{{ card.value }}</strong>
+          </div>
+          <span class="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold {{ card.chip }}">
+            <span>{{ card.trendUp ? '▲' : '▼' }}</span>
+            <span class="max-w-24 truncate">{{ card.trend }}</span>
+          </span>
+        </div>
+        <!-- Sparkline: dotted, wave, or bars — matching the reference card styles -->
+        <svg viewBox="0 0 100 24" preserveAspectRatio="none" class="mt-3 h-8 w-full" aria-hidden="true">
+          @switch (card.sparkType) {
+            @case ('dots') {
+              <polyline [attr.points]="card.sparkPoints" fill="none" stroke="rgba(255,255,255,0.55)"
+                        stroke-width="1" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+              @for (dot of card.sparkDots; track $index) {
+                <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="1.6" fill="#ffffff"/>
+              }
+            }
+            @case ('wave') {
+              <path [attr.d]="card.sparkWave" fill="none" stroke="rgba(255,255,255,0.9)"
+                    stroke-width="1.5" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+            }
+            @case ('bars') {
+              @for (bar of card.sparkBars; track $index) {
+                <rect [attr.x]="bar.x" [attr.y]="bar.y" [attr.width]="bar.w" [attr.height]="bar.h"
+                      rx="0.8" fill="rgba(255,255,255,0.75)"/>
+              }
+            }
+          }
+        </svg>
+      </article>
+    }
+  </section>
+
+  <!-- Activity chart (traffic style) -->
+  <section class="card mb-6 min-w-0 overflow-hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 px-6 pb-2 pt-5">
+      <div class="min-w-0">
+        <h2 class="text-lg font-bold text-[#1a1a1a]">Assessment activity</h2>
+        <p class="mt-0.5 text-xs text-[#9a9a9a]">Assessments created · {{ chartRange === 'week' ? 'last 7 days' : chartRange === 'month' ? 'last 30 days' : d.assessments.length ? 'this year by month' : 'this year' }}</p>
+      </div>
+      <div class="flex shrink-0 items-center overflow-hidden rounded-lg border border-[#e8e8e8]">
+        @for (range of chartRanges; track range) {
+          <button class="px-3 py-1.5 text-xs font-semibold capitalize transition"
+                  [class]="chartRange === range ? 'bg-[#1a1a1a] text-white' : 'bg-white text-[#636363] hover:bg-[#f7f7f7]'"
+                  (click)="chartRange = range">{{ range }}</button>
+        }
+      </div>
+    </div>
+    <div class="px-4 pb-4 sm:px-6">
+      <div class="relative h-44 w-full min-w-0">
+        <svg viewBox="0 0 100 36" preserveAspectRatio="none" class="absolute inset-0 h-full w-full" aria-hidden="true">
+          <defs>
+            <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#c2c2c2" stop-opacity="0.55"/>
+              <stop offset="100%" stop-color="#c2c2c2" stop-opacity="0.05"/>
+            </linearGradient>
+          </defs>
+          <!-- Gray area under the assessment-count line -->
+          <path [attr.d]="chartAreaPath(activityChart.points.map(p => p.value))" fill="url(#areaFill)"/>
+          <!-- Primary line: assessments over time -->
+          <path [attr.d]="chartPath(activityChart.points.map(p => p.value))" fill="none" stroke="#024ad8"
+                stroke-width="1.4" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Teal line: credit-score trend (normalized 350-800) -->
+          @if (activityChart.scoreLine) {
+            <path [attr.d]="activityChart.scoreLine" fill="none" stroke="#356373"
+                  stroke-width="1.4" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round"/>
+          }
+          <!-- Dashed light-cyan baseline -->
+          <line x1="0" y1="29" x2="100" y2="29" stroke="#c9e0fc" stroke-width="0.5"
+                stroke-dasharray="2 1.6" vector-effect="non-scaling-stroke"/>
+        </svg>
+        <!-- Labels -->
+        <div class="absolute inset-x-0 bottom-0 flex justify-between text-[9px] text-[#9a9a9a] sm:text-[10px]">
+          @for (p of activityChart.points; track p.label + $index) {
+            @if ($index % (chartRange === 'year' ? 1 : chartRange === 'month' ? 5 : 1) === 0) {
+              <span class="w-8 truncate text-center">{{ p.label }}</span>
+            }
+          }
+        </div>
+      </div>
+      <!-- Footer stats + score-band distribution -->
+      <div class="mt-4 grid grid-cols-2 gap-3 border-t border-[#e8e8e8] pt-4 text-center sm:grid-cols-4">
+        <div><span class="block text-[10px] uppercase tracking-wide text-[#9a9a9a]">Assessments</span><strong class="text-sm text-[#1a1a1a]">{{ d.assessments.length }}</strong></div>
+        <div><span class="block text-[10px] uppercase tracking-wide text-[#9a9a9a]">Scored</span><strong class="text-sm text-[#1a1a1a]">{{ scoredAssessments }} ({{ scoredPct }}%)</strong></div>
+        <div><span class="block text-[10px] uppercase tracking-wide text-[#9a9a9a]">Verified on-chain</span><strong class="text-sm text-[#1a1a1a]">{{ verifiedAssessments }}</strong></div>
+        <div><span class="block text-[10px] uppercase tracking-wide text-[#9a9a9a]">Avg score</span><strong class="text-sm text-[#1a1a1a]">{{ averageCreditScore ?? '—' }}</strong></div>
+      </div>
+      @if (scoreBands.some((b) => b.count > 0)) {
+        <div class="mt-3">
+          <div class="flex h-2 w-full overflow-hidden rounded-full bg-[#e8e8e8]">
+            @for (band of scoreBands; track band.label) {
+              @if (band.count > 0) {
+                <span class="h-full" [class]="band.color" [style.width.%]="band.pct"
+                      [attr.aria-label]="band.label + ': ' + band.count"></span>
+              }
+            }
+          </div>
+          <div class="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+            @for (band of scoreBands; track band.label) {
+              @if (band.count > 0) {
+                <span class="inline-flex items-center gap-1 text-[10px] font-medium text-[#636363]">
+                  <span class="size-1.5 rounded-full" [class]="band.color"></span>
+                  {{ band.label }} {{ band.count }}
+                </span>
+              }
+            }
+          </div>
+        </div>
+      }
+    </div>
+  </section>
+
+  <!-- Lender network + pipeline explainer -->
+  <section class="mb-6 grid gap-6 xl:grid-cols-[2fr_1fr]">
+    <article class="card min-w-0 overflow-hidden">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8e8e8] px-6 py-4">
+        <div class="min-w-0">
+          <p class="text-xs font-semibold uppercase tracking-wider text-[#9a9a9a]">Network</p>
+          <h2 class="mt-0.5 text-base font-semibold text-[#1a1a1a]">Connected institutions</h2>
+        </div>
+        <a routerLink="/data-management" class="-my-2 shrink-0 rounded-lg px-2 py-2 text-sm font-semibold text-[#024ad8] hover:text-[#0e3191] transition">Manage →</a>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left">
+          <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
+            <tr>
+              <th class="table-th">Institution</th>
+              <th class="table-th">Type</th>
+              <th class="table-th">Status</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-[#e8e8e8]">
+            @for (lender of sortedLenders; track lender.lender_id) {
+              <tr class="transition-colors hover:bg-[#f7f7f7]">
+                <td class="table-td">
+                  <strong class="block font-semibold text-[#1a1a1a]">{{ lender.institution_name }}</strong>
+                  <small class="font-mono text-xs text-[#9a9a9a]">{{ lender.lender_id }}</small>
+                </td>
+                <td class="table-td text-[#636363]">{{ lender.institution_type }}</td>
+                <td class="table-td"><span [class]="lenderStatusClass(lender)">{{ lender.api_status }}</span></td>
+              </tr>
+            }
+            @empty {
+              <tr><td colspan="3" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">No lenders registered yet.</td></tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    <article class="card min-w-0 p-6">
+      <p class="text-xs font-semibold uppercase tracking-wider text-[#9a9a9a]">How scoring works</p>
+      <h2 class="mt-0.5 mb-5 text-base font-semibold text-[#1a1a1a]">The pipeline</h2>
+      <ol class="space-y-4 text-sm">
+        <li class="flex gap-3">
+          <span class="grid size-7 shrink-0 place-items-center rounded-full bg-[#1a1a1a] text-xs font-bold text-white">1</span>
+          <div class="min-w-0"><strong class="block text-[#1a1a1a]">Pull</strong><span class="block break-words text-[#636363]">Borrower data merged from every connected lender.</span></div>
+        </li>
+        <li class="flex gap-3">
+          <span class="grid size-7 shrink-0 place-items-center rounded-full bg-[#1a1a1a] text-xs font-bold text-white">2</span>
+          <div class="min-w-0"><strong class="block text-[#1a1a1a]">AI reputation</strong><span class="block break-words text-[#636363]">Behavior model rates 0–1 how reliably the borrower repays.</span></div>
+        </li>
+        <li class="flex gap-3">
+          <span class="grid size-7 shrink-0 place-items-center rounded-full bg-[#1a1a1a] text-xs font-bold text-white">3</span>
+          <div class="min-w-0"><strong class="block text-[#1a1a1a]">Blockchain score</strong><span class="block break-words text-[#636363]">Smart contract computes the public 350–800 score and seals it on-chain.</span></div>
+        </li>
+        <li class="flex gap-3">
+          <span class="grid size-7 shrink-0 place-items-center rounded-full bg-[#356373] text-xs font-bold text-white">✓</span>
+          <div class="min-w-0"><strong class="block text-[#1a1a1a]">Broadcast</strong><span class="block break-words text-[#636363]">Both results return to every linked lender automatically.</span></div>
+        </li>
+      </ol>
+      <a routerLink="/data-exchange" class="btn-primary mt-6 inline-block">Run an assessment →</a>
+    </article>
+  </section>
+
+  <!-- Recent activity -->
+  <section class="card mb-6 overflow-hidden">
+    <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8e8e8] px-6 py-4">
+      <div class="min-w-0">
+        <p class="text-xs font-semibold uppercase tracking-wider text-[#9a9a9a]">Recent activity</p>
+        <h2 class="mt-0.5 text-base font-semibold text-[#1a1a1a]">Latest assessments</h2>
+      </div>
+      <a routerLink="/assessments" class="-my-2 shrink-0 rounded-lg px-2 py-2 text-sm font-semibold text-[#024ad8] hover:text-[#0e3191] transition">View all →</a>
+    </div>
+    <div class="divide-y divide-[#e8e8e8]">
+      @for (a of recentAssessments; track a.reference) {
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-4 sm:px-6">
+          <span class="grid size-10 shrink-0 place-items-center rounded-xl text-sm font-bold"
+                [class]="reputationClass(a.reputation)">
+            {{ a.reputation[0] }}
+          </span>
+          <div class="min-w-0 flex-1 basis-48">
+            <strong class="block truncate text-sm font-semibold text-[#1a1a1a]">{{ a.borrower }}</strong>
+            <small class="block truncate font-mono text-xs text-[#9a9a9a]">{{ a.reference }} · {{ a.when | date:'mediumDate' }}</small>
+          </div>
+          <span class="shrink-0" [class]="reputationClass(a.reputation)">{{ a.reputation }}</span>
+          <span class="shrink-0 text-right">
+            <span class="text-xl font-bold text-[#1a1a1a]">{{ a.score ?? '—' }}</span>
+            <small class="block text-[10px] uppercase tracking-wide text-[#9a9a9a]">credit score</small>
+          </span>
+          <span class="shrink-0" [class]="a.verified ? 'badge-green' : 'badge-slate'">{{ a.verified ? 'On-chain ✓' : 'Unverified' }}</span>
+        </div>
+      } @empty {
+        <div class="px-6 py-12 text-center text-sm text-[#9a9a9a]">No assessments have been created.</div>
+      }
+    </div>
+  </section>
+}

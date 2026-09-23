@@ -1,0 +1,61 @@
+# to connect the vs code with remix
+# install first
+npm install -g @remix-project/remixd
+remixd --version
+
+
+# run the remixd server
+npm run remixd
+
+# the open in link 
+https://app.remix.live/
+
+
+
+
+# locakhost deployment using the hardhat
+# install first
+npm install --save-dev hardhat 
+#or 
+npm install --save-dev hardhat @nomicfoundation/hardhat-toolbox
+
+
+
+#cd ~/Documents/daire/daire_code/daire-contracts
+npx hardhat node
+
+
+# 1. Deploy contract to local network
+#cd ~/Documents/daire/daire_code/daire-contracts
+npx hardhat run scripts/deploy.js --network localhost
+
+# 2. Start the middleware service
+#cd ~/Documents/daire/daire_code/daire-middleware
+npm run start:local
+# or
+npm run
+
+
+
+# omand to run the ollama 
+ollama run llama3
+
+
+ RUN FOR CONNECTION WTH OTHER PC
+ # TERMINAL 1 Keep Hardhat running i
+cd ~/Documents/daire/daire_code/daire-contracts
+npx hardhat node --hostname 0.0.0.0
+
+
+
+# terminal 2
+# 1. Deploy smart contract to local network
+cd ~/Documents/daire/daire_code/daire-contracts
+npx hardhat run scripts/deploy.js --network localhost
+
+
+# terminal 3
+
+# 2. Start the Express middleware service
+cd ~/Documents/daire/daire_code/daire-middleware
+npm start

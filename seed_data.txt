@@ -1,0 +1,88 @@
+# =====================================================================
+# DAIRE — Seed / Test Data (middleware on local Hardhat node)
+#
+# 0. Anza node:            npx hardhat node
+# 1. Deploy contract:      npx hardhat run scripts/deploy.js --network localhost
+# 2. Copy address kwenye   daire-middleware/.env  (CONTRACT_ADDRESS=0x...)
+# 3. Anza middleware:      cd daire-middleware && npm start
+# 4. Run curls hapa chini
+
+
+
+1.  SEED DATA WHEN THE VALUE IS CALCULATED OUT SIDE THE CHAIN(OFF CHAIN) MEAN WHAT IS ENTERED IN SCORE IS VALUE
+# ---------------------------------------------------------------------
+# NJIA YA PILI (mode B) — web app TAYARI inayo dimensions d1..d5.
+# Middleware inatoa single score kisha inaihifadhi on-chain.
+# ---------------------------------------------------------------------
+curl -X POST http://localhost:5000/api/v1/score/submit-calculated \
+  -H "Content-Type: application/json" \
+  -d '{
+  "identityHash": "NIDA-19950812-12345-00001",
+  "salt": "DAIRE_TANZA_SALT_2026",
+  "dimensions": {
+    "d1": 85,
+    "d2": 83,
+    "d3": 95,
+    "d4": 65,
+    "d5": 65
+  }
+}'
+
+
+OUTPUT
+
+::::
+{"success":true,"status":"SCORE_RECORDED","calculation":"OFF_CHAIN","transactionHash":"0x9c669a19ffe5bf867f442135a43971431bb08e8584f685dcff4e9554cfb3167c",
+"blockNumber":7,"data":{"borrowerRef":"0x3bcdaf773c0ccf4e276e6cf4e00604dca63beef1d7819bacca63575fe97ad275","finalScore":735,"dimensions"
+:{"d1_paymentReliability":85,"d2_financialStability":83,"d3_debtManagement":95,"d4_behaviouralConsistency":65,"d5_trustEvidence":65},"version":6}}
+::::
+
+
+
+
+
+
+2.   SEED DATA ONCHAIN
+
+
+"""
+curl -X POST http://localhost:5000/api/v1/score/submit \
+  -H "Content-Type: application/json" \
+  -d '{
+    "identityHash": "NIDA-19950812-12345-00001",
+    "salt": "DAIRE_TANZA_SALT_2026",
+    "features": {
+      "historyMonths": 24,
+      "behaviourEventCount": 30,
+      "repaymentRecordCount": 15,
+      "verifiedSourceCount": 2,
+      "onTimeRatioBps": 9800,
+      "maxDaysLate": 0,
+      "missedCount": 0,
+      "onTimeStreak": 15,
+      "activeMonthsBps": 10000,
+      "regularMonthsBps": 9000,
+      "balanceStabilityBps": 8500,
+      "defaultCount": 0,
+      "completedCount": 2,
+      "utilizationBps": 4000,
+      "activeLenderCount": 1,
+      "trendBps": 500,
+      "volatilityBps": 1000,
+      "monthsSinceAdverse": 65535,
+      "distinctSourceCount": 2,
+      "meanCorroborationX100": 250,
+      "openConflictCount": 0
+    }
+  }'
+  OUTPUT
+  ::::
+  {"success":true,"status":"SCORED_SUCCESSFULLY","calculation":"ON_CHAIN","transactionHash":"0x535c5f1094c0635449b7a516920755538b6b0aa1c2abee322b209024c17b8a7f",
+  "blockNumber":8,"data":{"borrowerRef":"0x3bcdaf773c0ccf4e276e6cf4e00604dca63beef1d7819bacca63575fe97ad275","score":780,"riskBand":"VERY_GOOD","version":7,"assessedAt":1789479752,
+  "dimensions":{"d1_paymentReliability":100,"d2_financialStability":
+  92,"d3_debtManagement":100,"d4_behaviouralConsistency":59,"d5_trustEvidence":81}}}
+::::
+# ---------------------------------------------------------------------
+# KUSOMA (bure, hakuna gas) — badilisha borrowerRef na uliyopata hapo juu
+# ---------------------------------------------------------------------
+# curl http://localhost:5000/api/v1/score/<borrowerRef>

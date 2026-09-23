@@ -1,0 +1,29 @@
+{
+  "name": "daire-contracts",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "DAIRE - Decentralized AI Reputation Engine: on-chain credit scoring smart contracts",
+  "license": "MIT",
+  "scripts": {
+    "remixd": "remixd -s . --remix-ide https://app.remix.live",
+    "remixd:stop": "pkill -f remixd || true",
+    "compile": "hardhat compile",
+    "node": "hardhat node",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "deploy:ignition:local": "hardhat ignition deploy ./ignition/modules/DaireCreditScore.js --network localhost",
+    "deploy:sepolia": "hardhat ignition deploy ./ignition/modules/DaireCreditScore.js --network sepolia",
+    "test": "hardhat test"
+  },
+  "keywords": [
+    "solidity",
+    "ethereum",
+    "sepolia",
+    "credit-scoring",
+    "daire"
+  ],
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox-mocha-ethers": "^3.0.7",
+    "hardhat": "^3.16.0"
+  }
+}

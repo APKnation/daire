@@ -1,0 +1,445 @@
+import { DatePipe } from '@angular/common';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { ApiService, Assessment, DashboardData, Lender } from '../core/api.service';
+
+interface RecentAssessment {
+  reference: string;
+  borrower: string;
+  score: number | null;
+  reputation: string;
+  risk: string;
+  verified: boolean;
+  when: string;
+}
+
+/** Assessment with an optional created_at (present on API payloads, absent in the index-signature type). */
+type AssessmentWithTimestamp = Assessment & { created_at?: string };
+
+interface SparkDot {
+  x: number;
+  y: number;
+}
+
+interface SparkBar {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+interface KpiCard {
+  label: string;
+  value: string;
+  trend: string;
+  trendUp: boolean;
+  /** Flat fill sampled from the reference design (dashboard.jpeg). */
+  bg: string;
+  chip: string;
+  /** Sparkline style, matching the reference: dotted line, smooth wave, or bars. */
+  sparkType: 'dots' | 'wave' | 'bars';
+  sparkPoints: string;
+  sparkDots: SparkDot[];
+  sparkWave: string;
+  sparkBars: SparkBar[];
+}
+
+interface ChartPoint {
+  label: string;
+  value: number;
+}
+
+interface ScoreBand {
+  label: string;
+  min: number;
+  max: number;
+  color: string;
+}
+
+interface ActivityChart {
+  points: ChartPoint[];
+  max: number;
+  /** Pre-built SVG path for the normalized avg-score line. */
+  scoreLine: string;
+}
+
+@Component({
+  standalone: true,
+  imports: [DatePipe, RouterLink],
+  templateUrl: './dashboard.component.html',
+})
+export class DashboardComponent implements OnInit {
+  private readonly api = inject(ApiService);
+  private readonly cdr = inject(ChangeDetectorRef);
+  data: DashboardData | null = null;
+  error = '';
+
+  /** Range switch for the activity chart, mirroring the reference design. */
+  chartRange: 'week' | 'month' | 'year' = 'month';
+  readonly chartRanges = ['week', 'month', 'year'] as const;
+
+  ngOnInit(): void {
+    this.load();
+  }
+
+  /** Reload dashboard data — wired to the header refresh button. */
+  load(): void {
+    this.api.dashboard().subscribe({
+      next: (data) => {
+        this.data = data;
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        console.error('Dashboard error:', err);
+        this.error = 'Dashboard data could not be loaded. Confirm the Django API is running.';
+        this.cdr.markForCheck();
+      },
+    });
+  }
+
+  get connectedLenders(): number {
+    return this.data?.lenders.filter((l) => l.api_status === 'CONNECTED').length ?? 0;
+  }
+
+  get scoredAssessments(): number {
+    return this.data?.assessments.filter((a) => a.credit_score != null).length ?? 0;
+  }
+
+  get verifiedAssessments(): number {
+    return this.data?.assessments.filter((a) => a.verification_status === 'CONFIRMED').length ?? 0;
+  }
+
+  /** Share of assessments that reached scoring, for the chart footer. */
+  get scoredPct(): number {
+    const total = this.data?.assessments.length ?? 0;
+    return total ? Math.round((this.scoredAssessments / total) * 100) : 0;
+  }
+
+  get activeBorrowers(): number {
+    return this.data?.borrowers.filter((b) => b.is_active !== false).length ?? 0;
+  }
+
+  /** The one number lenders care about: mean of every on-chain credit score. */
+  get averageCreditScore(): number | null {
+    const scores = this.scoredList();
+    if (!scores.length) return null;
+    return Math.round(scores.reduce((sum, s) => sum + s, 0) / scores.length);
+  }
+
+  private scoredList(): number[] {
+    return (this.data?.assessments ?? [])
+      .map((a) => a.credit_score)
+      .filter((s): s is number => s != null);
+  }
+
+  /** Signed change of the average score: newest half vs oldest half of the history. */
+  private scoreTrend(): { text: string; up: boolean } {
+    const scores = (this.data?.assessments ?? [])
+      .filter((a) => a.credit_score != null)
+      .sort((x, y) => ((x as AssessmentWithTimestamp).created_at ?? '').localeCompare((y as AssessmentWithTimestamp).created_at ?? ''))
+      .map((a) => a.credit_score as number);
+    if (scores.length < 4) return { text: 'NEW', up: true };
+    const half = Math.floor(scores.length / 2);
+    const oldAvg = scores.slice(0, half).reduce((s, v) => s + v, 0) / half;
+    const newAvg = scores.slice(half).reduce((s, v) => s + v, 0) / (scores.length - half);
+    const delta = Math.round(newAvg - oldAvg);
+    return { text: `${delta >= 0 ? '+' : ''}${delta} pts`, up: delta >= 0 };
+  }
+
+  /** Weekly per-lender pull counts, 0..1 normalized — feeds the KPI sparkline. */
+  private lenderSpark(): number[] {
+    const counts = this.data?.lenders.map((l) => (l.api_status === 'CONNECTED' ? 2 : 1)) ?? [];
+    return counts.length ? counts.slice(0, 12) : [1, 1, 1];
+  }
+
+  private borrowersSpark(): number[] {
+    const stamps = (this.data?.borrowers ?? [])
+      .map((b) => b.created_at ?? '')
+      .filter(Boolean)
+      .sort();
+    return this.buckets(stamps, 12);
+  }
+
+  private assessmentsSpark(): number[] {
+    const stamps = (this.data?.assessments ?? [])
+      .filter((a) => a.credit_score != null)
+      .map((a) => (a as AssessmentWithTimestamp).created_at ?? '')
+      .filter(Boolean)
+      .sort();
+    return this.buckets(stamps, 12);
+  }
+
+  private scoresSpark(): number[] {
+    const scores = (this.data?.assessments ?? [])
+      .filter((a) => a.credit_score != null)
+      .sort((x, y) => ((x as AssessmentWithTimestamp).created_at ?? '').localeCompare((y as AssessmentWithTimestamp).created_at ?? ''))
+      .map((a) => a.credit_score as number);
+    if (!scores.length) return [1, 1, 1];
+    return scores.slice(-12).map((s) => (s - 350) / 450);
+  }
+
+  /** Map 0..1 series to "x,y" pairs in a 100×24 viewBox for the sparkline polyline. */
+  private toSparkPoints(series: number[]): string {
+    const pts = this.sparkXY(series);
+    return pts.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' ');
+  }
+
+  /** Series as dot coordinates — the dotted sparkline style from the reference. */
+  private toSparkDots(series: number[]): SparkDot[] {
+    return this.sparkXY(series);
+  }
+
+  /** Smooth cubic path through the series — the wave sparkline style. */
+  private toSparkWave(series: number[]): string {
+    const pts = this.sparkXY(series);
+    if (pts.length < 2) return '';
+    let d = `M${pts[0].x.toFixed(2)},${pts[0].y.toFixed(2)}`;
+    for (let i = 1; i < pts.length; i++) {
+      const x0 = pts[i - 1].x;
+      const y0 = pts[i - 1].y;
+      const x1 = pts[i].x;
+      const y1 = pts[i].y;
+      const mx = (x0 + x1) / 2;
+      d += ` C${mx.toFixed(2)},${y0.toFixed(2)} ${mx.toFixed(2)},${y1.toFixed(2)} ${x1.toFixed(2)},${y1.toFixed(2)}`;
+    }
+    return d;
+  }
+
+  /** Series as rounded bars — the histogram sparkline style from the reference. */
+  private toSparkBars(series: number[]): SparkBar[] {
+    const n = Math.max(series.length, 1);
+    const w = 100 / n;
+    return series.map((v, i) => {
+      const h = Math.max(2, Math.min(Math.max(v, 0), 1) * 20);
+      return { x: i * w + w * 0.22, y: 22 - h, w: w * 0.56, h };
+    });
+  }
+
+  /** Shared mapping: series values to points in the 100×24 sparkline viewBox. */
+  private sparkXY(series: number[]): SparkDot[] {
+    const n = series.length;
+    if (n < 2) return [{ x: 0, y: 22 }, { x: 100, y: 22 }];
+    return series.map((v, i) => ({
+      x: (i * 100) / (n - 1),
+      y: 22 - Math.min(Math.max(v, 0), 1) * 18,
+    }));
+  }
+
+  /** Count timestamps into n equal time buckets, oldest → newest. */
+  private buckets(stamps: string[], n: number): number[] {
+    if (!stamps.length) return Array(n).fill(0.15);
+    const times = stamps.map((s) => new Date(s).getTime()).filter((t) => !Number.isNaN(t));
+    if (!times.length) return Array(n).fill(0.15);
+    const min = Math.min(...times);
+    const max = Math.max(...times);
+    const span = Math.max(max - min, 1);
+    const out = Array(n).fill(0);
+    for (const t of times) {
+      out[Math.min(n - 1, Math.floor(((t - min) / span) * n))]++;
+    }
+    const peak = Math.max(...out, 1);
+    return out.map((v) => 0.15 + (v / peak) * 0.85);
+  }
+
+  /** The four hero KPI cards, styled after the colored reference design. */
+  get kpiCards(): KpiCard[] {
+    const trend = this.scoreTrend();
+    const total = this.data?.assessments.length ?? 0;
+    const card = (
+      label: string,
+      value: string,
+      trend: string,
+      trendUp: boolean,
+      bg: string,
+      chip: string,
+      sparkType: KpiCard['sparkType'],
+      series: number[],
+    ): KpiCard => ({
+      label,
+      value,
+      trend,
+      trendUp,
+      bg,
+      chip,
+      sparkType,
+      sparkPoints: this.toSparkPoints(series),
+      sparkDots: this.toSparkDots(series),
+      sparkWave: this.toSparkWave(series),
+      sparkBars: this.toSparkBars(series),
+    });
+    return [
+      card('Lender network', `${this.connectedLenders}/${this.data?.lenders.length ?? 0}`, `${this.connectedLenders} connected`,
+        this.connectedLenders > 0, '#024ad8', 'bg-white/25', 'dots', this.lenderSpark()),
+      card('Borrowers', String(this.activeBorrowers), 'unified across institutions', true,
+        '#296ef9', 'bg-white/25', 'wave', this.borrowersSpark()),
+      card('Avg credit score', this.averageCreditScore != null ? String(this.averageCreditScore) : '—', trend.text, trend.up,
+        '#356373', 'bg-white/25', 'bars', this.scoresSpark()),
+      card('Assessments', `${this.scoredAssessments}/${total}`, `${this.verifiedAssessments} on-chain`, this.verifiedAssessments > 0,
+        '#024ad8', 'bg-white/25', 'bars', this.assessmentsSpark()),
+    ];
+  }
+
+  /** Assessments grouped by the selected range, plus the normalized score trend line. */
+  get activityChart(): ActivityChart {
+    const scoresByTime = (this.data?.assessments ?? [])
+      .filter((a) => a.credit_score != null)
+      .sort((x, y) => ((x as AssessmentWithTimestamp).created_at ?? '').localeCompare((y as AssessmentWithTimestamp).created_at ?? ''))
+      .map((a) => a.credit_score as number);
+    const base = this.activityBuckets();
+    return { ...base, scoreLine: this.scoreLinePath(scoresByTime) };
+  }
+
+  /** Time-bucketed assessment counts for the active range. */
+  private activityBuckets(): { points: ChartPoint[]; max: number } {
+    const stamps = (this.data?.assessments ?? [])
+      .map((a) => (a as AssessmentWithTimestamp).created_at ?? '')
+      .filter(Boolean)
+      .map((s) => new Date(s).getTime())
+      .filter((t) => !Number.isNaN(t))
+      .sort((a, b) => a - b);
+
+    if (this.chartRange === 'year') {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const now = new Date();
+      const points = months.map((label, i) => {
+        const count = stamps.filter((t) => {
+          const d = new Date(t);
+          return d.getFullYear() === now.getFullYear() && d.getMonth() === i;
+        }).length;
+        return { label, value: count };
+      });
+      return this.finishChart(points);
+    }
+    const days = this.chartRange === 'week' ? 7 : 30;
+    const now = new Date();
+    const points: ChartPoint[] = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const day = new Date(now);
+      day.setDate(now.getDate() - i);
+      const start = new Date(day.getFullYear(), day.getMonth(), day.getDate()).getTime();
+      const end = start + 86_400_000;
+      const label = this.chartRange === 'week'
+        ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][day.getDay()]
+        : String(day.getDate());
+      points.push({ label, value: stamps.filter((t) => t >= start && t < end).length });
+    }
+    return this.finishChart(points);
+  }
+
+  private finishChart(points: ChartPoint[]): { points: ChartPoint[]; max: number } {
+    const max = Math.max(4, ...points.map((p) => p.value));
+    return { points, max };
+  }
+
+  /**
+   * Smooth path for the score-trend line (green in the reference): scores are
+   * placed left→right in time order across the same viewBox as the count line.
+   */
+  private scoreLinePath(scores: number[]): string {
+    if (scores.length < 2) return '';
+    const min = 350;
+    const max = 800;
+    const step = 100 / (scores.length - 1);
+    let d = '';
+    let prev: { x: number; y: number } | null = null;
+    scores.forEach((s, i) => {
+      const x = i * step;
+      const y = 34 - ((s - min) / (max - min)) * 30;
+      const p = { x, y };
+      if (!prev) {
+        d = `M${x.toFixed(2)},${y.toFixed(2)}`;
+      } else {
+        const mx = (prev.x + p.x) / 2;
+        d += ` C${mx.toFixed(2)},${prev.y.toFixed(2)} ${mx.toFixed(2)},${p.y.toFixed(2)} ${p.x.toFixed(2)},${p.y.toFixed(2)}`;
+      }
+      prev = p;
+    });
+    return d;
+  }
+
+  /** SVG polyline path for the activity chart, drawn in a 100×36 viewBox. */
+  chartPath(values: number[]): string {
+    if (values.length < 2) return '';
+    const step = 100 / (values.length - 1);
+    return values
+      .map((v, i) => {
+        const x = i * step;
+        const y = 34 - (v / this.activityChart.max) * 30;
+        return `${i === 0 ? 'M' : 'L'}${x.toFixed(2)},${y.toFixed(2)}`;
+      })
+      .join(' ');
+  }
+
+  chartAreaPath(values: number[]): string {
+    const line = this.chartPath(values);
+    return line ? `${line} L100,36 L0,36 Z` : '';
+  }
+
+  /** Live lenders first, then by name — keep the overview compact. */
+  get sortedLenders(): Lender[] {
+    return [...(this.data?.lenders ?? [])].sort((a, b) => {
+      if ((a.api_status === 'CONNECTED') !== (b.api_status === 'CONNECTED')) {
+        return a.api_status === 'CONNECTED' ? -1 : 1;
+      }
+      return a.institution_name.localeCompare(b.institution_name);
+    }).slice(0, 3);
+  }
+
+  /** Newest three scored assessments as a compact activity feed. */
+  get recentAssessments(): RecentAssessment[] {
+    const byNewest = (x: AssessmentWithTimestamp, y: AssessmentWithTimestamp) =>
+      (y.created_at ?? '').localeCompare(x.created_at ?? '');
+    return [...(this.data?.assessments ?? [])]
+      .sort(byNewest)
+      .slice(0, 3)
+      .map((a) => this.toRecent(a));
+  }
+
+  private toRecent(a: Assessment): RecentAssessment {
+    const created = (a as AssessmentWithTimestamp).created_at ?? '';
+    return {
+      reference: a.assessment_reference,
+      borrower: a.borrower_name || a.borrower_reference,
+      score: a.credit_score,
+      reputation: a.reputation || 'PENDING',
+      risk: a.risk_level || '—',
+      verified: a.verification_status === 'CONFIRMED',
+      when: created,
+    };
+  }
+
+  reputationClass(reputation: string): string {
+    switch (reputation) {
+      case 'EXCELLENT':
+      case 'GOOD':
+        return 'badge-green';
+      case 'MODERATE':
+        return 'badge-yellow';
+      case 'HIGH_RISK':
+        return 'badge-red';
+      default:
+        return 'badge-slate';
+    }
+  }
+
+  lenderStatusClass(lender: Lender): string {
+    return lender.api_status === 'CONNECTED' ? 'badge-green' : lender.api_status === 'DEGRADED' ? 'badge-yellow' : 'badge-slate';
+  }
+
+  private static readonly BANDS: ScoreBand[] = [
+    { label: 'Poor', min: 350, max: 499, color: 'bg-[#024ad8]' },
+    { label: 'Fair', min: 500, max: 579, color: 'bg-[#296ef9]' },
+    { label: 'Good', min: 580, max: 669, color: 'bg-[#356373]' },
+    { label: 'Excellent', min: 670, max: 800, color: 'bg-[#0e3191]' },
+  ];
+
+  /** Share of scored assessments per 350–800 band, for the mini distribution bar. */
+  get scoreBands(): Array<ScoreBand & { count: number; pct: number }> {
+    const scores = this.scoredList();
+    return DashboardComponent.BANDS.map((band) => {
+      const count = scores.filter((s) => s >= band.min && s <= band.max).length;
+      const pct = scores.length ? Math.round((count / scores.length) * 100) : 0;
+      return { ...band, count, pct };
+    });
+  }
+}

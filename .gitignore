@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Remix / build artifacts
+artifacts/
+cache/
+.deps/
+build/
+
+# Secrets — NEVER commit these
+.env
+.env.*
+*.key
+*.pem
+secrets.json
+deployments/*.private.json
+
+# Editor / OS
+.DS_Store
+*.swp
+.idea/
+
+# Logs
+*.log
+npm-debug.log*

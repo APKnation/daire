@@ -1,0 +1,104 @@
+@if (showApplicationShell()) {
+  <div class="flex min-h-screen" [style.background]="'#ffffff'">
+
+    <!-- ═══ Mobile top bar (hidden ≥ lg) ═══ -->
+    <header class="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-[#e8e8e8] bg-[#1a1a1a] px-4 lg:hidden">
+      <div class="flex items-center gap-2.5">
+        <img src="assets/daire.png" alt="DAIRE" class="h-8 w-8 rounded-lg object-cover">
+        <strong class="text-sm tracking-[0.2em] text-white">DAIRE</strong>
+      </div>
+      <button type="button" class="grid size-10 place-items-center rounded-lg text-white/80 transition hover:bg-white/10 hover:text-white"
+              (click)="toggleSidebar()" aria-label="Open menu" [attr.aria-expanded]="sidebarOpen()">
+        <svg class="size-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          @if (sidebarOpen()) {
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          } @else {
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+          }
+        </svg>
+      </button>
+    </header>
+
+    <!-- ═══ Mobile backdrop ═══ -->
+    @if (sidebarOpen()) {
+      <div class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden" (click)="closeSidebar()" aria-hidden="true"></div>
+    }
+
+    <!-- ═══ Sidebar: slide-in drawer on mobile · persistent ink slab on desktop ═══ -->
+    <aside class="app-sidebar fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col text-[#d6d6d6] transition-transform duration-200 ease-out lg:sticky lg:top-0 lg:translate-x-0"
+           [style.background]="'#1a1a1a'"
+           [class.translate-x-0]="sidebarOpen()"
+           [class.-translate-x-full]="!sidebarOpen()"
+           [attr.inert]="isMobile() && !sidebarOpen() ? '' : null"
+           [attr.aria-hidden]="isMobile() && !sidebarOpen() ? 'true' : null">
+
+      <!-- Wordmark + collapse control -->
+      <div class="flex items-center justify-between border-b border-white/10 px-5 py-5">
+      <span class="flex items-center gap-3">
+        <img src="assets/daire.png" alt="DAIRE" class="h-10 w-10 rounded-xl object-cover">
+        <span>
+          <strong class="block text-sm tracking-[0.2em] text-white font-bold">DAIRE</strong>
+          <small class="text-[11px] text-[#9a9a9a]">Credit Intelligence</small>
+        </span>
+      </span>
+        <!-- Collapse to icon rail (desktop only) -->
+        <button type="button" (click)="toggleCollapse()"
+                class="hidden size-8 place-items-center rounded-lg text-[#9a9a9a] transition hover:bg-white/10 hover:text-white lg:grid"
+                [attr.aria-label]="collapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+                [attr.title]="collapsed() ? 'Expand' : 'Collapse'">
+          <svg class="size-4 transition-transform duration-200" [class.rotate-180]="collapsed()" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Nav sections — data-driven -->
+      <nav class="app-nav flex-1 overflow-y-auto overflow-x-hidden px-3 py-4" [class.px-2]="collapsed()">
+        @for (section of sections; track section.label) {
+          @if (section.label) {
+            <p class="px-3 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-[#636363]"
+               [class.text-center]="collapsed()" [class.px-0]="collapsed()">{{ section.label }}</p>
+          }
+          @for (item of section.items; track item.link) {
+            <a [routerLink]="item.link"
+               routerLinkActive="nav-active"
+               [routerLinkActiveOptions]="{ exact: item.exact === true }"
+               class="nav-link group relative flex items-center rounded-xl text-sm font-medium text-[#9a9a9a] transition-all duration-150 hover:bg-white/[0.06] hover:text-white"
+               [class.justify-center]="collapsed()"
+               [title]="collapsed() ? item.label : null">
+              <!-- Blue active edge — the lone signal color, per DESIGN.md -->
+              <span class="nav-edge" aria-hidden="true"></span>
+              <svg class="size-[18px] shrink-0 transition-colors" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" [attr.d]="item.icon"/>
+              </svg>
+              <span class="nav-label truncate px-3 py-2.5">{{ item.label }}</span>
+              <!-- Rail-mode tooltip -->
+              @if (collapsed()) {
+                <span class="nav-tooltip" role="tooltip">{{ item.label }}</span>
+              }
+            </a>
+          }
+        }
+      </nav>
+
+      <!-- Status + user + logout -->
+      <div class="border-t border-[#292929] px-4 py-4" [class.px-2]="collapsed()">
+        <button type="button" (click)="auth.logout()"
+          class="flex w-full items-center gap-2 rounded-xl border border-white/15 px-3 py-2.5 text-left text-sm font-medium text-[#d6d6d6] transition hover:border-[rgb(255,80,80,0.6)] hover:bg-[rgb(255,80,80,0.1)] hover:text-[#ff5050]"
+          [class.justify-center]="collapsed()" [class.px-0]="collapsed()">
+          <svg class="size-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+          <span class="nav-label">Log out</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- ═══ Main content — padded below the mobile bar ═══ -->
+    <main class="min-w-0 flex-1 overflow-auto pt-14 lg:pt-0">
+      <div class="min-h-full p-4 sm:p-6 lg:p-8">
+        <router-outlet />
+      </div>
+    </main>
+  </div>
+} @else {
+  <router-outlet />
+}

@@ -1,0 +1,94 @@
+<header class="mb-8">
+  <h1 class="page-title">Data exchange</h1>
+  <p class="mt-1 text-sm text-[#636363]">Enter one unique borrower ID, collect matching data from every lender, then distribute the returned score.</p>
+</header>
+
+@if (message) { <div class="mb-5 rounded-xl border border-[rgb(53,99,115,0.35)] bg-[rgb(201,224,252,0.4)] px-5 py-4 text-sm text-[#356373]">{{ message }}</div> }
+@if (loading) { <div class="mb-5 rounded-xl border border-[rgb(2,74,216,0.25)] bg-[rgb(201,224,252,0.45)] px-5 py-4 text-sm font-semibold text-[#024ad8]">Working with the connected system…</div> }
+
+<section class="card mb-6 px-6 py-5">
+  <ol class="grid gap-4 sm:grid-cols-4">
+    @for (step of steps; track step.key; let i = $index) {
+      <li class="flex items-start gap-3">
+        <span [class]="stepDotClass(step)">
+          @switch (step.state) {
+            @case ('done') { ✓ }
+            @case ('failed') { ! }
+            @default { {{ i + 1 }} }
+          }
+        </span>
+        <span class="min-w-0">
+          <span class="block text-sm font-semibold" [class]="stepLabelClass(step)">{{ step.label }}</span>
+          <span class="block truncate text-xs text-[#9a9a9a]">{{ step.hint }}</span>
+        </span>
+      </li>
+    }
+  </ol>
+</section>
+
+<section class="mb-6">
+  <article class="card p-6">
+    <p class="page-label">Borrower assessment</p>
+    <h2 class="mt-1 text-base font-semibold text-[#1a1a1a]">Perform assessment</h2>
+    <div class="space-y-4">
+      <!-- Received-borrower picker: newest-received first -->
+      <div class="rounded-xl border border-[rgb(53,99,115,0.35)] bg-[rgb(201,224,252,0.3)] p-4">
+        <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+        </div>
+        @if (receivedBorrowers.length) {
+          <select class="input-field" [value]="borrowerReference" (change)="selectReceivedBorrower($any($event.target).value)">
+            <option value="" disabled>— Select a borrower received from lenders —</option>
+            @for (item of receivedBorrowers; track item.id) {
+              <option [value]="item.borrower_reference" [selected]="item.borrower_reference === borrowerReference">
+                {{ item.borrower_reference }}
+              </option>
+            }
+          </select>
+          <div class="mt-2 flex items-center justify-between">
+            <button class="text-xs font-semibold text-[#0e3191] hover:underline" (click)="refreshReceivedBorrowers()">↻ Refresh list</button>
+          </div>
+        } @else {
+          <p class="text-sm text-[#9a9a9a]">No received data yet — type a reference below and pull, or wait for a lender push.</p>
+        }
+        @if (borrowerReference && borrowerHasReceivedData(receivedBorrowers.find((b) => b.borrower_reference === borrowerReference) || borrower)) {
+          <p class="mt-2 text-xs font-semibold text-[#356373]">✓ Data received for {{ borrowerReference }}</p>
+        }
+      </div>
+      <label class="block"><span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#636363]">Borrower reference</span><input class="input-field" [(ngModel)]="borrowerReference" placeholder="1001"></label>
+      @if (pullError; as pe) { <span class="block text-xs font-semibold text-[#b3262b]">⚠ {{ pe }}</span> }
+    </div>
+  </article>
+</section>
+
+<section class="card p-6">
+  <div class="mt-5 grid gap-4 sm:grid-cols-2 lg:items-end">
+    <button class="btn-primary w-full justify-center" [disabled]="loading || !borrowerReference" (click)="performAssessment($event)">Perform assessment</button>
+    <button class="btn-primary w-full justify-center" [disabled]="loading || !borrower || !aiResult || !blockchainResult" (click)="broadcast($event)">Broadcast to organizations</button>
+  </div>
+
+  @if (aiRows.length || blockchainRows.length) {
+    <div class="mt-6 grid gap-5 lg:grid-cols-2">
+      @if (aiRows.length) {
+        <div class="overflow-hidden rounded-xl border border-[#e8e8e8]">
+          <div class="border-b border-[#e8e8e8] bg-[#f7f7f7] px-4 py-3"><p class="text-xs font-semibold uppercase tracking-wide text-[#9a9a9a]">AI analysis</p></div>
+          <table class="w-full text-left text-sm"><tbody class="divide-y divide-[#e8e8e8]">
+            @for (row of aiRows; track row.label) {
+              <tr [class]="row.highlight ? 'bg-[rgb(201,224,252,0.35)]' : 'hover:bg-[#f7f7f7]'"><td class="w-40 px-4 py-2.5 align-top text-xs font-semibold uppercase tracking-wide" [class]="row.highlight ? 'text-[#0e3191]' : 'text-[#9a9a9a]'">{{ row.label }}</td><td class="px-4 py-2.5" [class]="row.highlight ? 'font-bold text-[#1a1a1a]' : 'text-[#3d3d3d]'"><span [class]="row.mono ? 'break-all font-mono text-xs' : ''">{{ row.value }}</span></td></tr>
+            }
+          </tbody></table>
+        </div>
+      }
+      @if (blockchainRows.length) {
+        <div class="overflow-hidden rounded-xl border border-[#e8e8e8]">
+          <div class="border-b border-[#e8e8e8] bg-[#f7f7f7] px-4 py-3"><p class="text-xs font-semibold uppercase tracking-wide text-[#9a9a9a]">Blockchain analysis</p></div>
+          <table class="w-full text-left text-sm"><tbody class="divide-y divide-[#e8e8e8]">
+            @for (row of blockchainRows; track row.label) {
+              <tr [class]="row.highlight ? 'bg-[rgb(201,224,252,0.35)]' : 'hover:bg-[#f7f7f7]'"><td class="w-40 px-4 py-2.5 align-top text-xs font-semibold uppercase tracking-wide" [class]="row.highlight ? 'text-[#0e3191]' : 'text-[#9a9a9a]'">{{ row.label }}</td><td class="px-4 py-2.5" [class]="row.highlight ? 'font-bold text-[#1a1a1a]' : 'text-[#3d3d3d]'"><span [class]="row.mono ? 'break-all font-mono text-xs' : ''">{{ row.value }}</span></td></tr>
+            }
+          </tbody></table>
+        </div>
+      }
+    </div>
+  }
+  <p class="mt-4 text-xs text-[#9a9a9a]">AI reputation and blockchain results are stored read-only in Central. Review both results, then click Broadcast to organizations.</p>
+</section>
