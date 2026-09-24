@@ -1,5 +1,5 @@
 <section class="grid min-h-screen bg-[#1a1a1a] lg:grid-cols-2">
-  <!-- ═══ Left panel — hero photo with a clean left-aligned copy column ═══ -->
+  <!-- ═══ Left panel — hero photo with centered copy ═══ -->
   <div class="relative hidden overflow-hidden px-12 py-12 lg:flex lg:flex-col lg:justify-between xl:px-20">
     <!-- Background hero image + dark overlay so white text stays readable -->
     <img src="assets/hero.jpg" alt="" aria-hidden="true" class="absolute inset-0 size-full object-cover">
@@ -8,14 +8,16 @@
     <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(2,74,216,0.35),_transparent_60%)]"></div>
     <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_rgba(41,110,249,0.2),_transparent_50%)]"></div>
 
-    <!-- Logo -->
-    <div class="relative flex items-center gap-4">
+    <!-- Logo — centered to match the hero copy -->
+    <div class="relative flex items-center justify-center gap-4">
       <img src="assets/daire.png" alt="DAIRE" class="h-16 w-16 rounded-2xl object-cover shadow-lg shadow-[#024ad8]/20">
-      <div class="leading-none">
+      <div class="text-left leading-none">
         <strong class="block text-base font-bold tracking-[0.25em] text-white">DAIRE</strong>
         <small class="mt-2 block text-xs font-medium tracking-wide text-[#c2c2c2]">Credit Intelligence</small>
       </div>
-    </div>    <!-- Hero copy — centered ON the image -->
+    </div>
+
+    <!-- Hero copy — centered ON the image -->
     <div class="pointer-events-none absolute inset-0 z-10 grid place-items-center px-6">
       <div class="w-full max-w-2xl text-center">
           <h1 class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-3xl font-bold tracking-tight text-white drop-shadow-lg xl:text-4xl">
@@ -41,7 +43,8 @@
       </div>
     </div>
 
-    <!-- Footer -->
+    <!-- Footer — centered to match the rest -->
+    <p class="relative text-center text-xs text-[#c2c2c2] drop-shadow">© 2026 DAIRE · Secure operations console v1.0</p>
   </div>
 
   <!-- ═══ Right panel — clean white login form ═══ -->
