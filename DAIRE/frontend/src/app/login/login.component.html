@@ -1,6 +1,6 @@
 <section class="grid min-h-screen bg-[#1a1a1a] lg:grid-cols-2">
   <!-- ═══ Left panel — hero photo with centered copy ═══ -->
-  <div class="relative hidden overflow-hidden px-12 py-12 lg:flex lg:flex-col lg:justify-between xl:px-20">
+  <div class="relative hidden overflow-hidden px-12 py-12 lg:flex lg:flex-col xl:px-20">
     <!-- Background hero image + dark overlay so white text stays readable -->
     <img src="assets/hero.jpg" alt="" aria-hidden="true" class="absolute inset-0 size-full object-cover">
     <div class="absolute inset-0 bg-[#1a1a1a]/85"></div>
@@ -8,8 +8,8 @@
     <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(2,74,216,0.35),_transparent_60%)]"></div>
     <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_rgba(41,110,249,0.2),_transparent_50%)]"></div>
 
-    <!-- Logo — centered to match the hero copy -->
-    <div class="relative flex items-center justify-center gap-4">
+    <!-- Logo — pinned to the very top-left corner -->
+    <div class="absolute left-6 top-6 z-20 flex items-center gap-4 xl:left-10 xl:top-10">
       <img src="assets/daire.png" alt="DAIRE" class="h-16 w-16 rounded-2xl object-cover shadow-lg shadow-[#024ad8]/20">
       <div class="text-left leading-none">
         <strong class="block text-base font-bold tracking-[0.25em] text-white">DAIRE</strong>
@@ -43,8 +43,8 @@
       </div>
     </div>
 
-    <!-- Footer — centered to match the rest -->
-    <p class="relative text-center text-xs text-[#c2c2c2] drop-shadow">© 2026 DAIRE · Secure operations console v1.0</p>
+    <!-- Footer — centered, pinned to the bottom -->
+    <p class="relative mt-auto text-center text-xs text-[#c2c2c2] drop-shadow">© 2026 DAIRE · Secure operations console v1.0</p>
   </div>
 
   <!-- ═══ Right panel — clean white login form ═══ -->
