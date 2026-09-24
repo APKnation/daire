@@ -49,10 +49,6 @@
     @for (card of kpiCards; track card.label) {
       <article class="relative flex min-w-0 flex-col overflow-hidden rounded-2xl p-4 text-center text-white shadow-lg sm:p-5"
                [style.background]="card.bg">
-        <span class="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold {{ card.chip }}">
-          <span>{{ card.trendUp ? '▲' : '▼' }}</span>
-          <span class="max-w-24 truncate">{{ card.trend }}</span>
-        </span>
         <div class="flex min-w-0 flex-1 flex-col items-center justify-center gap-1.5 pt-1">
           <p class="max-w-full truncate text-sm font-bold uppercase tracking-wider text-white drop-shadow-sm sm:text-base md:text-lg" [title]="card.label">{{ card.label }}</p>
           <strong class="block text-3xl font-extrabold leading-none tracking-tight sm:text-4xl md:text-[2.75rem]">{{ card.value }}</strong>
