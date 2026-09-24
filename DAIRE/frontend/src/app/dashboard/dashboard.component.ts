@@ -1,7 +1,9 @@
 import { DatePipe } from '@angular/common';
-import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { Subject, interval } from 'rxjs';
+import { switchMap, takeUntil } from 'rxjs/operators';
 import {
   ApiService, ApiRecord, Assessment, BlockchainTransaction, DashboardData, DashboardTotals, DataExchangeRecord,
   Lender, PAGE_SIZE, SmartContractResult,
@@ -173,11 +175,20 @@ interface LenderBar {
   imports: [DatePipe, RouterLink, FormsModule, PagerComponent],
   templateUrl: './dashboard.component.html',
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   private readonly api = inject(ApiService);
   private readonly cdr = inject(ChangeDetectorRef);
   data: DashboardData | null = null;
   error = '';
+
+  /** Poll cadence for live dashboard updates (milliseconds). */
+  private static readonly POLL_MS = 10_000;
+  /** Ticks the polling stream — cleared on destroy and when paused. */
+  private readonly pollStop = new Subject<void>();
+  /** True while silent background polling is active (the Live chip). */
+  live = true;
+  /** Wall-clock time of the last successful dashboard load. */
+  lastUpdated: Date | null = null;
 
   /** Active tab of the inner navbar inside the Overview page. */
   stage: OverviewStage = 'snapshot';
@@ -215,6 +226,53 @@ export class DashboardComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    this.startPolling();
+  }
+
+  ngOnDestroy(): void {
+    this.pollStop.next();
+    this.pollStop.complete();
+  }
+
+  /** Silent background refresh every POLL_MS — keeps the overview current
+   * without user action. Unlike a manual refresh it never resets the user's
+   * stage tab, search text or pagination. */
+  private startPolling(): void {
+    this.pollStop.next(); // stop any previous stream (pause → resume)
+    interval(this.POLL_MS).pipe(
+      // switchMap: if a request lags past the next tick, drop it instead of
+      // stacking stale requests.
+      switchMap(() => this.api.dashboard()),
+      takeUntil(this.pollStop),
+    ).subscribe({
+      next: (data) => {
+        this.data = data;
+        this.lastUpdated = new Date();
+        this.cdr.markForCheck();
+      },
+      // A failed poll must never kill the stream — transient backend restarts
+      // would otherwise silently stop live updates. Keep the last good data;
+      // surface the error only when nothing has loaded yet.
+      error: () => {
+        this.lastUpdated = null;
+        if (!this.data) {
+          this.error = 'Live updates interrupted — retrying. Confirm the Django API is running.';
+          this.cdr.markForCheck();
+        }
+      },
+    });
+  }
+
+  /** Toggle live polling (Live/Paused chip in the header). */
+  toggleLive(): void {
+    this.live = !this.live;
+    if (this.live) {
+      this.load();
+      this.startPolling();
+    } else {
+      this.pollStop.next();
+    }
+    this.cdr.markForCheck();
   }
 
   /** Reload dashboard data — wired to the header refresh button. */
@@ -222,6 +280,7 @@ export class DashboardComponent implements OnInit {
     this.api.dashboard().subscribe({
       next: (data) => {
         this.data = data;
+        this.lastUpdated = new Date();
         // Fresh data can shrink a table below the current page — start over.
         this.resetStagePages();
         this.cdr.markForCheck();
