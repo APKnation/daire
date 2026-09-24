@@ -26,8 +26,11 @@ export class DataManagementComponent implements OnInit {
   message = '';
   /** Plaintext key issued on register/regenerate — shown once, never re-fetchable. */
   newApiKey: { lender_id: string; api_key: string } | null = null;
-  /** Central push URL handed to lender developers (LAN-reachable central address). */
-  readonly centralPushUrl = 'http://172.17.16.76:8000/api/lender-data/receive/';
+  /** Central push URL handed to lender developers — derived from the live host
+   * at runtime, never hardcoded, so it is correct wherever the console runs. */
+  get centralPushUrl(): string {
+    return `${window.location.protocol}//${window.location.host}/api/lender-data/receive/`;
+  }
 
   ngOnInit(): void { this.reload(); }
 

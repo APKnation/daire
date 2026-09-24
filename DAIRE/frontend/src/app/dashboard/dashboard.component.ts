@@ -292,10 +292,14 @@ export class DashboardComponent implements OnInit {
     return { text: `${delta >= 0 ? '+' : ''}${delta} pts`, up: delta >= 0 };
   }
 
-  /** Weekly per-lender pull counts, 0..1 normalized — feeds the KPI sparkline. */
+  /** Weekly lender-exchange activity, 0..1 normalized — feeds the KPI sparkline.
+   * Derived from the real lender exchange history in the database. */
   private lenderSpark(): number[] {
-    const counts = this.data?.lenders.map((l) => (l.api_status === 'CONNECTED' ? 2 : 1)) ?? [];
-    return counts.length ? counts.slice(0, 12) : [1, 1, 1];
+    const stamps = (this.data?.lender_exchanges ?? [])
+      .map((e) => e.created_at ?? '')
+      .filter(Boolean)
+      .sort();
+    return this.buckets(stamps, 12);
   }
 
   private borrowersSpark(): number[] {
@@ -320,7 +324,7 @@ export class DashboardComponent implements OnInit {
       .filter((a) => a.credit_score != null)
       .sort((x, y) => ((x as AssessmentWithTimestamp).created_at ?? '').localeCompare((y as AssessmentWithTimestamp).created_at ?? ''))
       .map((a) => a.credit_score as number);
-    if (!scores.length) return [1, 1, 1];
+    if (!scores.length) return Array(12).fill(0.15); // flat baseline when no scores exist yet
     return scores.slice(-12).map((s) => (s - 350) / 450);
   }
 
