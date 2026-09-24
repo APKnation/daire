@@ -1,9 +1,12 @@
 <section class="grid min-h-screen bg-[#1a1a1a] lg:grid-cols-2">
   <!-- Left panel -->
   <div class="relative hidden overflow-hidden px-12 py-12 lg:flex lg:flex-col lg:justify-between xl:px-20">
-    <!-- Background gradient -->
-    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(2,74,216,0.25),_transparent_60%)]"></div>
-    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_rgba(41,110,249,0.1),_transparent_50%)]"></div>
+    <!-- Background hero image + dark overlay so white text stays readable -->
+    <img src="assets/hero.jpg" alt="" aria-hidden="true" class="absolute inset-0 size-full object-cover">
+    <div class="absolute inset-0 bg-[#1a1a1a]/70"></div>
+    <!-- Brand gradients layered over the photo -->
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(2,74,216,0.3),_transparent_60%)]"></div>
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_rgba(41,110,249,0.15),_transparent_50%)]"></div>
 
     <!-- Logo -->
     <div class="relative flex items-center gap-4">
