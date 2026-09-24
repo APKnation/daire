@@ -363,28 +363,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
   /** Weekly lender-exchange activity, 0..1 normalized — feeds the KPI sparkline.
    * Derived from the real lender exchange history in the database. */
   private lenderSpark(): number[] {
-    const stamps = (this.data?.lender_exchanges ?? [])
-      .map((e) => e.created_at ?? '')
-      .filter(Boolean)
-      .sort();
-    return this.buckets(stamps, 12);
+    return this.activitySeries((this.data?.lender_exchanges ?? []).map((e) => e.created_at ?? ''));
   }
 
   private borrowersSpark(): number[] {
-    const stamps = (this.data?.borrowers ?? [])
-      .map((b) => b.created_at ?? '')
-      .filter(Boolean)
-      .sort();
-    return this.buckets(stamps, 12);
+    return this.activitySeries((this.data?.borrowers ?? []).map((b) => b.created_at ?? ''));
   }
 
   private assessmentsSpark(): number[] {
-    const stamps = (this.data?.assessments ?? [])
-      .filter((a) => a.credit_score != null)
-      .map((a) => (a as AssessmentWithTimestamp).created_at ?? '')
-      .filter(Boolean)
-      .sort();
-    return this.buckets(stamps, 12);
+    return this.activitySeries(
+      (this.data?.assessments ?? [])
+        .filter((a) => a.credit_score != null)
+        .map((a) => (a as AssessmentWithTimestamp).created_at ?? ''),
+    );
   }
 
   private scoresSpark(): number[] {
@@ -443,19 +434,77 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }));
   }
 
-  /** Count timestamps into n equal time buckets, oldest → newest. */
-  private buckets(stamps: string[], n: number): number[] {
-    if (!stamps.length) return Array(n).fill(0.15);
-    const times = stamps.map((s) => new Date(s).getTime()).filter((t) => !Number.isNaN(t));
-    if (!times.length) return Array(n).fill(0.15);
-    const min = Math.min(...times);
-    const max = Math.max(...times);
-    const span = Math.max(max - min, 1);
+  /** Every record timestamp in the payload — decides sparkline granularity. */
+  private allTimestamps(): number[] {
+    const parse = (stamp: string | undefined | null): number => Date.parse(stamp ?? '');
+    return [
+      ...(this.data?.lender_exchanges ?? []).map((e) => parse(e.created_at)),
+      ...(this.data?.borrowers ?? []).map((b) => parse(b.created_at)),
+      ...(this.data?.assessments ?? []).map((a) => parse((a as AssessmentWithTimestamp).created_at)),
+    ].filter((t) => !Number.isNaN(t));
+  }
+
+  /** Sparkline granularity: hourly when ALL activity happened within the last
+n   * 48 hours, otherwise daily. Shared by every card so the four sparklines
+   * stay comparable with each other. */
+  get sparkGranularity(): 'hour' | 'day' {
+    const stamps = this.allTimestamps();
+    if (!stamps.length) return 'day';
+    const earliest = Math.min(...stamps);
+    return Date.now() - earliest <= 48 * 3_600_000 ? 'hour' : 'day';
+  }
+
+  /** Human-readable window the KPI sparklines cover — used as the tooltip. */
+  get sparkWindowLabel(): string {
+    return this.sparkGranularity === 'hour'
+      ? 'Records per hour — last 12 hours'
+      : 'Records per day — last 12 days';
+  }
+
+  /** Axis ticks under each sparkline: three anchor labels at their real
+   * bucket positions plus the live edge ("Now"/"Today"), so the covered
+   * window is readable without hovering. */
+  get sparkAxisTicks(): Array<{ label: string; pct: number; alignEnd?: boolean }> {
+    const n = 12;
+    const hourly = this.sparkGranularity === 'hour';
+    const windowMs = hourly ? 3_600_000 : 24 * 3_600_000;
+    const start = Date.now() - n * windowMs;
+    const fmt = (index: number): string => {
+      const date = new Date(start + (index + 0.5) * windowMs);
+      if (hourly) {
+        const h = date.getHours();
+        return `${((h + 11) % 12) + 1}${h < 12 ? 'a' : 'p'}`;
+      }
+      return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    };
+    return [
+      { label: fmt(0), pct: 6 },
+      { label: fmt(4), pct: 37.5 },
+      { label: fmt(8), pct: 70.5 },
+      { label: hourly ? 'Now' : 'Today', pct: 100, alignEnd: true },
+    ];
+  }
+
+  /** Count records into 12 fixed windows ENDING NOW (hourly or daily).
+   *
+   * Unlike the old min→max bucketing — which stretched the X-axis over only
+   * the days that had data and made a meaningless zigzag when everything
+   * happened on one or two days — this keeps the calendar fixed: quiet days
+   * stay at zero, so the shape shows REAL activity over time.
+   */
+  private activitySeries(stamps: string[]): number[] {
+    const n = 12;
+    const times = stamps.map((s) => Date.parse(s)).filter((t) => !Number.isNaN(t));
+    const now = Date.now();
+    const windowMs = this.sparkGranularity === 'hour' ? 3_600_000 : 24 * 3_600_000;
+    const start = now - n * windowMs;
     const out = Array(n).fill(0);
     for (const t of times) {
-      out[Math.min(n - 1, Math.floor(((t - min) / span) * n))]++;
+      if (t < start) continue; // older than the shown window — out of frame
+      out[Math.min(n - 1, Math.floor((t - start) / windowMs))]++;
     }
     const peak = Math.max(...out, 1);
+    // 0.15 floor keeps a quiet-but-nonzero bar visible; 0 means truly empty.
     return out.map((v) => 0.15 + (v / peak) * 0.85);
   }
 
