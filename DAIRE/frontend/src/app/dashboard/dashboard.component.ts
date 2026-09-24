@@ -239,7 +239,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
    * stage tab, search text or pagination. */
   private startPolling(): void {
     this.pollStop.next(); // stop any previous stream (pause → resume)
-    interval(this.POLL_MS).pipe(
+    interval(DashboardComponent.POLL_MS).pipe(
       // switchMap: if a request lags past the next tick, drop it instead of
       // stacking stale requests.
       switchMap(() => this.api.dashboard()),

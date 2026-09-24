@@ -3,7 +3,28 @@
   <div>
     <p class="mt-2 max-w-2xl text-base leading-relaxed text-[#024ad8] sm:text-lg">Live state of the lender network, borrower registry and credit scoring pipeline.</p>
   </div>
-  <div class="flex items-center gap-2">
+  <div class="flex flex-wrap items-center gap-2">
+    <!-- Live/Paused toggle — controls the 10s background polling -->
+    <button type="button" (click)="toggleLive()"
+            class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold shadow-sm transition"
+            [class]="live
+              ? 'border-[rgb(2,74,216,0.4)] bg-[rgb(2,74,216,0.08)] text-[#0e3191]'
+              : 'border-[#e8e8e8] bg-white text-[#636363]'"
+            [attr.aria-pressed]="live"
+            [title]="live ? 'Live updates on — click to pause' : 'Updates paused — click to resume'">
+      @if (live) {
+        <span class="relative flex size-2">
+          <span class="absolute inline-flex size-full animate-ping rounded-full bg-[#024ad8] opacity-60"></span>
+          <span class="relative inline-flex size-2 rounded-full bg-[#024ad8]"></span>
+        </span>
+      } @else {
+        <span class="size-2 rounded-full bg-[#9a9a9a]"></span>
+      }
+      {{ live ? 'Live' : 'Paused' }}
+      @if (live && lastUpdated) {
+        <span class="font-normal text-[#636363]">· {{ lastUpdated | date:'shortTime' }}</span>
+      }
+    </button>
     <button (click)="load()" title="Refresh"
       class="grid size-10 place-items-center rounded-xl border border-[#e8e8e8] bg-white text-[#636363] shadow-sm transition hover:border-[#c2c2c2] hover:text-[#292929]">
       <svg class="size-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
