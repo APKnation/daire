@@ -141,6 +141,8 @@ interface KpiCard {
   sparkDots: SparkDot[];
   sparkWave: string;
   sparkBars: SparkBar[];
+  /** Whether the time-window axis renders under the sparkline (activity cards). */
+  axis: boolean;
 }
 
 interface ScoreBand {
@@ -444,10 +446,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
     ].filter((t) => !Number.isNaN(t));
   }
 
-  /** Sparkline granularity: hourly when ALL activity happened within the last
-n   * 48 hours, otherwise daily. Shared by every card so the four sparklines
-   * stay comparable with each other. */
-  get sparkGranularity(): 'hour' | 'day' {
+  /** Selected sparkline window: Auto picks hourly/daily from the data age,
+   * the other options force a fixed 12-bucket calendar window. */
+  sparkWindow: 'auto' | 'hour' | 'day' | 'week' = 'auto';
+  readonly sparkWindowOptions: Array<{ value: 'auto' | 'hour' | 'day' | 'week'; label: string }> = [
+    { value: 'auto', label: 'Auto' },
+    { value: 'hour', label: '12H' },
+    { value: 'day', label: '12D' },
+    { value: 'week', label: '12W' },
+  ];
+
+  /** Switch the sparkline window (header segmented control). */
+  setSparkWindow(value: 'auto' | 'hour' | 'day' | 'week'): void {
+    this.sparkWindow = value;
+    this.cdr.markForCheck();
+  }
+
+  /** Resolved granularity: the explicit selection, or Auto's rule — hourly
+   * when ALL activity happened within the last 48 hours, otherwise daily.
+   * Shared by every card so the four sparklines stay comparable. */
+  get effectiveGranularity(): 'hour' | 'day' | 'week' {
+    if (this.sparkWindow !== 'auto') return this.sparkWindow;
     const stamps = this.allTimestamps();
     if (!stamps.length) return 'day';
     const earliest = Math.min(...stamps);
@@ -456,9 +475,11 @@ n   * 48 hours, otherwise daily. Shared by every card so the four sparklines
 
   /** Human-readable window the KPI sparklines cover — used as the tooltip. */
   get sparkWindowLabel(): string {
-    return this.sparkGranularity === 'hour'
-      ? 'Records per hour — last 12 hours'
-      : 'Records per day — last 12 days';
+    switch (this.effectiveGranularity) {
+      case 'hour': return 'Records per hour — last 12 hours';
+      case 'week': return 'Records per week — last 12 weeks';
+      default: return 'Records per day — last 12 days';
+    }
   }
 
   /** Axis ticks under each sparkline: three anchor labels at their real
@@ -466,12 +487,14 @@ n   * 48 hours, otherwise daily. Shared by every card so the four sparklines
    * window is readable without hovering. */
   get sparkAxisTicks(): Array<{ label: string; pct: number; alignEnd?: boolean }> {
     const n = 12;
-    const hourly = this.sparkGranularity === 'hour';
-    const windowMs = hourly ? 3_600_000 : 24 * 3_600_000;
+    const granularity = this.effectiveGranularity;
+    const windowMs = granularity === 'hour' ? 3_600_000
+      : granularity === 'week' ? 7 * 24 * 3_600_000
+      : 24 * 3_600_000;
     const start = Date.now() - n * windowMs;
     const fmt = (index: number): string => {
       const date = new Date(start + (index + 0.5) * windowMs);
-      if (hourly) {
+      if (granularity === 'hour') {
         const h = date.getHours();
         return `${((h + 11) % 12) + 1}${h < 12 ? 'a' : 'p'}`;
       }
@@ -481,7 +504,7 @@ n   * 48 hours, otherwise daily. Shared by every card so the four sparklines
       { label: fmt(0), pct: 6 },
       { label: fmt(4), pct: 37.5 },
       { label: fmt(8), pct: 70.5 },
-      { label: hourly ? 'Now' : 'Today', pct: 100, alignEnd: true },
+      { label: granularity === 'day' ? 'Today' : 'Now', pct: 100, alignEnd: true },
     ];
   }
 
@@ -496,7 +519,9 @@ n   * 48 hours, otherwise daily. Shared by every card so the four sparklines
     const n = 12;
     const times = stamps.map((s) => Date.parse(s)).filter((t) => !Number.isNaN(t));
     const now = Date.now();
-    const windowMs = this.sparkGranularity === 'hour' ? 3_600_000 : 24 * 3_600_000;
+    const windowMs = this.effectiveGranularity === 'hour' ? 3_600_000
+      : this.effectiveGranularity === 'week' ? 7 * 24 * 3_600_000
+      : 24 * 3_600_000;
     const start = now - n * windowMs;
     const out = Array(n).fill(0);
     for (const t of times) {
@@ -520,6 +545,7 @@ n   * 48 hours, otherwise daily. Shared by every card so the four sparklines
       chip: string,
       sparkType: KpiCard['sparkType'],
       series: number[],
+      axis: boolean,
     ): KpiCard => ({
       label,
       value,
@@ -528,6 +554,7 @@ n   * 48 hours, otherwise daily. Shared by every card so the four sparklines
       bg,
       chip,
       sparkType,
+      axis,
       sparkPoints: this.toSparkPoints(series),
       sparkDots: this.toSparkDots(series),
       sparkWave: this.toSparkWave(series),
@@ -535,13 +562,13 @@ n   * 48 hours, otherwise daily. Shared by every card so the four sparklines
     });
     return [
       card('Lender network', `${this.connectedLenders}/${this.totals?.lenders ?? this.data?.lenders.length ?? 0}`, `${this.connectedLenders} available`,
-        this.connectedLenders > 0, '#024ad8', 'bg-white/25', 'dots', this.lenderSpark()),
+        this.connectedLenders > 0, '#024ad8', 'bg-white/25', 'dots', this.lenderSpark(), true),
       card('Borrowers', String(this.activeBorrowers), 'unified across institutions', true,
-        '#296ef9', 'bg-white/25', 'wave', this.borrowersSpark()),
+        '#296ef9', 'bg-white/25', 'wave', this.borrowersSpark(), true),
       card('Avg credit score', this.averageCreditScore != null ? String(this.averageCreditScore) : '—', trend.text, trend.up,
-        '#356373', 'bg-white/25', 'bars', this.scoresSpark()),
+        '#356373', 'bg-white/25', 'bars', this.scoresSpark(), false),
       card('Assessments', String(this.scoredAssessments), 'scored on-chain', this.verifiedAssessments > 0,
-        '#024ad8', 'bg-white/25', 'bars', this.assessmentsSpark()),
+        '#024ad8', 'bg-white/25', 'bars', this.assessmentsSpark(), true),
     ];
   }
 

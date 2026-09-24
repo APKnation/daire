@@ -44,6 +44,20 @@
 }
 
 @if (data) {
+  <!-- Window switcher for the KPI sparklines: Auto / 12 hours / 12 days / 12 weeks -->
+  <div class="mb-2 flex items-center justify-end gap-2">
+    <span class="text-[11px] font-medium uppercase tracking-wide text-[#9a9a9a]">Sparkline window</span>
+    <div class="flex overflow-hidden rounded-lg border border-[#e8e8e8] bg-white" role="group" aria-label="Sparkline time window">
+      @for (option of sparkWindowOptions; track option.value) {
+        <button type="button" (click)="setSparkWindow(option.value)"
+                class="px-2.5 py-1 text-[11px] font-semibold transition"
+                [class]="sparkWindow === option.value
+                  ? 'bg-[#024ad8] text-white'
+                : 'text-[#636363] hover:bg-[#f7f7f7]'"
+                [attr.aria-pressed]="sparkWindow === option.value">{{ option.label }}</button>
+      }
+    </div>
+  </div>
   <!-- Colored KPI cards — always at the top, above the data visualization -->
   <section class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
     @for (card of kpiCards; track card.label) {
@@ -53,8 +67,8 @@
           <p class="max-w-full truncate text-sm font-bold uppercase tracking-wider text-white drop-shadow-sm sm:text-base md:text-lg" [title]="card.label">{{ card.label }}</p>
           <strong class="block text-3xl font-extrabold leading-none tracking-tight sm:text-4xl md:text-[2.75rem]">{{ card.value }}</strong>
         </div>
-        <!-- Sparkline: dotted, wave, or bars — records per hour/day in a fixed
-             window ending now, so quiet periods stay flat at zero. -->
+        <!-- Sparkline: dotted, wave, or bars — records per hour/day/week in a
+             fixed window ending now, so quiet periods stay flat at zero. -->
         <svg [title]="sparkWindowLabel" viewBox="0 0 100 24" preserveAspectRatio="none" class="mt-3 h-8 w-full" aria-hidden="true">
           @switch (card.sparkType) {
             @case ('dots') {
@@ -72,10 +86,17 @@
               @for (bar of card.sparkBars; track $index) {
                 <rect [attr.x]="bar.x" [attr.y]="bar.y" [attr.width]="bar.w" [attr.height]="bar.h"
                       rx="0.8" fill="rgba(255,255,255,0.75)"/>
-              }
-            }
-          }
+              }          }
+        }
         </svg>
+        <!-- Time axis: window anchors + live edge (activity cards only) -->
+        @if (card.axis) {
+          <div class="mt-1 flex select-none items-end justify-between text-[9px] font-medium leading-none text-white/70" aria-hidden="true">
+            @for (tick of sparkAxisTicks; track tick.label) {
+              <span [class.text-right]="tick.alignEnd">{{ tick.label }}</span>
+            }
+          </div>
+        }
       </article>
     }
   </section>
