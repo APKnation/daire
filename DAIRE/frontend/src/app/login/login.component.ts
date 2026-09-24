@@ -7,6 +7,35 @@ import { AuthService } from '../core/auth.service';
   standalone: true,
   imports: [ReactiveFormsModule],
   templateUrl: './login.component.html',
+  styles: [`
+    /* Staggered entrance for the hero copy — each element delays via
+       Tailwind's [animation-delay:…] arbitrary property. */
+    @keyframes hero-fade-up {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .hero-anim {
+      opacity: 0;
+      animation-name: hero-fade-up;
+      animation-duration: 0.7s;
+      animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+      animation-fill-mode: forwards;
+    }
+    /* Slow color drift across the gradient headline. */
+    @keyframes hero-gradient-shift {
+      0%, 100% { background-position: 0% 50%; }
+      50%      { background-position: 100% 50%; }
+    }
+    .hero-gradient {
+      background-size: 220% auto;
+      animation: hero-gradient-shift 5s ease-in-out infinite;
+    }
+    /* Respect users who opt out of motion. */
+    @media (prefers-reduced-motion: reduce) {
+      .hero-anim { animation: none; opacity: 1; }
+      .hero-gradient { animation: none; }
+    }
+  `],
 })
 export class LoginComponent {
   private readonly fb = inject(FormBuilder);
