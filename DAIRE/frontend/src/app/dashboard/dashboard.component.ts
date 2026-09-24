@@ -390,7 +390,6 @@ export class DashboardComponent implements OnInit {
   /** The four hero KPI cards, styled after the colored reference design. */
   get kpiCards(): KpiCard[] {
     const trend = this.scoreTrend();
-    const total = this.totals?.assessments ?? this.data?.assessments.length ?? 0;
     const card = (
       label: string,
       value: string,
@@ -420,7 +419,7 @@ export class DashboardComponent implements OnInit {
         '#296ef9', 'bg-white/25', 'wave', this.borrowersSpark()),
       card('Avg credit score', this.averageCreditScore != null ? String(this.averageCreditScore) : '—', trend.text, trend.up,
         '#356373', 'bg-white/25', 'bars', this.scoresSpark()),
-      card('Assessments', `${this.scoredAssessments}/${total}`, `${this.verifiedAssessments} on-chain`, this.verifiedAssessments > 0,
+      card('Assessments', String(this.scoredAssessments), 'scored on-chain', this.verifiedAssessments > 0,
         '#024ad8', 'bg-white/25', 'bars', this.assessmentsSpark()),
     ];
   }
