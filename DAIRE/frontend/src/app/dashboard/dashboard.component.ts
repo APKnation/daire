@@ -189,6 +189,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   live = true;
   /** Wall-clock time of the last successful dashboard load. */
   lastUpdated: Date | null = null;
+  /** True while a manual refresh is in flight — spins the header button. */
+  refreshing = false;
 
   /** Active tab of the inner navbar inside the Overview page. */
   stage: OverviewStage = 'snapshot';
@@ -275,19 +277,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  /** Reload dashboard data — wired to the header refresh button. */
+  /** Reload dashboard data — wired to the header refresh button.
+   * Shows a spinner while the request runs so the click gives visible feedback. */
   load(): void {
+    if (this.refreshing) return; // ignore double-clicks while a refresh runs
+    this.refreshing = true;
+    this.cdr.markForCheck();
     this.api.dashboard().subscribe({
       next: (data) => {
         this.data = data;
         this.lastUpdated = new Date();
+        this.error = '';
         // Fresh data can shrink a table below the current page — start over.
         this.resetStagePages();
+        this.refreshing = false;
         this.cdr.markForCheck();
       },
       error: (err) => {
         console.error('Dashboard error:', err);
         this.error = 'Dashboard data could not be loaded. Confirm the Django API is running.';
+        this.refreshing = false;
         this.cdr.markForCheck();
       },
     });
