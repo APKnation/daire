@@ -1,4 +1,5 @@
 import uuid
+import os
 from datetime import timedelta
 from decimal import Decimal
 
@@ -27,7 +28,21 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write(self.style.NOTICE("Seeding DAIRE Central System data..."))
         User = get_user_model()
-        admin_user = User.objects.filter(is_superuser=True).first()
+        # Ensure an administrative user exists so the session login (/api/auth/login/) works.
+        admin_user, _ = User.objects.get_or_create(
+            username=os.environ.get("DJANGO_ADMIN_USER", "apk"),
+            defaults={
+                "is_active": True,
+                "is_staff": True,
+                "is_superuser": True,
+            },
+        )
+        if admin_user.password == "" or admin_user.password is None:
+            admin_user.set_password(os.environ.get("DJANGO_ADMIN_PASSWORD", "apk"))
+            admin_user.save()
+        else:
+            admin_user.set_password(os.environ.get("DJANGO_ADMIN_PASSWORD", "apk"))
+            admin_user.save()
 
         now = timezone.now()
 

@@ -609,6 +609,82 @@ If only AI scoring has run, `results.blockchain` is `null` and `result.kind` is
 
 `"score"` in your acknowledgement is read from `result.credit_score` when present.
 
+## 12.5 How the lender subsystem configures itself (quick reference)
+
+A lender subsystem connects to DAIRE Central using **two HTTP surfaces**. The
+lender only ever sends to Central; Central sends to the lender. The lender's
+own `api_base_url` must point at the Central system (see §12.1 below for how
+each side is wired).
+
+### Lender → Central (the lender POSTs its data)
+
+| Item | Value |
+|---|---|
+| Endpoint | `POST {CENTRAL}/api/lender-data/receive/` |
+| Authentication | keyless by default (`REQUIRE_API_KEYS=false`); add `X-API-Key` when keys are on |
+| Identity | `borrower_reference` (Central's unique id, or `nida_number` to link) |
+| Payload | wrapped (`lender_id`, `borrower_reference`, `account_reference`, `payload`) or flat |
+| What Central does | validates → merges on NIDA/borrower_reference → stores loans, repayments, transactions |
+| Success 201 | `{ "status": "COMPLETED", "borrower_reference": "...", "summary": {...} }` |
+
+The lender publishes **only** its `api_base_url`. Central appends the two fixed
+paths itself (see §12.1.1 and §12.2 below) — the lender does **not** need to
+know those paths.
+
+### Central → Lender (Central POSTs the final credit result)
+
+| Item | Value |
+|---|---|
+| Endpoint | `POST {your api_base_url}/api/daire/central/receive/` |
+| Authentication | keyless by default; add `Authorization: Bearer <token>` when keys are on |
+| Identity | `borrower_reference` — the customer id **as held in your own system** |
+| Body | `result_type`, `borrower_reference`, `assessment_reference`, `result`, `results` |
+| Success 200 | `{ "received": true, "lender_system": "...", "score": 652, "processed_at": "..." }` |
+
+### Appendix A — Central's fixed paths
+
+| Surface | Fixed path | Who POSTs? |
+|---|---|---|
+| Lender data push | `{CENTRAL}/api/lender-data/receive/` | Lender |
+| Result broadcast | `{base}/api/daire/central/receive/` | Central |
+| Borrower data pull | `{base}/borrowers?borrower_reference={ref}` | Central |
+
+### Appendix B — Developer quick-start for the lender middleware
+
+The Node middleware (`daire-middleware/`) is only the **blockchain scoring**
+interface by default (`/api/v1/score/*`). It has no lender-data routes.
+
+- To expose the borrower data + broadcast receiver on the same port as the
+  middleware, start the manual stand-in:
+
+  ```bash
+  cd daire-middleware
+  ./start-lender-data.sh        # serves /borrowers + /api/daire/central/receive/ on 4300
+  ```
+
+- In Central, register the lender with its `api_base_url` equal to the
+  middleware/base URL that serves the receiver (e.g. `http://172.16.47:4300`).
+
+### Appendix C — Central-side registration
+
+Register the lender in DAIRE Central with `api_base_url` set to the URL that
+serves **both** the borrower pull and the broadcast receiver. Example for the
+dev stand-in on port 4300:
+
+```json
+{
+  "lender_id": "LDR-DEMO-FLOW",
+  "institution_name": "Demo Flow Bank",
+  "institution_type": "Digital Lender",
+  "api_base_url": "http://172.16.47:4300",
+  "api_status": "CONNECTED",
+  "authentication_method": "API_KEY"
+}
+```
+
+The backend then broadcasts to `{api_base_url}/api/daire/central/receive/` and
+routes `GET /borrowers?borrower_reference=...` to `{api_base_url}/borrowers`.
+
 ### 12.5 Privacy rules
 
 - Central sends **derived scores only** — never raw transactions, balances,

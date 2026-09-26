@@ -1,0 +1,109 @@
+{
+  "borrowers": [
+    {
+      "id": 1,
+      "name": "Nia",
+      "age": 29,
+      "gender": "FEMALE",
+      "customer_id": "001",
+      "income": 980000,
+      "transaction_frequency": 30,
+      "income_frequency": 2,
+      "savings": 250000,
+      "balance_stability": 0.72,
+      "account_reference": "ACC-001",
+      "account_name": "Nia account",
+      "business_information": {
+        "business_name": "",
+        "business_type": ""
+      },
+      "account_information": {
+        "account_count": 1,
+        "currency": "ZMW",
+        "customer_since": "2020-01-01"
+      },
+      "verification": {
+        "identity_verified": true,
+        "identity_provider": "NIDA",
+        "phone_verified": true,
+        "account_owner_verified": true,
+        "source_verified_at": "2026-09-26T08:14:33+03:00"
+      },
+      "source_metadata": {
+        "source_system": "NMB_CORE_BANKING",
+        "source_version": "1.0",
+        "currency": "ZMW",
+        "records_returned": 10,
+        "request_id": "DSYNC-DEMO"
+      },
+      "loans": [
+        {
+          "loan_id": "LN-0001",
+          "loan_amount": 500000,
+          "loan_duration_months": 12,
+          "interest_rate": 5.0,
+          "outstanding_balance": 0,
+          "status": "CLOSED",
+          "repayments": [
+            {
+              "repayment_amount": 41666.67,
+              "repayment_date": "2025-10-25",
+              "status": "ON_TIME",
+              "days_overdue": 0
+            },
+            {
+              "repayment_amount": 41666.67,
+              "repayment_date": "2025-11-25",
+              "status": "ON_TIME",
+              "days_overdue": 0
+            }
+          ]
+        }
+      ],
+      "transactions": [
+        {
+          "transaction_id": "TXN-001",
+          "transaction_date": "2026-09-24T09:14:22+03:00",
+          "amount": 980000,
+          "type": "SALARY",
+          "direction": "CREDIT",
+          "balance_after": 250000,
+          "status": "COMPLETED"
+        },
+        {
+          "transaction_id": "TXN-002",
+          "transaction_date": "2026-09-18T14:32:05+03:00",
+          "amount": 120000,
+          "type": "BUSINESS_REVENUE",
+          "direction": "CREDIT",
+          "balance_after": 130000,
+          "status": "COMPLETED"
+        },
+        {
+          "transaction_id": "TXN-003",
+          "transaction_date": "2026-09-12T11:02:41+03:00",
+          "amount": 80000,
+          "type": "LOAN_REPAYMENT",
+          "direction": "DEBIT",
+          "balance_after": 50000,
+          "status": "COMPLETED"
+        }
+      ],
+      "balance_history": [
+        {
+          "date": "2026-06-30",
+          "closing_balance": 920000
+        },
+        {
+          "date": "2026-07-31",
+          "closing_balance": 870000
+        },
+        {
+          "date": "2026-09-24",
+          "closing_balance": 250000
+        }
+      ],
+      "borrower_reference": "1001"
+    }
+  ]
+}

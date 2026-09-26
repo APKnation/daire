@@ -181,7 +181,7 @@ def record_exchange(**kwargs) -> DataExchange:
 # ---------------------------------------------------------------------------
 LENDER_CONTRACT_TOP_LEVEL = {
     # identity
-    "borrower_reference", "customer_id", "age", "gender", "employment_status", "income",
+    "borrower_reference", "customer_id", "nida_number", "age", "gender", "employment_status", "income",
     # business / account summary
     "business_information", "account_information", "account_reference", "account_name",
     # financial aggregates
@@ -483,7 +483,7 @@ def refresh_borrower_financial_profile(borrower: Borrower) -> BorrowerFinancialP
 
 def _record_borrower_conflicts(borrower: Borrower, lender: Lender, payload: dict[str, Any]) -> None:
     """Keep source differences visible while retaining the latest normalized value."""
-    comparable_fields = ("customer_id", "age", "gender", "employment_status", "income")
+    comparable_fields = ("customer_id", "age", "gender", "employment_status", "income", "nida_number")
     conflicts = list(borrower.data_conflicts or [])
     for field in comparable_fields:
         existing = getattr(borrower, field)
@@ -596,8 +596,32 @@ def merge_vendor_borrower_data(*, lender: Lender, borrower_reference: str, paylo
         raise ValidationError("Lender data borrower_reference does not match the requested borrower.")
     borrower, _ = Borrower.objects.get_or_create(borrower_reference=borrower_reference)
     _record_borrower_conflicts(borrower, lender, payload)
-    # IDs are plain numbers (001, 002, 003 …). Lenders may send them as JSON
-    # numbers or strings — normalize to string so 2 and "2" merge into one
+    # Materialize the canonical reference. NIDA is the lender's global unique
+    # customer identifier, so prefer linking on it when the lender sent one;
+    # fall back to the central borrower_reference otherwise. This keeps two
+    # lenders sharing a customer_id from merging into two records.
+    nida_number = str(payload.get("nida_number") or "").strip()
+    if nida_number:
+        # Unique on nida_number: no two central borrowers may hold the same
+        # national id. If a borrower already holds this NIDA under a different
+        # reference, re-point it to that borrower (never create a dup).
+        existing = Borrower.objects.filter(nida_number=nida_number).first()
+        if existing:
+            borrower = existing
+        else:
+            borrower, _ = Borrower.objects.get_or_create(
+                borrower_reference=borrower_reference, defaults={"nida_number": nida_number}
+            )
+    else:
+        borrower, _ = Borrower.objects.get_or_create(borrower_reference=borrower_reference)
+    # Always materialise nida_number onto the borrower when the lender sent
+    # one, so the persisted record carries the lender's global customer id
+    # even when re-merging an existing borrower that was found by reference.
+    if nida_number:
+        borrower.nida_number = nida_number
+    _record_borrower_conflicts(borrower, lender, payload)
+    # --- IDs are plain numbers (001, 002, 003 …). Lenders may send them as
+    # JSON numbers or strings — normalize to string so 2 and "2" merge into one
     # record instead of creating duplicates.
     customer_id = payload.get("customer_id")
     borrower.customer_id = (
@@ -612,7 +636,7 @@ def merge_vendor_borrower_data(*, lender: Lender, borrower_reference: str, paylo
     borrower.account_information = payload.get("account_information") or borrower.account_information or {}
     borrower.save(update_fields=(
         "customer_id", "age", "gender", "employment_status", "income",
-        "business_information", "account_information", "updated_at",
+        "business_information", "account_information", "nida_number", "updated_at",
     ))
 
     account_key = account_reference or payload.get("account_reference") or payload.get("account_number") or borrower.customer_id

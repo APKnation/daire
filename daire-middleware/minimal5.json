@@ -1,0 +1,4 @@
+[
+  {"id":"1001","borrower_reference":"1001","customer_id":"001","name":"Nia","age":29,"gender":"FEMALE","income":980000,"transaction_frequency":30,"income_frequency":2,"savings":250000,"balance_stability":0.72,"account_reference":"ACC-001","account_name":"Nia account"},
+  {"id":"1002","borrower_reference":"1002","customer_id":"002","name":"Juma","age":34,"gender":"MALE","income":750000,"transaction_frequency":24,"income_frequency":2,"savings":180000,"balance_stability":0.65,"account_reference":"ACC-002","account_name":"Juma account"}
+]

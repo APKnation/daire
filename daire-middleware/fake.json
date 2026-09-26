@@ -1,0 +1,16 @@
+{
+  "borrowers": [
+    {
+      "id": 1,
+      "name": "Nia",
+      "age": 29,
+      "gender": "FEMALE",
+      "customer_id": "001",
+      "income": 980000,
+      "transaction_frequency": 30,
+      "income_frequency": 2,
+      "savings": 250000,
+      "balance_stability": 0.72
+    }
+  ]
+}

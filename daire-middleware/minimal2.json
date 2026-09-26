@@ -1,0 +1,17 @@
+[
+  {
+    "id": "1001",
+    "borrower_reference": "1001",
+    "customer_id": "001",
+    "name": "Nia",
+    "age": 29,
+    "gender": "FEMALE",
+    "income": 980000,
+    "transaction_frequency": 30,
+    "income_frequency": 2,
+    "savings": 250000,
+    "balance_stability": 0.72,
+    "account_reference": "ACC-001",
+    "account_name": "Nia account"
+  }
+]

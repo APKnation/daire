@@ -67,6 +67,13 @@ class Borrower(TimestampedModel):
         # the order data arrived (latest push/pull on top).
         ordering = ("-created_at", "-id")
     borrower_reference = models.CharField(max_length=64, unique=True)
+    # NIDA number: the national unique identifier a lender holds for a
+    # borrower (for example the Tanzanian NIDA number). Lenders may send this
+    # in place of, or alongside, the central borrower_reference. Central
+    # prefers to link on nida_number when it is present so a lender's global
+    # customer id always resolves to the same central borrower across pushes
+    # and lenders.
+    nida_number = models.CharField(max_length=128, blank=True, default=None, null=True, unique=True)
     name = models.CharField(max_length=255, blank=True, default="")
     is_active = models.BooleanField(default=True)
     customer_id = models.CharField(max_length=64, blank=True, default="")
