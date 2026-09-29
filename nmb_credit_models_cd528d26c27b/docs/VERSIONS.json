@@ -1,0 +1,23 @@
+{
+  "model_version": "cd528d26c27b",
+  "component_sha256": {
+    "pd_primary_model": "05075e72e3b4b4e3b08eca4a7d723964007524aa89aa8f8b3fc80a83e1eba6ff",
+    "pd_challenger_model": "2585f5f66a7ffbb031f3f305329a23282089b7677d8b65fba48c5f046a7c778c",
+    "pd_binning_process": "af7a50b04da6f0a3fe531bad2bf93fd65f64668d37e50a184a95da196d68532c",
+    "lgd_model_bundle": "f5f60b1246ef8212f8bcb75b9a90d3843489592f20c84c03f98495847ca2c346",
+    "ead_model_bundle": "e50d01178febe7a8feab714774156dde95601015c26def11ff602aaf3d11c23f"
+  },
+  "built_at": "2026-09-23T06:52:57+00:00",
+  "python": "3.12.10",
+  "implementation": "CPython",
+  "platform": "Linux-7.0.0-31-generic-x86_64-with-glibc2.39",
+  "machine": "x86_64",
+  "libraries": {
+    "pandas": "3.0.5",
+    "numpy": "2.5.3",
+    "sklearn": "1.9.0",
+    "statsmodels": "0.15.0",
+    "optbinning": "0.21.0",
+    "scipy": "1.18.1"
+  }
+}

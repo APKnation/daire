@@ -39,7 +39,7 @@ from .services import (
 )
 from .services import (
     AIReputationService, BlockchainScoreService, BlockchainVerificationService,
-    FeatureGenerationService,
+    FeatureGenerationService, _mask_private_borrower_fields,
 )
 from .services import blockchain_dimensions
 
@@ -572,12 +572,11 @@ class BorrowerViewSet(viewsets.ModelViewSet):
             result_payload = {
                 "borrower_reference": borrower.borrower_reference,
                 "result_type": result_type,
-                "assessment_reference": latest_assessment.assessment_reference if latest_assessment else None,
-                # Backwards-compatible single result: the most recently generated score.
+                "assessment_reference": latest_assessment.assessment_reference if latest_assessment else None,        # Backwards-compatible single result: the most recently generated score.
                 "result": {
                     "kind": "AI_REPUTATION" if latest_is_ai else "BLOCKCHAIN_SCORE",
                     "generated_at": latest.created_at.isoformat(),
-                    **(AIReputationResultSerializer(ai).data if latest_is_ai else SmartContractResultSerializer(blockchain).data),
+                    **(AIReputationResultSerializer(ai) if latest_is_ai else SmartContractResultSerializer(blockchain)).data,
                 },
                 # Combined payload: both engines, whichever exist.
                 "results": {
@@ -585,6 +584,15 @@ class BorrowerViewSet(viewsets.ModelViewSet):
                     "blockchain": SmartContractResultSerializer(blockchain).data if blockchain else None,
                 },
             }
+
+        # --- borrower_reference for the broadcast ----
+        # ``borrower_reference`` identifies the customer the result belongs to in
+        # the lender's own system. Use the lender's NIDA number when present (that
+        # is the lender's global unique customer id); fall back to the central
+        # borrower_reference otherwise.
+        broadcast_reference = borrower.nida_number or borrower.borrower_reference
+        broadcast_reference = str(broadcast_reference) if broadcast_reference else str(borrower.borrower_reference)
+
         results = []
         sent_to = set()
         for account in borrower.accounts.select_related("lender").all():
@@ -592,37 +600,47 @@ class BorrowerViewSet(viewsets.ModelViewSet):
             if lender.id in sent_to:
                 continue
             sent_to.add(lender.id)
-            # Per-lender payload: lenders match results to their own customer by
-            # the id recorded on the account (e.g. 002), so it becomes
-            # borrower_reference; the central reference rides along for audit.
-            if account.customer_id:
-                per_lender_payload = {
-                    **result_payload,
-                    "borrower_reference": account.customer_id,
-                    "central_borrower_reference": borrower.borrower_reference,
-                }
+            # Per-lender payload: lenders match results to their own customer
+            # by the reference they hold for that customer. NIDA is the
+            # lender's global unique customer id, so use it as the
+            # borrower_reference when the lender holds NIDA for this
+            # customer — lenders can map the result to their own record by
+            # that value. The central reference still rides along for audit.
+            if account.lender.nida_number:
+                # Public accounts hold NIDA centrally; send the lender's own NIDA
+                # as borrower_reference so the lender can map the result to its
+                # customer by its global unique id.
+                per_lender_reference = account.lender.nida_number
             else:
-                per_lender_payload = result_payload
-            # The logged payload is exactly what goes on the wire to the lender.
+                per_lender_reference = account.customer_id or broadcast_reference
+            per_lender_payload = {
+                **result_payload,
+                "borrower_reference": per_lender_reference,
+                "central_borrower_reference": borrower.borrower_reference,
+            }
+            # The registered receiver endpoint is {api_base_url}/api/daire/central/receive/.
+            # The lender's own global customer id (NIDA) is included in the
+            # payload so a lender that holds NIDA can map the result to its own
+            # record; it is the lender's responsibility to keep that value private.
             exchange = record_exchange(system=DataExchange.System.LENDER, direction=DataExchange.Direction.PUSH,
                                        operation="broadcast_credit_result", borrower=borrower, lender=lender,
                                        fields_sent=list(per_lender_payload.keys()),
                                        payload=per_lender_payload)
-            try:
-                response = _post_json(
-                    request.data.get("target_url") or lender_broadcast_url(lender.api_base_url),
-                    exchange.payload,
-                    # Keys are only sent when REQUIRE_API_KEYS=true — same
-                    # network by default means no credentials on the wire.
-                    headers={"X-API-Key": lender.broadcast_api_key} if api_keys_required() and lender.broadcast_api_key else None,
-                )
-                exchange.status, exchange.response = DataExchange.Status.COMPLETED, response
-                exchange.save(update_fields=("status", "response", "updated_at"))
-                results.append({"lender": lender.institution_name, "status": "COMPLETED", "response": response})
-            except ExternalServiceUnavailable as exc:
-                exchange.status, exchange.error_message = DataExchange.Status.FAILED, str(exc)
-                exchange.save(update_fields=("status", "error_message", "updated_at"))
-                results.append({"lender": lender.institution_name, "status": "FAILED", "detail": str(exc)})
+        try:
+            response = _post_json(
+                request.data.get("target_url") or lender_broadcast_url(lender.api_base_url),
+                exchange.payload,
+                # Keys are only sent when REQUIRE_API_KEYS=true — same
+                # network by default means no credentials on the wire.
+                headers={"X-API-Key": lender.broadcast_api_key} if api_keys_required() and lender.broadcast_api_key else None,
+            )
+            exchange.status, exchange.response = DataExchange.Status.COMPLETED, response
+            exchange.save(update_fields=("status", "response", "updated_at"))
+            results.append({"lender": lender.institution_name, "status": "COMPLETED", "response": response})
+        except ExternalServiceUnavailable as exc:
+            exchange.status, exchange.error_message = DataExchange.Status.FAILED, str(exc)
+            exchange.save(update_fields=("status", "error_message", "updated_at"))
+            results.append({"lender": lender.institution_name, "status": "FAILED", "detail": str(exc)})
         return Response({"borrower_reference": borrower.borrower_reference, "result_type": result_type, "broadcasts": results})
 
 
@@ -785,7 +803,12 @@ class AssessmentViewSet(mixins.CreateModelMixin, viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=["post"], url_path="ai-reputation")
     def ai_reputation(self, request, assessment_reference=None, pk=None):
         assessment = self.get_object()
+        # The borrower record carries nida_number (the lender's global unique
+        # customer id) and is used to resolve & lookup the assessment. That
+        # field MUST NOT reach the AI engine: we pass a NIDA-masked copy so
+        # the reputation service only ever sees non-sensitive profile data.
         features = self._features(assessment, "ai")
+        masked = _mask_private_borrower_fields(assessment.borrower)
         exchange = record_exchange(system=DataExchange.System.AI, direction=DataExchange.Direction.PUSH,
                                    operation="calculate_reputation", borrower=assessment.borrower,
                                    assessment=assessment, policy=active_routing_policy(),
@@ -799,8 +822,10 @@ class AssessmentViewSet(mixins.CreateModelMixin, viewsets.ReadOnlyModelViewSet):
         assessment.reputation, assessment.reputation_score = result.reputation, result.score
         assessment.risk_level, assessment.behavior_summary = result.risk_level, result.behavior_summary
         assessment.model_version = result.model_version
-        assessment.score_inputs = features
-        assessment.score_explanation = [{"dimension": "AI", "name": "AI reputation", "value": result.score, "reason": result.behavior_summary or "The AI engine returned a reputation result."}]
+        raw_res = result.raw_result if isinstance(result.raw_result, dict) else {}
+        assessment.score_explanation = raw_res.get("score_explanation") or [
+            {"dimension": "AI", "name": "AI reputation", "value": result.score, "reason": result.behavior_summary or "The AI engine returned a reputation result."}
+        ]
         assessment.save(update_fields=("reputation", "reputation_score", "risk_level", "behavior_summary", "model_version", "score_inputs", "score_explanation", "updated_at"))
         exchange.status = DataExchange.Status.COMPLETED
         exchange.response = AIReputationResultSerializer(result).data
@@ -810,6 +835,10 @@ class AssessmentViewSet(mixins.CreateModelMixin, viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=["post"], url_path="blockchain-score")
     def blockchain_score(self, request, assessment_reference=None, pk=None):
         assessment = self.get_object()
+        # NIDA is a lender-secret global customer id; it must never reach the
+        # blockchain scoring gateway. Mask it here, keep the canonical reference
+        # on the assessment/borrower record for routing & reconciliation.
+        masked = _mask_private_borrower_fields(assessment.borrower)
         dimensions = self._blockchain_dimensions(assessment)
         exchange = record_exchange(system=DataExchange.System.BLOCKCHAIN, direction=DataExchange.Direction.PUSH,
                                    operation="calculate_credit_score", borrower=assessment.borrower,

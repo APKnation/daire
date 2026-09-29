@@ -350,14 +350,43 @@ class IntegrationServiceTests(TestCase):
         self.assertEqual(result.raw_result["engine"], "TRAINED_MODEL")
         self.assertEqual(set(result.raw_result["model_inputs"]), set(CREDIT_RISK_MODEL_FEATURES))
 
-    def test_ai_service_scores_borrower_without_loans(self):
-        borrower = Borrower.objects.create(borrower_reference="BRW-MODEL-5", age=40)
+    def test_ai_service_dual_model_meaningful_results(self):
+        borrower, _ = self._borrower_with_loan(reference="BRW-DUAL-MODEL")
         assessment = self.borrower_assessment()
         assessment.borrower = borrower
         assessment.save(update_fields=("borrower",))
         result = AIReputationService().calculate(assessment, {})
-        self.assertEqual(result.model_version, CREDIT_RISK_MODEL_VERSION)
-        self.assertTrue(0 <= float(result.score) <= 1)
+
+        # 1. Dual model presence
+        self.assertIn("Scikit-Learn", result.raw_result["models_used"][0])
+        self.assertIn("NMB Credit Scorecard", result.raw_result["models_used"][1])
+
+        # 2. Meaningful Underwriting Decision & Grade (beyond just high/medium/low)
+        self.assertIn(result.raw_result["decision"], ("APPROVED", "CONDITIONAL_APPROVAL", "MANUAL_REVIEW", "DECLINED"))
+        self.assertIn(result.raw_result["credit_grade"], ("A", "B", "C", "D"))
+        self.assertTrue(len(result.raw_result["underwriting_summary"]) > 10)
+
+        # 3. Model breakdown
+        self.assertTrue(0 <= result.raw_result["sklearn_metrics"]["default_probability"] <= 1)
+        self.assertTrue(300 <= result.raw_result["nmb_metrics"]["credit_score"] <= 850)
+        self.assertTrue(0 <= result.raw_result["consensus_metrics"]["blended_default_probability"] <= 1)
+        self.assertIn(result.raw_result["consensus_metrics"]["concordance"], ("HIGH_AGREEMENT", "MODERATE_AGREEMENT", "DIVERGENT"))
+
+        # 4. Basel II Expected Loss & Exposure
+        self.assertTrue(result.raw_result["basel_metrics"]["expected_loss"] >= 0)
+        self.assertTrue(result.raw_result["basel_metrics"]["exposure_at_default"] > 0)
+        self.assertTrue(0 <= result.raw_result["basel_metrics"]["loss_given_default"] <= 1)
+
+        # 5. Pricing & Safe Debt Capacity
+        self.assertTrue(result.raw_result["pricing_capacity"]["recommended_credit_limit"] > 0)
+        self.assertTrue(result.raw_result["pricing_capacity"]["recommended_apr"] > 0)
+        self.assertTrue(len(result.raw_result["pricing_capacity"]["collateral_policy"]) > 5)
+
+        # 6. Actionable Explainability
+        self.assertTrue(len(result.raw_result["strengths"]) > 0 or len(result.raw_result["risk_factors"]) > 0)
+        self.assertTrue(len(result.raw_result["actionable_guidance"]) > 0)
+        self.assertTrue(len(result.raw_result["score_explanation"]) >= 4)
+
 
 
 class LenderApiKeyTests(TestCase):

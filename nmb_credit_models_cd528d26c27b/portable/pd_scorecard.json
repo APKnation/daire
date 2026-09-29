@@ -1,0 +1,269 @@
+{
+  "schema": "nmb-credit-pd-scorecard/1",
+  "model_version": "cd528d26c27b",
+  "generated_at": "2026-09-23T06:52:50+00:00",
+  "target": "1 = loan not repaid (charged off or default) among resolved loans",
+  "woe_convention": "weight of evidence = ln(%good / %bad); positive is safer",
+  "score_scaling": {
+    "min_score": 300.0,
+    "max_score": 850.0,
+    "logit_min": -4.127910636236237,
+    "logit_max": 1.0847308372053206,
+    "factor": 105.51272378932133,
+    "offset": 414.45290521180425,
+    "base_points": 567.0767144495767
+  },
+  "models": {
+    "historical_offer": {
+      "intercept": -1.4464967233953545,
+      "coefficients": {
+        "verification_status": -0.16348577304030285,
+        "purpose": -0.5858326894336304,
+        "term_months": -0.5307499333481749,
+        "int_rate": -0.7708473668181381,
+        "annual_inc": -1.0987990302985917,
+        "dti": -0.5561454099275144,
+        "inq_last_6mths": -0.4257121830323805,
+        "total_rev_hi_lim": -0.08191563302945448
+      },
+      "note": "includes the interest rate, an output of the lender's own pricing"
+    },
+    "application_only": {
+      "intercept": -1.4464611955925526,
+      "coefficients": {
+        "verification_status": -0.40065363528119563,
+        "purpose": -0.9309863663328076,
+        "term_months": -1.028441105678966,
+        "annual_inc": -1.1340165355354577,
+        "dti": -0.7064755350900492,
+        "inq_last_6mths": -1.066171449756826,
+        "total_rev_hi_lim": -0.8397562941780646
+      },
+      "note": "excludes the lender's grade and interest rate"
+    }
+  },
+  "features": {
+    "annual_inc": {
+      "type": "numerical",
+      "splits": [
+        30905.0,
+        40315.0,
+        50002.1796875,
+        60996.5,
+        70108.0,
+        80876.0,
+        111094.80078125
+      ],
+      "bin_woe": [
+        -0.3716245899584536,
+        -0.2690194256917322,
+        -0.15660164120052666,
+        -0.07469229448528636,
+        0.032000472401403135,
+        0.12823480708256096,
+        0.2793824989570688,
+        0.41887489475214434
+      ],
+      "bin_labels": [
+        "(-inf, 30905.00)",
+        "[30905.00, 40315.00)",
+        "[40315.00, 50002.18)",
+        "[50002.18, 60996.50)",
+        "[60996.50, 70108.00)",
+        "[70108.00, 80876.00)",
+        "[80876.00, 111094.80)",
+        "[111094.80, inf)"
+      ],
+      "missing_woe": 0.0,
+      "special_woe": 0.0
+    },
+    "dti": {
+      "type": "numerical",
+      "splits": [
+        9.204999923706055,
+        13.265000343322754,
+        16.09500026702881,
+        20.045000076293945,
+        24.4350004196167,
+        27.355000495910645,
+        32.18499946594238
+      ],
+      "bin_woe": [
+        0.4108754507702015,
+        0.22432155756489447,
+        0.11581785948631107,
+        -0.026758154890283325,
+        -0.1890728337255334,
+        -0.3605877276077636,
+        -0.501161379656531,
+        -0.6682750637792676
+      ],
+      "bin_labels": [
+        "(-inf, 9.20)",
+        "[9.20, 13.27)",
+        "[13.27, 16.10)",
+        "[16.10, 20.05)",
+        "[20.05, 24.44)",
+        "[24.44, 27.36)",
+        "[27.36, 32.18)",
+        "[32.18, inf)"
+      ],
+      "missing_woe": 0.0,
+      "special_woe": 0.0
+    },
+    "inq_last_6mths": {
+      "type": "numerical",
+      "splits": [
+        0.5,
+        1.5,
+        2.5,
+        3.5
+      ],
+      "bin_woe": [
+        0.14106621808267716,
+        -0.03641227851598572,
+        -0.14769495177107528,
+        -0.28582338950261343,
+        -0.352141461917004
+      ],
+      "bin_labels": [
+        "(-inf, 0.50)",
+        "[0.50, 1.50)",
+        "[1.50, 2.50)",
+        "[2.50, 3.50)",
+        "[3.50, inf)"
+      ],
+      "missing_woe": 0.5485023791754924,
+      "special_woe": 0.0
+    },
+    "int_rate": {
+      "type": "numerical",
+      "splits": [
+        7.5,
+        9.625,
+        11.449999809265137,
+        13.234999656677246,
+        15.599999904632568,
+        18.885000228881836,
+        21.59500026702881
+      ],
+      "bin_woe": [
+        1.652670482654844,
+        0.9988562510053598,
+        0.5851913784874105,
+        0.2958167471740176,
+        -0.02705236898796226,
+        -0.42638195563330505,
+        -0.7846111339031472,
+        -1.0975281240056198
+      ],
+      "bin_labels": [
+        "(-inf, 7.50)",
+        "[7.50, 9.62)",
+        "[9.62, 11.45)",
+        "[11.45, 13.23)",
+        "[13.23, 15.60)",
+        "[15.60, 18.89)",
+        "[18.89, 21.60)",
+        "[21.60, inf)"
+      ],
+      "missing_woe": 0.0,
+      "special_woe": 0.0
+    },
+    "purpose": {
+      "type": "categorical",
+      "categories": {
+        "car": 0.45569770847919,
+        "wedding": 0.45569770847919,
+        "major_purchase": 0.3341990522091556,
+        "credit_card": 0.1789002681971259,
+        "home_improvement": 0.1752433804671345,
+        "renewable_energy": -0.05254017986484172,
+        "vacation": -0.05254017986484172,
+        "educational": -0.05254017986484172,
+        "house": -0.05254017986484172,
+        "debt_consolidation": -0.05254017986484172,
+        "medical": -0.1773270624719916,
+        "other": -0.1773270624719916,
+        "moving": -0.1773270624719916,
+        "small_business": -0.5981548968298281
+      },
+      "missing_woe": 0.0,
+      "special_woe": 0.0
+    },
+    "term_months": {
+      "type": "numerical",
+      "splits": [
+        48.0
+      ],
+      "bin_woe": [
+        0.23280569068857648,
+        -0.6638265056896789
+      ],
+      "bin_labels": [
+        "(-inf, 48.00)",
+        "[48.00, inf)"
+      ],
+      "missing_woe": 0.0,
+      "special_woe": 0.0
+    },
+    "total_rev_hi_lim": {
+      "type": "numerical",
+      "splits": [
+        6215.0,
+        13419.5,
+        20294.5,
+        39804.5,
+        46307.0,
+        55878.5,
+        89450.0
+      ],
+      "bin_woe": [
+        -0.30354265214943643,
+        -0.18179295167509335,
+        -0.14849686748807844,
+        -0.06881371808663284,
+        0.038707015225784236,
+        0.09916992984417261,
+        0.23376247902754566,
+        0.6048279454616778
+      ],
+      "bin_labels": [
+        "(-inf, 6215.00)",
+        "[6215.00, 13419.50)",
+        "[13419.50, 20294.50)",
+        "[20294.50, 39804.50)",
+        "[39804.50, 46307.00)",
+        "[46307.00, 55878.50)",
+        "[55878.50, 89450.00)",
+        "[89450.00, inf)"
+      ],
+      "missing_woe": 0.19224092024707784,
+      "special_woe": 0.0
+    },
+    "verification_status": {
+      "type": "categorical",
+      "categories": {
+        "Not Verified": 0.2759761284095963,
+        "Source Verified": -0.08014789813118806,
+        "Verified": -0.16932166492264455
+      },
+      "missing_woe": 0.0,
+      "special_woe": 0.0
+    }
+  },
+  "source_sha256": {
+    "pd_primary_model": "05075e72e3b4b4e3b08eca4a7d723964007524aa89aa8f8b3fc80a83e1eba6ff",
+    "pd_challenger_model": "2585f5f66a7ffbb031f3f305329a23282089b7677d8b65fba48c5f046a7c778c",
+    "pd_binning_process": "af7a50b04da6f0a3fe531bad2bf93fd65f64668d37e50a184a95da196d68532c",
+    "lgd_model_bundle": "f5f60b1246ef8212f8bcb75b9a90d3843489592f20c84c03f98495847ca2c346",
+    "ead_model_bundle": "e50d01178febe7a8feab714774156dde95601015c26def11ff602aaf3d11c23f"
+  },
+  "permitted_use": "Educational demonstration. Produces a risk estimate only: never an approval, decline, price or limit. Trained on US LendingClub loans 2007-2014, not on NMB data.",
+  "limitations": [
+    "Trained only on approved loans; it knows little about declined applicants.",
+    "Estimates whether a loan is eventually repaid, not default within one year.",
+    "Shows patterns in past data, not causes.",
+    "Not independently validated; see MODEL_CARD.md before any other use."
+  ]
+}

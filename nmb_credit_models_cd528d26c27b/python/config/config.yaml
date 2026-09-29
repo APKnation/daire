@@ -1,0 +1,331 @@
+# =============================================================================
+#  NMB Credit Risk Modelling — central configuration
+# =============================================================================
+#  Every number that a model reviewer could challenge lives HERE, not in code.
+#  The reference notebooks hardcoded thresholds inside cells (e.g. a bare
+#  `df_scorecard['Score - Final'][77] = 16`); that is exactly what this file exists
+#  to prevent. See agent_reviews/decisions/ADR-001-project-structure.md rule 4.
+# =============================================================================
+
+paths:
+  # Raw inputs are READ-ONLY. Nothing in this project ever writes to lending_data/.
+  raw_dir:          lending_data
+  # ADR-006: align the educational workflow with the supplied course resources.
+  development_file: lending_data/loan_data_2007_2014.csv
+  development_index_column: "Unnamed: 0"
+  monitoring_file:  lending_data/loan_data_2015.csv
+  extension_file:   lending_data/loan.csv
+  data_dictionary:  lending_data/LCDataDictionary.xlsx
+
+  interim_dir:   data/interim
+  development_clean_file: data/interim/development_2007_2014_clean.parquet
+  processed_dir: data/processed
+  pd_train_file: data/processed/pd_train.parquet
+  pd_test_features_file: data/processed/pd_test_features.parquet
+  # Sealed until the final specification is frozen and notebook 04 evaluates it.
+  pd_test_target_file: data/processed/pd_test_target.parquet
+  pd_split_manifest: data/processed/pd_split_manifest.json
+  pd_train_woe_file: data/processed/pd_train_woe.parquet
+  pd_test_woe_file: data/processed/pd_test_woe.parquet
+  pd_binning_manifest: artifacts/pd_binning_manifest.json
+  pd_binning_summary: artifacts/pd_binning_summary.csv
+  pd_binning_process: artifacts/pd_binning_process.pkl
+  pd_primary_model: artifacts/pd_primary_logit.pkl
+  pd_challenger_model: artifacts/pd_challenger_logit.pkl
+  pd_coefficients: artifacts/pd_coefficients.csv
+  pd_training_diagnostics: artifacts/pd_training_diagnostics.csv
+  pd_candidate_comparison: artifacts/pd_candidate_comparison.csv
+  pd_model_manifest: artifacts/pd_model_manifest.json
+  pd_test_metrics: artifacts/pd_test_metrics.csv
+  pd_test_calibration: artifacts/pd_test_calibration.csv
+  pd_test_predictions: data/processed/pd_test_predictions.parquet
+  pd_evaluation_manifest: artifacts/pd_evaluation_manifest.json
+  pd_maturity_metrics: artifacts/pd_maturity_sensitivity_metrics.csv
+  pd_maturity_coefficients: artifacts/pd_maturity_sensitivity_coefficients.csv
+  pd_maturity_manifest: artifacts/pd_maturity_sensitivity_manifest.json
+  pd_scorecard_table: artifacts/pd_scorecard_table.csv
+  pd_scorecard_cutoffs: artifacts/pd_scorecard_cutoffs.csv
+  pd_scorecard_scored_test: data/processed/pd_scorecard_scored_test.parquet
+  pd_scorecard_manifest: artifacts/pd_scorecard_manifest.json
+  lgd_train_file: data/processed/lgd_train.parquet
+  lgd_test_features_file: data/processed/lgd_test_features.parquet
+  lgd_test_target_file: data/processed/lgd_test_target.parquet
+  lgd_split_manifest: data/processed/lgd_split_manifest.json
+  lgd_recovery_audit: artifacts/lgd_recovery_audit.csv
+  lgd_model_bundle: artifacts/lgd_model_bundle.pkl
+  lgd_training_diagnostics: artifacts/lgd_training_diagnostics.csv
+  lgd_model_manifest: artifacts/lgd_model_manifest.json
+  lgd_test_metrics: artifacts/lgd_test_metrics.csv
+  lgd_test_calibration: artifacts/lgd_test_calibration.csv
+  lgd_segment_stability: artifacts/lgd_segment_stability.csv
+  lgd_test_predictions: data/processed/lgd_test_predictions.parquet
+  lgd_evaluation_manifest: artifacts/lgd_evaluation_manifest.json
+  ead_train_file: data/processed/ead_train.parquet
+  ead_test_features_file: data/processed/ead_test_features.parquet
+  ead_test_target_file: data/processed/ead_test_target.parquet
+  ead_split_manifest: data/processed/ead_split_manifest.json
+  ead_field_audit: artifacts/ead_field_audit.csv
+  ead_model_bundle: artifacts/ead_model_bundle.pkl
+  ead_training_diagnostics: artifacts/ead_training_diagnostics.csv
+  ead_model_manifest: artifacts/ead_model_manifest.json
+  ead_test_metrics: artifacts/ead_test_metrics.csv
+  ead_test_calibration: artifacts/ead_test_calibration.csv
+  ead_segment_stability: artifacts/ead_segment_stability.csv
+  ead_test_predictions: data/processed/ead_test_predictions.parquet
+  ead_evaluation_manifest: artifacts/ead_evaluation_manifest.json
+  expected_loss_scored_test: data/processed/expected_loss_scored_test.parquet
+  expected_loss_summary: artifacts/expected_loss_summary.csv
+  expected_loss_risk_bands: artifacts/expected_loss_risk_bands.csv
+  expected_loss_vintage_stability: artifacts/expected_loss_vintage_stability.csv
+  expected_loss_manifest: artifacts/expected_loss_manifest.json
+  monitoring_component_summary: artifacts/monitoring_component_summary.csv
+  monitoring_component_bins: artifacts/monitoring_component_bins.csv
+  monitoring_feature_csi: artifacts/monitoring_feature_csi.csv
+  monitoring_feature_bins: artifacts/monitoring_feature_bins.csv
+  monitoring_data_quality: artifacts/monitoring_data_quality.csv
+  monitoring_maturity_audit: artifacts/monitoring_maturity_audit.csv
+  deployment_readiness_register: artifacts/deployment_readiness_register.csv
+  deployment_decisions: artifacts/deployment_decisions.csv
+  monitoring_manifest: artifacts/monitoring_manifest.json
+  artifacts_dir: artifacts
+  figures_dir:   reports/figures
+
+# -----------------------------------------------------------------------------
+#  Target definition — ADR-003
+# -----------------------------------------------------------------------------
+#  We model P(default), so BAD = 1. This is the opposite of the reference
+#  notebooks (good = 1), which makes every coefficient sign read backwards
+#  relative to the credit-risk literature.
+target:
+  name: default_flag
+
+  bad_statuses:
+    - "Charged Off"
+    - "Default"
+    - "Does not meet the credit policy. Status:Charged Off"
+
+  good_statuses:
+    - "Fully Paid"
+    - "Does not meet the credit policy. Status:Fully Paid"
+
+  # Unresolved outcomes. NOT relabelled as good (the reference's central error) and
+  # NOT forced to bad. "Late (31-120 days)" is here because such loans can still cure.
+  excluded_statuses:
+    - "Current"
+    - "In Grace Period"
+    - "Late (16-30 days)"
+    - "Late (31-120 days)"
+    - "Issued"
+
+# -----------------------------------------------------------------------------
+#  Educational development split — ADR-006
+# -----------------------------------------------------------------------------
+split:
+  strategy: stratified_random
+  test_size: 0.20
+  stratify: true
+  # Course-comparable and easy to understand. Explicitly not production OOT validation.
+
+# -----------------------------------------------------------------------------
+#  PD feature eligibility — ADR-007
+# -----------------------------------------------------------------------------
+features:
+  pd_categorical:
+    - grade
+    - home_ownership
+    - verification_status
+    - purpose
+    - addr_state
+    - initial_list_status
+
+  pd_numeric:
+    - term_months
+    - emp_length_years
+    - credit_history_months
+    - int_rate
+    - annual_inc
+    - dti
+    - delinq_2yrs
+    - inq_last_6mths
+    - mths_since_last_delinq
+    - mths_since_last_record
+    - open_acc
+    - pub_rec
+    - total_acc
+    - acc_now_delinq
+    - total_rev_hi_lim
+
+  # Report this challenger alongside the course-aligned model. These two fields are
+  # LendingClub underwriting/pricing outputs rather than independent borrower inputs.
+  application_challenger_exclude:
+    - grade
+    - int_rate
+
+  # Course-aligned application-time predictors for LGD. mths_since_issue_d is
+  # deliberately excluded because it is unknown at origination and proxies maturity.
+  lgd_categorical:
+    - grade
+    - home_ownership
+    - verification_status
+    - purpose
+    - initial_list_status
+
+  lgd_numeric:
+    - term_months
+    - emp_length_years
+    - credit_history_months
+    - funded_amnt
+    - int_rate
+    - installment
+    - annual_inc
+    - dti
+    - delinq_2yrs
+    - inq_last_6mths
+    - mths_since_last_delinq
+    - mths_since_last_record
+    - open_acc
+    - pub_rec
+    - total_acc
+    - acc_now_delinq
+    - total_rev_hi_lim
+
+# -----------------------------------------------------------------------------
+#  Binning — weakness B6
+# -----------------------------------------------------------------------------
+#  Replaces the reference's coarse classing by eyeballing a WoE bar chart.
+#  Every boundary now comes from a stated objective under stated constraints.
+binning:
+  fit_population: pd_train_only
+  test_target_policy: sealed_until_pd_evaluation
+  metric_missing: empirical   # retain the missing-bin risk learned from training
+  metric_special: 0           # no configured special codes in this workflow
+  solver: cp
+  monotonic_trend: auto      # let the solver pick, but ENFORCE monotonicity
+  min_prebin_size: 0.02      # no bin below 2% of the population
+  max_n_bins: 8              # coarse classes, not fine classes
+  min_iv: 0.02               # IV below this = "not predictive"; drop the variable
+  max_iv: 0.80               # IV above this = suspect leakage; investigate, do not celebrate
+
+# -----------------------------------------------------------------------------
+#  PD model
+# -----------------------------------------------------------------------------
+pd_model:
+  inference_engine: statsmodels   # real standard errors (weakness B5)
+  p_value_threshold: 0.05
+  max_vif: 5.0                    # multicollinearity guard, absent from the reference
+  max_iterations: 100
+  calibration_bins: 10
+  maturity_sensitivity_cutoff_year: 2012  # 2007–2012 is 93.9% resolved
+  # ADR-009: grade and rate are 0.936-correlated in training WoE. Retaining rate gives
+  # the best VIF-compliant primary candidate by training AIC/AUC; both leave challenger.
+  primary_exclude:
+    - grade
+  challenger_exclude:
+    - grade
+    - int_rate
+
+# -----------------------------------------------------------------------------
+#  Scorecard scaling
+# -----------------------------------------------------------------------------
+#  min_max reproduces the familiar 300-850 range. pdo is the industry-standard
+#  "points to double the odds" alternative; kept here so we can compare.
+scorecard:
+  scaling_method: min_max
+  min_score: 300
+  max_score: 850
+  # Exact floating-point totals preserve the frozen model probability. Integer scores
+  # are presentation values obtained by rounding the total once, never each bin.
+  integer_rounding: nearest_total
+  # Half-point rounding at the configured scale implies a theoretical worst-case
+  # PD change of about 0.001185 near PD=50%; 0.0012 is the explicit guardrail.
+  max_integer_pd_error: 0.0012
+  pdo: 20
+  base_score: 600
+  base_odds: 50
+  # These scenarios are deliberately illustrative, per unit exposure. They are not
+  # NMB pricing, risk appetite, funding costs, LGD estimates, or approval policy.
+  hypothetical_scenarios:
+    - name: conservative
+      gross_margin_rate: 0.08
+      operating_cost_rate: 0.02
+      lgd_rate: 0.60
+    - name: central
+      gross_margin_rate: 0.12
+      operating_cost_rate: 0.02
+      lgd_rate: 0.55
+    - name: growth
+      gross_margin_rate: 0.15
+      operating_cost_rate: 0.02
+      lgd_rate: 0.50
+
+# -----------------------------------------------------------------------------
+#  LGD / EAD — weaknesses B8, B9
+# -----------------------------------------------------------------------------
+lgd_model:
+  default_statuses:
+    - "Charged Off"
+    - "Does not meet the credit policy. Status:Charged Off"
+  recovery_basis: nominal_gross_recoveries_over_funded_amount
+  recovery_rate_clip: [0.0, 1.0]
+  test_size: 0.20
+  stratify: has_recovery
+  stage1_threshold: 0.5
+  stage1_max_iterations: 500
+  stage2_max_iterations: 200
+  calibration_bins: 10
+  shared_split: true        # stage 1 and stage 2 MUST use one split (weakness B8)
+  # No charge-off date or recovery cash-flow dates exist in this extract. issue_d and
+  # last_pymnt_d cannot identify the amount/timing of each post-charge-off recovery.
+  discount_recoveries: false
+  collection_fee_treatment: audit_only_not_deducted_from_gross_course_target
+  primary_model: bounded_fractional_logit
+  course_comparator: ols_conditional_recovery
+  clip: [0.0, 1.0]
+
+ead_model:
+  # The course calls this CCF, but these are amortising term loans with no undrawn
+  # commitment. We therefore call it an EAD ratio proxy and preserve the limitation.
+  target_name: ead_ratio_proxy
+  target_formula: (funded_amnt - total_rec_prncp) / funded_amnt
+  amount_formula: funded_amnt - total_rec_prncp
+  population_source: lgd_charged_off_population
+  split_source: lgd_shared_split_membership
+  primary_model: bounded_fractional_logit
+  course_comparator: course_ols
+  max_iterations: 300
+  calibration_bins: 10
+  clip: [0.0, 1.0]
+
+# -----------------------------------------------------------------------------
+#  Expected loss integration
+# -----------------------------------------------------------------------------
+expected_loss:
+  primary_formula: PD * frozen_LGD * frozen_EAD_amount
+  denominator_consistent_sensitivity: PD * max(EAD_amount - expected_recovery_amount, 0)
+  calibration_bins: 10
+  final_good_statuses:
+    - "Fully Paid"
+    - "Does not meet the credit policy. Status:Fully Paid"
+  final_bad_statuses:
+    - "Charged Off"
+    - "Does not meet the credit policy. Status:Charged Off"
+  incomplete_bad_statuses:
+    - "Default"
+
+# -----------------------------------------------------------------------------
+#  Monitoring
+# -----------------------------------------------------------------------------
+#  Standard supervisory PSI reading: <0.10 stable, 0.10-0.25 shift worth watching,
+#  >0.25 significant shift, investigate before relying on the model.
+monitoring:
+  psi_bins: 10
+  psi_green: 0.10
+  psi_amber: 0.25
+  # These are project management triggers, not universal regulatory cut-offs.
+  missing_rate_delta_alert: 0.05
+  unseen_category_rate_alert: 0.001
+  out_of_range_rate_alert: 0.01
+  # Do not call a later population an outcome back-test while most loans are unresolved.
+  minimum_resolved_share: 0.80
+
+random_state: 42

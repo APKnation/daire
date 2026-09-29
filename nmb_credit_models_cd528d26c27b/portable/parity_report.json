@@ -1,0 +1,15 @@
+{
+  "rows": 46159,
+  "tolerance": 1e-12,
+  "models": {
+    "application_only": {
+      "max_absolute_pd_difference": 2.220446049250313e-16,
+      "passed": true
+    },
+    "historical_offer": {
+      "max_absolute_pd_difference": 2.220446049250313e-16,
+      "passed": true
+    }
+  },
+  "verdict": "The JSON export reproduces the frozen models on every held-out loan."
+}
