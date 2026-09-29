@@ -56,6 +56,11 @@ export class RecordsComponent implements OnInit, OnDestroy {
       .join(' · ');
   }
 
+  /** Template helper — Angular templates cannot access the global Number() constructor. */
+  toNumber(value: unknown): number {
+    return Number(value);
+  }
+
   ngOnInit(): void {
     const routeKind = this.route.snapshot.data['kind'] as RecordKind | undefined;
     if (routeKind) {

@@ -264,7 +264,7 @@
               </td>
               <td class="table-td">
                 <span class="text-base font-bold text-[#1a1a1a]">
-                  {{ (r.raw_result?.['default_probability'] !== undefined ? (r.raw_result?.['default_probability'] * 100).toFixed(1) : ((1 - Number(r.score)) * 100).toFixed(1)) }}%
+                  {{ (r.raw_result?.['default_probability'] !== undefined ? (r.raw_result?.['default_probability'] * 100).toFixed(1) : ((1 - toNumber(r.score)) * 100).toFixed(1)) }}%
                 </span>
                 <small class="block text-[11px] text-[#717171]">
                   ML: {{ (r.raw_result?.['sklearn_metrics']?.['default_probability'] ? (r.raw_result?.['sklearn_metrics']?.['default_probability'] * 100).toFixed(1) + '%' : '—') }} | NMB: {{ (r.raw_result?.['nmb_metrics']?.['default_probability'] ? (r.raw_result?.['nmb_metrics']?.['default_probability'] * 100).toFixed(1) + '%' : '—') }}
