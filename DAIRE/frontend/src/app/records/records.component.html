@@ -243,7 +243,7 @@
             <th class="table-th">Borrower</th>
             <th class="table-th">Underwriting & Grade</th>
             <th class="table-th">Default Probability</th>
-            <th class="table-th">NMB Score (300–850)</th>
+            <th class="table-th">Institutional Score (300–850)</th>
             <th class="table-th">Expected Loss & Terms</th>
             <th class="table-th">Lender Summary & Borrower Guidance</th>
           </tr>
@@ -276,10 +276,7 @@
                 <span class="text-base font-bold text-[#1a1a1a]">
                   {{ r.ensemble_pd != null ? ((r.ensemble_pd * 100).toFixed(1) + '%') : ((1 - toNumber(r.score)) * 100).toFixed(1) + '%' }}
                 </span>
-                <small class="block text-[11px] text-[#717171]">
-                  ML: {{ r.ml_pd != null ? (r.ml_pd * 100).toFixed(1) + '%' : '—' }}
-                  · NMB: {{ r.nmb_pd != null ? (r.nmb_pd * 100).toFixed(1) + '%' : '—' }}
-                </small>
+
                 @if (r.history_band) {
                   <small class="block text-[10px] text-[#b0b0b0]">{{ r.history_band }}</small>
                 }
@@ -314,7 +311,7 @@
               </td>
               <!-- Summary & Guidance -->
               <td class="table-td max-w-xs text-[#3d3d3d] text-xs">
-                <p class="leading-relaxed">{{ r.raw_result?.['underwriting_summary'] || r.behavior_summary || '—' }}</p>
+                <p class="leading-relaxed">{{ r.raw_result?.['underwriting_summary'] || '—' }}</p>
                 @let sts = r.strengths?.length ? r.strengths : r.raw_result?.['strengths'];
                 @if (sts?.length) {
                   <ul class="mt-1.5 space-y-0.5">
