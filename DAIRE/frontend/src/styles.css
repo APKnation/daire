@@ -85,6 +85,55 @@ body { margin: 0; background: var(--c-cloud); color: var(--c-ink); overflow-x: h
 .app-nav summary { color: #9a9a9a; }
 .app-sidebar small { color: #9a9a9a; }
 
+/* ==========================================================================
+   Responsive data tables — HP design language on every screen.
+   Desktop (≥768px): real tables, exactly as before.
+   Mobile (<768px): each row reflows into a stacked card with the column
+   name shown via the td's data-label attribute (progressive enhancement —
+   tables without data-labels simply stack without captions).
+   ========================================================================== */
+@media (max-width: 767px) {
+  .data-table thead { display: none; }
+  .data-table tbody { display: block; }
+  .data-table tr {
+    display: block;
+    border: 1px solid var(--c-fog);
+    border-radius: 0.75rem;
+    background: var(--c-canvas);
+    padding: 0.25rem 0.75rem;
+    margin: 0.75rem;
+    box-shadow: 0 1px 4px rgb(26 26 26 / 0.06);
+  }
+  .data-table td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+    padding: 0.5rem 0;
+    border-bottom: 1px dashed var(--c-fog);
+    text-align: right;
+  }
+  .data-table td:last-child { border-bottom: none; }
+  .data-table td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    max-width: 40%;
+    text-align: left;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--c-graphite);
+    padding-top: 0.125rem;
+  }
+  /* Full-width content cells (summaries, details) read better stacked */
+  .data-table td[data-wide] { flex-direction: column; gap: 0.25rem; }
+  .data-table td[data-wide]::before { max-width: 100%; }
+  .data-table td > div,
+  .data-table td > details { max-width: 100%; }
+}
+
 /* Responsive shell: content padding + compact tables on small screens.
    Sidebar responsiveness is handled by the drawer/rail classes in the
    component template (slide-in < lg, persistent ≥ lg). */
@@ -96,6 +145,10 @@ body { margin: 0; background: var(--c-cloud); color: var(--c-ink); overflow-x: h
   .card { border-radius: 0.75rem; }
   .btn-primary { width: 100%; }
 }
+
+/* Currency values always read as Tanzanian Shillings */
+.currency::before { content: 'TSHS '; font-weight: 700; }
+.amount { white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 @media (min-width: 768px) and (max-width: 1023px) {
   main > div { padding: 1.25rem; }
