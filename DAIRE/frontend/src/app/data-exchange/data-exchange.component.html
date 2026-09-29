@@ -119,17 +119,17 @@
             <div class="space-y-2 text-sm">
               <div class="flex justify-between"><span class="text-[#636363]">PD (Default Probability)</span><strong>{{ raw['ensemble_pd'] != null ? (raw['ensemble_pd'] * 100).toFixed(1) + '%' : '—' }}</strong></div>
               <div class="flex justify-between"><span class="text-[#636363]">LGD (Loss Given Default)</span><strong>{{ basel?.['loss_given_default'] != null ? (basel['loss_given_default'] * 100).toFixed(0) + '%' : (basel?.['lgd'] != null ? (basel['lgd'] * 100).toFixed(0) + '%' : '—') }}</strong></div>
-              <div class="flex justify-between"><span class="text-[#636363]">EAD (Exposure at Default)</span><strong>TZS {{ basel?.['exposure_at_default'] != null ? (+basel['exposure_at_default']).toLocaleString() : (basel?.['ead'] != null ? (+basel['ead']).toLocaleString() : '—') }}</strong></div>
-              <div class="flex justify-between border-t border-[#e8e8e8] pt-2"><span class="font-semibold text-[#1a1a1a]">Expected Loss (EL)</span><strong class="text-[#b3262b]">TZS {{ raw['expected_loss'] != null ? (+raw['expected_loss']).toLocaleString('en', {minimumFractionDigits:2}) : '—' }}</strong></div>
+              <div class="flex justify-between"><span class="text-[#636363]">EAD (Exposure at Default)</span><strong class="amount"><span class="currency">{{ basel?.['exposure_at_default'] != null ? (+basel['exposure_at_default']).toLocaleString() : (basel?.['ead'] != null ? (+basel['ead']).toLocaleString() : '—') }}</span></strong></div>
+              <div class="flex justify-between border-t border-[#e8e8e8] pt-2"><span class="font-semibold text-[#1a1a1a]">Expected Loss (EL)</span><strong class="text-[#b3262b] amount"><span class="currency">{{ raw['expected_loss'] != null ? (+raw['expected_loss']).toLocaleString('en', {minimumFractionDigits:2}) : '—' }}</span></strong></div>
             </div>
           </div>
           <!-- Pricing -->
           <div class="rounded-xl border border-[#e8e8e8] bg-white p-5">
             <p class="mb-3 text-xs font-bold uppercase tracking-wide text-[#9a9a9a]">Credit Facility Terms</p>
             <div class="space-y-2 text-sm">
-              <div class="flex justify-between"><span class="text-[#636363]">Recommended Limit</span><strong class="text-[#024ad8]">TZS {{ raw['recommended_credit_limit'] != null ? (+raw['recommended_credit_limit']).toLocaleString() : '—' }}</strong></div>
+              <div class="flex justify-between"><span class="text-[#636363]">Recommended Limit</span><strong class="text-[#024ad8] amount"><span class="currency">{{ raw['recommended_credit_limit'] != null ? (+raw['recommended_credit_limit']).toLocaleString() : '—' }}</span></strong></div>
               <div class="flex justify-between"><span class="text-[#636363]">Risk-based APR</span><strong>{{ raw['recommended_apr'] != null ? raw['recommended_apr'] + '%' : '—' }}</strong></div>
-              <div class="flex justify-between"><span class="text-[#636363]">Max Monthly Payment</span><strong>TZS {{ pricing?.['max_monthly_debt_service'] != null ? (+pricing['max_monthly_debt_service']).toLocaleString() : '—' }}</strong></div>
+              <div class="flex justify-between"><span class="text-[#636363]">Max Monthly Payment</span><strong class="amount"><span class="currency">{{ pricing?.['max_monthly_debt_service'] != null ? (+pricing['max_monthly_debt_service']).toLocaleString() : '—' }}</span></strong></div>
               <div class="border-t border-[#e8e8e8] pt-2 text-xs text-[#636363]">{{ pricing?.['collateral_policy'] || '—' }}</div>
             </div>
           </div>

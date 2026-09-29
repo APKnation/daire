@@ -211,7 +211,7 @@
         <a routerLink="/data-management" class="-my-2 shrink-0 rounded-lg px-2 py-2 text-sm font-semibold text-[#024ad8] hover:text-[#0e3191] transition">Manage →</a>
       </div>
       <div class="overflow-x-auto">
-        <table class="w-full text-left">
+        <table class="data-table w-full text-left">
           <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
             <tr>
               <th class="table-th">Institution</th>
@@ -222,12 +222,12 @@
           <tbody class="divide-y divide-[#e8e8e8]">
             @for (lender of sortedLenders; track lender.lender_id) {
               <tr class="transition-colors hover:bg-[#f7f7f7]">
-                <td class="table-td">
+                <td class="table-td" data-label="Institution">
                   <strong class="block font-semibold text-[#1a1a1a]">{{ lender.institution_name }}</strong>
                   <small class="font-mono text-xs text-[#9a9a9a]">{{ lender.lender_id }}</small>
                 </td>
-                <td class="table-td text-[#636363]">{{ lender.institution_type }}</td>
-                <td class="table-td"><span [class]="lenderStatusClass(lender)">{{ lender.api_status }}</span></td>
+                <td class="table-td text-[#636363]" data-label="Type">{{ lender.institution_type }}</td>
+                <td class="table-td" data-label="Status"><span [class]="lenderStatusClass(lender)">{{ lender.api_status }}</span></td>
               </tr>
             }
             @empty {
@@ -316,7 +316,7 @@
       </div>
     </div>
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Received at</th>
@@ -384,7 +384,7 @@
       </div>
     </div>
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Assessed at</th>
@@ -449,7 +449,7 @@
       </div>
     </div>
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Sent at</th>
@@ -517,7 +517,7 @@
       </div>
     </div>
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Received at</th>
@@ -583,7 +583,7 @@
       </div>
     </div>
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Sent at</th>
@@ -651,7 +651,7 @@
       </div>
     </div>
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Received at</th>
@@ -706,7 +706,7 @@
                  [(ngModel)]="txQuery" (ngModelChange)="onStageSearch()" aria-label="Search transaction ledger">
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-left">
+          <table class="data-table w-full text-left">
             <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
               <tr>
                 <th class="table-th">Created</th>

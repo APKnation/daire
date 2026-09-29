@@ -52,7 +52,7 @@
     </div>
 
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Borrower</th>
@@ -64,13 +64,13 @@
         <tbody class="divide-y divide-[#e8e8e8]">
           @for (item of borrowers; track item.id) {
             <tr class="hover:bg-[#f7f7f7] transition-colors">
-              <td class="table-td">
+              <td class="table-td" data-label="Borrower">
                 <strong class="block max-w-[14rem] truncate font-semibold text-[#1a1a1a]">{{ item.name || item.borrower_reference }}</strong>
                 <small class="block max-w-[14rem] truncate font-mono text-xs text-[#9a9a9a]">{{ item.borrower_reference }}</small>
               </td>
-              <td class="table-td max-w-[12rem] truncate text-xs text-[#636363]">{{ item.source_lenders?.join(', ') || '—' }}</td>
-              <td class="table-td"><span [class]="item.is_active === false ? 'badge-red' : 'badge-green'">{{ item.is_active === false ? 'Inactive' : 'Active' }}</span></td>
-              <td class="table-td text-right">
+              <td class="table-td max-w-[12rem] truncate text-xs text-[#636363]" data-label="Institutions">{{ item.source_lenders?.join(', ') || '—' }}</td>
+              <td class="table-td" data-label="Status"><span [class]="item.is_active === false ? 'badge-red' : 'badge-green'">{{ item.is_active === false ? 'Inactive' : 'Active' }}</span></td>
+              <td class="table-td text-right" data-label="Actions">
                 <button class="status-toggle inline-block px-2 py-2" [class.deactivate]="item.is_active !== false" [class.activate]="item.is_active === false" (click)="toggleBorrower(item)">{{ item.is_active === false ? 'Activate' : 'Deactivate' }}</button>
               </td>
             </tr>
@@ -132,7 +132,7 @@ X-API-Key: {{ k.api_key }}</pre>
     }
 
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Institution</th>
@@ -144,16 +144,16 @@ X-API-Key: {{ k.api_key }}</pre>
         <tbody class="divide-y divide-[#e8e8e8]">
           @for (item of lenders; track item.id) {
             <tr class="hover:bg-[#f7f7f7] transition-colors">
-              <td class="table-td">
+              <td class="table-td" data-label="Institution">
                 <strong class="block max-w-[12rem] truncate font-semibold text-[#1a1a1a]">{{ item.institution_name }}</strong>
                 <small class="block max-w-[12rem] truncate font-mono text-xs text-[#9a9a9a]">{{ item.lender_id }} · {{ item.institution_type }}</small>
               </td>
-              <td class="table-td max-w-[16rem]">
+              <td class="table-td max-w-[16rem]" data-label="Endpoint">
                 <small class="block truncate font-mono text-xs text-[#636363]">{{ item.api_base_url }}</small>
                 <small [class]="lenderKind(item) === 'mock' ? 'text-xs text-[#0e3191]' : 'text-xs text-[#356373]'">{{ lenderKind(item) === 'mock' ? 'dev stand-in' : 'live subsystem' }}</small>
               </td>
-              <td class="table-td"><span [class]="item.api_status === 'CONNECTED' ? 'badge-green' : 'badge-slate'">{{ item.api_status }}</span></td>
-              <td class="table-td text-right">
+              <td class="table-td" data-label="Status"><span [class]="item.api_status === 'CONNECTED' ? 'badge-green' : 'badge-slate'">{{ item.api_status }}</span></td>
+              <td class="table-td text-right" data-label="Actions">
                 <button class="inline-block rounded-lg px-2 py-2 text-sm font-semibold text-[#024ad8]" (click)="editLender(item)">Edit</button>
                 <button class="inline-block rounded-lg px-2 py-2 text-sm font-semibold text-[#356373]" (click)="regenerateKey(item)">New key</button>
                 <button class="inline-block rounded-lg px-2 py-2 text-sm font-semibold text-[#b3262b]" (click)="removeLender(item)">Delete</button>

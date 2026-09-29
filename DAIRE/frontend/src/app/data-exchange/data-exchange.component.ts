@@ -177,10 +177,10 @@ export class DataExchangeComponent {
           ? `ML: ${(Number(skl['default_probability']) * 100).toFixed(1)}% PD  |  NMB: ${(Number(nmb['default_probability']) * 100).toFixed(1)}% PD`
           : '—', true),
         row('Model agreement', consensus['model_agreement_pct'] != null ? `${consensus['model_agreement_pct']}% (${consensus['concordance'] ?? ''})` : '—'),
-        row('Basel II Expected Loss', basel['expected_loss'] != null ? `$${Number(basel['expected_loss']).toLocaleString()} (LGD: ${(Number(basel['loss_given_default'] ?? 0.5) * 100).toFixed(0)}%, EAD: $${Number(basel['exposure_at_default'] ?? 0).toLocaleString()})` : '—', false, true),
-        row('Recommended credit limit', pricing['recommended_credit_limit'] != null ? `$${Number(pricing['recommended_credit_limit']).toLocaleString()}` : '—', false, true),
+        row('Basel II Expected Loss', basel['expected_loss'] != null ? `TSHS ${Number(basel['expected_loss']).toLocaleString()} (LGD: ${(Number(basel['loss_given_default'] ?? 0.5) * 100).toFixed(0)}%, EAD: TSHS ${Number(basel['exposure_at_default'] ?? 0).toLocaleString()})` : '—', false, true),
+        row('Recommended credit limit', pricing['recommended_credit_limit'] != null ? `TSHS ${Number(pricing['recommended_credit_limit']).toLocaleString()}` : '—', false, true),
         row('Risk-based APR', pricing['recommended_apr'] != null ? `${pricing['recommended_apr']}% APR` : '—', false, true),
-        row('Max monthly debt capacity', pricing['max_monthly_debt_service'] != null ? `$${Number(pricing['max_monthly_debt_service']).toLocaleString()}/mo` : '—'),
+        row('Max monthly debt capacity', pricing['max_monthly_debt_service'] != null ? `TSHS ${Number(pricing['max_monthly_debt_service']).toLocaleString()}/mo` : '—'),
         row('Collateral policy', pricing['collateral_policy'] ?? '—'),
         row('Assessment record', result['assessment'] ?? '—', true),
       ];

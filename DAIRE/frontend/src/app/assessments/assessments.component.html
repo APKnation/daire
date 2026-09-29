@@ -45,7 +45,7 @@
       <h2 class="mt-0.5 text-base font-semibold text-[#1a1a1a]">All assessments</h2>
     </div>
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Reference</th>
@@ -60,12 +60,12 @@
         <tbody class="divide-y divide-[#e8e8e8]">
           @for (a of assessments; track a.assessment_reference) {
             <tr class="hover:bg-[#f7f7f7] transition-colors">
-              <td class="table-td">
+              <td class="table-td" data-wide data-label="Reference">
                 <span class="font-mono text-xs font-semibold text-[#1a1a1a]">{{ a.assessment_reference }}</span>
                 @if (a.score_explanation?.length) {<details class="mt-2"><summary class="cursor-pointer text-xs font-semibold text-[#024ad8]">Why this score?</summary><div class="mt-2 space-y-2 rounded-lg bg-[#f7f7f7] p-3">@for (item of a.score_explanation; track item.dimension) {<div class="text-xs"><div class="flex justify-between font-semibold text-[#3d3d3d]"><span>{{ item.dimension }} · {{ item.name }}</span><span>{{ item.value }}</span></div><p class="mt-0.5 text-[#636363]">{{ item.reason }}</p></div>}</div></details>}
               </td>
-              <td class="table-td text-[#3d3d3d]">{{ a.borrower_name || a.borrower_reference }}</td>
-              <td class="table-td">
+              <td class="table-td" data-label="Borrower">{{ a.borrower_name || a.borrower_reference }}</td>
+              <td class="table-td" data-label="Reputation">
                 <span class="font-medium text-[#292929]">{{ a.reputation || 'Pending' }}</span>
                 @if (a.reputation_score !== null) {
                   <small class="ml-1 text-[#9a9a9a]">{{ a.reputation_score }}</small>
@@ -74,14 +74,14 @@
                   <small class="block font-mono text-[10px] text-[#9a9a9a]">{{ a['model_version'] }}</small>
                 }
               </td>
-              <td class="table-td">
+              <td class="table-td" data-label="Credit score">
                 <span class="text-lg font-bold text-[#1a1a1a]">{{ a.credit_score ?? '—' }}</span>
                 <span class="text-xs font-normal text-[#9a9a9a]">/800</span>
                 @if (a.risk_band) {
                   <span class="ml-2 inline-flex items-center rounded-full bg-[#e8e8e8] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#3d3d3d]">{{ a.risk_band }}</span>
                 }
               </td>
-              <td class="table-td">
+              <td class="table-td" data-label="On-chain record">
                 @if (a.blockchain_transaction_hash) {
                   <div class="space-y-1">
                     <span class="block max-w-[180px] truncate font-mono text-[11px] text-[#3d3d3d]" [title]="a.blockchain_transaction_hash">{{ a.blockchain_transaction_hash }}</span>
@@ -91,12 +91,12 @@
                   <span class="text-xs text-[#c2c2c2]">Not recorded</span>
                 }
               </td>
-              <td class="table-td">
+              <td class="table-td" data-label="Status">
                 <span [class]="a.verification_status === 'CONFIRMED' ? 'badge-green' : 'badge-slate'">
                   {{ a.verification_status }}
                 </span>
               </td>
-              <td class="table-td">
+              <td class="table-td" data-label="Verify">
                 <button (click)="verify(a)"
                   [disabled]="verifyingReference === a.assessment_reference"
                   class="rounded-lg border border-[rgb(2,74,216,0.4)] bg-[rgb(2,74,216,0.08)] px-3 py-1.5 text-xs font-semibold text-[#0e3191] transition hover:bg-[rgb(2,74,216,0.12)] disabled:cursor-wait disabled:opacity-50">
