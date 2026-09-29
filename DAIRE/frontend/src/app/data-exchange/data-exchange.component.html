@@ -101,53 +101,12 @@
               <span class="text-xs text-[#636363]">Score: <strong>{{ raw['ensemble_pd'] != null ? (1 - raw['ensemble_pd']).toFixed(4) : (+raw['score']).toFixed(4) }}</strong></span>
             </div>
           </div>
-          @if (raw['underwriting_summary'] || raw['behavior_summary']) {
-            <p class="mt-4 border-t border-black/10 pt-3 text-sm text-[#3d3d3d] leading-relaxed">{{ raw['underwriting_summary'] || raw['behavior_summary'] }}</p>
+          @if (raw['underwriting_summary']) {
+            <p class="mt-4 border-t border-black/10 pt-3 text-sm text-[#3d3d3d] leading-relaxed">{{ raw['underwriting_summary'] }}</p>
           }
         </div>
       }
 
-      <!-- ── MODEL BREAKDOWN CARDS ───────────────────────────────── -->
-      @if (raw) {
-        <div>
-          <h3 class="mb-3 text-sm font-bold uppercase tracking-wide text-[#636363]">Dual-Model Analysis</h3>
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <!-- ML Card -->
-            <div class="rounded-xl border border-[#e0e7ff] bg-[#f5f7ff] p-4">
-              <p class="text-[10px] font-bold uppercase tracking-widest text-[#6366f1]">ML RandomForest</p>
-              <p class="mt-2 text-3xl font-black text-[#1a1a1a]">{{ raw['ml_pd'] != null ? ((raw['ml_pd'] * 100).toFixed(1) + '%') : '—' }}</p>
-              <p class="text-xs text-[#636363]">Default Probability</p>
-              <div class="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#e0e7ff]">
-                <div class="h-full rounded-full bg-[#6366f1] transition-all" [style.width]="raw['ml_pd'] != null ? (raw['ml_pd'] * 100) + '%' : '0%'"></div>
-              </div>
-              <p class="mt-2 text-[10px] text-[#9a9a9a]">Weight: {{ raw['ml_weight'] != null ? (raw['ml_weight'] * 100).toFixed(0) + '%' : '50%' }} · {{ raw['history_band'] || 'standard' }}</p>
-            </div>
-            <!-- NMB Card -->
-            <div class="rounded-xl border border-[#d1fae5] bg-[#f0fdf4] p-4">
-              <p class="text-[10px] font-bold uppercase tracking-widest text-[#059669]">NMB Scorecard (WoE)</p>
-              <p class="mt-2 text-3xl font-black text-[#1a1a1a]">{{ raw['nmb_pd'] != null ? ((raw['nmb_pd'] * 100).toFixed(1) + '%') : '—' }}</p>
-              <p class="text-xs text-[#636363]">Default Probability</p>
-              <div class="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#d1fae5]">
-                <div class="h-full rounded-full bg-[#059669] transition-all" [style.width]="raw['nmb_pd'] != null ? (raw['nmb_pd'] * 100) + '%' : '0%'"></div>
-              </div>
-              <p class="mt-2 text-[10px] text-[#9a9a9a]">Bureau Score: {{ raw['nmb_credit_score'] != null ? raw['nmb_credit_score'] + ' / 850' : '—' }}</p>
-              <p class="text-[10px] text-[#9a9a9a]">Weight: {{ raw['nmb_weight'] != null ? (raw['nmb_weight'] * 100).toFixed(0) + '%' : '50%' }}</p>
-            </div>
-            <!-- Ensemble Card -->
-            <div class="rounded-xl border border-[#fde68a] bg-[#fffbeb] p-4">
-              <p class="text-[10px] font-bold uppercase tracking-widest text-[#d97706]">Ensemble Blended</p>
-              <p class="mt-2 text-3xl font-black text-[#1a1a1a]">{{ raw['ensemble_pd'] != null ? ((raw['ensemble_pd'] * 100).toFixed(1) + '%') : '—' }}</p>
-              <p class="text-xs text-[#636363]">Blended Default Probability</p>
-              <div class="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#fde68a]">
-                <div class="h-full rounded-full bg-[#d97706] transition-all" [style.width]="raw['ensemble_pd'] != null ? (raw['ensemble_pd'] * 100) + '%' : '0%'"></div>
-              </div>
-              <p class="mt-2 text-[10px]" [class]="raw['concordance'] === 'HIGH_AGREEMENT' ? 'text-emerald-600 font-semibold' : raw['concordance'] === 'DIVERGENT' ? 'text-red-600 font-semibold' : 'text-amber-600 font-semibold'">
-                {{ raw['concordance'] || '—' }}
-              </p>
-            </div>
-          </div>
-        </div>
-      }
 
       <!-- ── BASEL II + PRICING ROW ──────────────────────────────── -->
       @if (raw) {

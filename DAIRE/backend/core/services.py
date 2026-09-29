@@ -1289,20 +1289,25 @@ def _trained_model_reputation(model, row: dict[str, Any], borrower: Any | None =
     if cred_hist is None:
         ml_weight, nmb_weight = 0.40, 0.60
         history_band = "unknown"
+        weight_reason = "Balanced assessment used due to unknown credit history length."
     else:
         cred_hist_f = float(cred_hist)
         if cred_hist_f >= 5.0:
             ml_weight, nmb_weight = 0.55, 0.45
             history_band = "established (≥5 yrs)"
+            weight_reason = "Behavioral analytics were prioritized (55%) over the institutional scorecard due to the borrower's extensive credit history, allowing for more accurate behavioral profiling."
         elif cred_hist_f >= 2.0:
             ml_weight, nmb_weight = 0.50, 0.50
             history_band = "moderate (2–5 yrs)"
+            weight_reason = "Equal weight was given to both behavioral analytics and the institutional scorecard based on a moderate credit history."
         elif cred_hist_f >= 0.5:
             ml_weight, nmb_weight = 0.35, 0.65
             history_band = "short (0.5–2 yrs)"
+            weight_reason = "The institutional scorecard was prioritized (65%) to offset risks associated with the borrower's short credit history."
         else:
             ml_weight, nmb_weight = 0.20, 0.80
             history_band = "thin (<0.5 yr)"
+            weight_reason = "The institutional scorecard was heavily prioritized (80%) because behavioral data is insufficient for this thin-file borrower."
 
     ensemble_pd = round(ml_weight * sklearn_default_proba + nmb_weight * nmb_default_proba, 4)
     model_spread = abs(sklearn_default_proba - nmb_default_proba)
@@ -1355,22 +1360,22 @@ def _trained_model_reputation(model, row: dict[str, Any], borrower: Any | None =
         decision = "APPROVED"
         decision_label = "Approved for Standard Terms"
         underwriting_summary = (
-            f"Eligible for clean financing. Favorable dual-model consensus (PD {ensemble_pd:.1%}) "
-            f"backed by clean credit record and strong repayment capacity."
+            f"Eligible for clean financing. Favorable default probability ({ensemble_pd:.1%}) "
+            f"backed by clean credit record and strong repayment capacity. {weight_reason}"
         )
     elif ensemble_pd < 0.28 and not has_prior_default:
         decision = "CONDITIONAL_APPROVAL"
         decision_label = "Conditional Approval"
         underwriting_summary = (
             f"Approved under risk mitigation controls. Acceptable default probability ({ensemble_pd:.1%}); "
-            f"repayment mandate via automated direct debit required."
+            f"repayment mandate via automated direct debit required. {weight_reason}"
         )
     elif ensemble_pd < 0.42 or concordance == "DIVERGENT":
         decision = "MANUAL_REVIEW"
         decision_label = "Refer to Credit Committee"
         underwriting_summary = (
             f"Borderline default risk ({ensemble_pd:.1%}) or model variance ({model_spread:.1%} spread). "
-            f"Senior underwriter review and additional co-guarantor recommended."
+            f"Senior underwriter review and additional co-guarantor recommended. {weight_reason}"
         )
     else:
         decision = "DECLINED"
@@ -1378,7 +1383,8 @@ def _trained_model_reputation(model, row: dict[str, Any], borrower: Any | None =
         underwriting_summary = (
             f"Application declined. Modeled default probability ({ensemble_pd:.1%}) "
             f"exceeds institutional safety threshold" +
-            (" with active prior default on file." if has_prior_default else ".")
+            (" with active prior default on file. " if has_prior_default else ". ") +
+            weight_reason
         )
 
     # 6. Quantitative Exposure & Basel II Expected Loss
@@ -1468,8 +1474,7 @@ def _trained_model_reputation(model, row: dict[str, Any], borrower: Any | None =
     )
     behavior_summary = (
         f"Decision: {decision} (Grade {credit_grade}, {credit_tier}). "
-        f"Blended Default Probability: {ensemble_pd:.1%} "
-        f"[Scikit-Learn ML: {sklearn_default_proba:.1%} | NMB Scorecard: {nmb_default_proba:.1%}, Score {nmb_credit_score:.0f}/850]. "
+        f"Blended Default Probability: {ensemble_pd:.1%}. "
         f"Basel II Expected Loss: ${expected_loss:,.2f} on {loan_desc} (LGD {loss_given_default:.0%}). "
         f"Recommended Credit Limit: ${recommended_credit_limit:,.2f} at {recommended_apr:.2f}% APR. "
         f"Model Concordance: {agreement_pct:.1f}% ({concordance})."
@@ -1479,8 +1484,8 @@ def _trained_model_reputation(model, row: dict[str, Any], borrower: Any | None =
 
     score_explanation = [
         {"dimension": "DECISION", "name": f"Underwriting: {decision}", "value": f"Grade {credit_grade} · {credit_tier}", "reason": underwriting_summary},
-        {"dimension": "SKLEARN", "name": "RandomForest ML Model", "value": f"{sklearn_default_proba:.1%} Default Proba", "reason": f"Scikit-learn supervised model; prediction: {'Healthy' if sklearn_prediction == 0 else 'High Risk'} (confidence {sklearn_confidence:.1%})."},
-        {"dimension": "NMB", "name": "NMB Banking Scorecard", "value": f"Score {nmb_credit_score:.0f}/850 ({nmb_default_proba:.1%} PD)", "reason": f"Frozen banking WoE scorecard ({model_variant}); log-odds: {nmb_result.get('log_odds', 0)}."},
+        {"dimension": "BEHAVIORAL", "name": "Behavioral Analytics Model", "value": f"{sklearn_default_proba:.1%} Default Proba", "reason": f"Supervised behavioral model; prediction: {'Healthy' if sklearn_prediction == 0 else 'High Risk'} (confidence {sklearn_confidence:.1%})."},
+        {"dimension": "INSTITUTIONAL", "name": "Institutional Scorecard", "value": f"Score {nmb_credit_score:.0f}/850 ({nmb_default_proba:.1%} PD)", "reason": f"Standard institutional scorecard ({model_variant}); log-odds: {nmb_result.get('log_odds', 0)}."},
         {"dimension": "EXPOSURE", "name": "Basel II Expected Loss", "value": f"${expected_loss:,.2f}", "reason": f"EL = PD ({ensemble_pd:.1%}) × LGD ({loss_given_default:.0%}) × EAD (${exposure_at_default:,.2f})."},
         {"dimension": "TERMS", "name": "Recommended Limit & APR", "value": f"${recommended_credit_limit:,.2f} @ {recommended_apr:.2f}% APR", "reason": f"Max safe debt service: ${max_safe_monthly_payment:,.2f}/mo. {collateral_policy}"},
     ]
@@ -1500,7 +1505,7 @@ def _trained_model_reputation(model, row: dict[str, Any], borrower: Any | None =
         "credit_grade": credit_grade,
         "credit_tier": credit_tier,
         "underwriting_summary": underwriting_summary,
-        "models_used": ["Scikit-Learn RandomForest Pipeline", f"NMB Credit Scorecard ({model_variant})"],
+        "models_used": ["Behavioral Analytics Pipeline", f"Institutional Scorecard ({model_variant})"],
         "sklearn_metrics": {
             "default_probability": round(sklearn_default_proba, 4),
             "repayment_probability": round(1.0 - sklearn_default_proba, 4),
