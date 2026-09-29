@@ -98,7 +98,7 @@
                 <span class="inline-flex items-center gap-1 rounded-full bg-[#024ad8] px-4 py-1.5 text-sm font-bold text-white shadow">Grade {{ grade }} · {{ tier }}</span>
               }
               <span class="text-xs text-[#636363]">Risk Level: <strong>{{ raw['risk_level'] }}</strong></span>
-              <span class="text-xs text-[#636363]">Score: <strong>{{ (1 - (raw['ensemble_pd'] ?? (1 - +raw['score']))).toFixed ? (raw['ensemble_pd'] != null ? (1 - raw['ensemble_pd']).toFixed(4) : (+raw['score']).toFixed(4)) : raw['score'] }}</strong></span>
+              <span class="text-xs text-[#636363]">Score: <strong>{{ raw['ensemble_pd'] != null ? (1 - raw['ensemble_pd']).toFixed(4) : (+raw['score']).toFixed(4) }}</strong></span>
             </div>
           </div>
           @if (raw['underwriting_summary'] || raw['behavior_summary']) {
