@@ -132,6 +132,9 @@ body { margin: 0; background: var(--c-cloud); color: var(--c-ink); overflow-x: h
   .data-table td[data-wide]::before { max-width: 100%; }
   .data-table td > div,
   .data-table td > details { max-width: 100%; }
+  /* Cells without a data-label (empty-state messages) stay plain blocks */
+  .data-table td:not([data-label]) { display: block; text-align: center; }
+  .data-table td:not([data-label])::before { content: none; }
 }
 
 /* Responsive shell: content padding + compact tables on small screens.
