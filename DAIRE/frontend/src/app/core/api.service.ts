@@ -180,6 +180,43 @@ export interface AIReputationResult {
   behavior_summary: string;
   model_version: string;
   created_at: string;
+  /** Full ensemble result payload from the dual-model (ML + NMB) backend */
+  raw_result?: {
+    decision?: string;
+    credit_grade?: string;
+    credit_tier?: string;
+    default_probability?: number;
+    sklearn_metrics?: {
+      default_probability?: number;
+      survival_probability?: number;
+      risk_band?: string;
+      [key: string]: unknown;
+    };
+    nmb_metrics?: {
+      credit_score?: number;
+      default_probability?: number;
+      risk_band?: string;
+      [key: string]: unknown;
+    };
+    consensus_metrics?: {
+      concordance?: string;
+      ensemble_pd?: number;
+      [key: string]: unknown;
+    };
+    basel_metrics?: {
+      expected_loss?: number;
+      lgd?: number;
+      ead?: number;
+      [key: string]: unknown;
+    };
+    pricing_capacity?: {
+      recommended_credit_limit?: number;
+      recommended_apr?: number;
+      [key: string]: unknown;
+    };
+    actionable_guidance?: string[];
+    [key: string]: unknown;
+  };
 }
 
 export interface SmartContractResult {

@@ -157,15 +157,32 @@ export class DataExchangeComponent {
     const isAi = result['reputation'] !== undefined || result['behavior_summary'] !== undefined
       || (result['model_version'] !== undefined && result['credit_score'] === undefined);
     if (isAi) {
-      this.resultKind = 'Latest AI reputation result';
+      this.resultKind = 'Latest AI dual-model result (Scikit-Learn + NMB Scorecard)';
       const raw = (result['raw_result'] as Record<string, unknown> | undefined) ?? {};
+      const skl = (raw['sklearn_metrics'] as Record<string, unknown> | undefined) ?? {};
+      const nmb = (raw['nmb_metrics'] as Record<string, unknown> | undefined) ?? {};
+      const consensus = (raw['consensus_metrics'] as Record<string, unknown> | undefined) ?? {};
+      const basel = (raw['basel_metrics'] as Record<string, unknown> | undefined) ?? {};
+      const pricing = (raw['pricing_capacity'] as Record<string, unknown> | undefined) ?? {};
+      const decision = raw['decision'] ?? result['reputation'];
+      const grade = raw['credit_grade'] ? `Grade ${raw['credit_grade']} · ${raw['credit_tier'] ?? ''}` : (result['risk_level'] ?? raw['risk_level']);
+
       return [
-        row('Reputation', result['reputation'], false, true),
-        row('AI score (0–1)', result['score'], false, true),
-        row('Risk level', result['risk_level'] ?? raw['risk_level'], false, true),
-        row('Model version', result['model_version'] ?? raw['model_version'], true),
-        row('Engine', raw['engine'] ?? (String(result['model_version'] ?? '').includes('fallback') ? 'LOCAL_FALLBACK' : 'EXTERNAL')),
-        row('Assessment record', result['assessment']),
+        row('Underwriting decision', decision ? `${decision} (${raw['decision_label'] ?? ''})`.trim() : result['reputation'], false, true),
+        row('Credit rating & tier', grade, false, true),
+        row('Blended default probability', consensus['blended_default_probability'] != null ? `${(Number(consensus['blended_default_probability']) * 100).toFixed(1)}%` : result['score'], false, true),
+        row('NMB bureau score (300–850)', nmb['credit_score'] != null ? `${nmb['credit_score']} / 850` : '—', false, true),
+        row('Dual models used', Array.isArray(raw['models_used']) ? (raw['models_used'] as string[]).join(' + ') : 'Scikit-Learn ML + NMB Scorecard', true),
+        row('Model breakdown', skl['default_probability'] != null && nmb['default_probability'] != null
+          ? `ML: ${(Number(skl['default_probability']) * 100).toFixed(1)}% PD  |  NMB: ${(Number(nmb['default_probability']) * 100).toFixed(1)}% PD`
+          : '—', true),
+        row('Model agreement', consensus['model_agreement_pct'] != null ? `${consensus['model_agreement_pct']}% (${consensus['concordance'] ?? ''})` : '—'),
+        row('Basel II Expected Loss', basel['expected_loss'] != null ? `$${Number(basel['expected_loss']).toLocaleString()} (LGD: ${(Number(basel['loss_given_default'] ?? 0.5) * 100).toFixed(0)}%, EAD: $${Number(basel['exposure_at_default'] ?? 0).toLocaleString()})` : '—', false, true),
+        row('Recommended credit limit', pricing['recommended_credit_limit'] != null ? `$${Number(pricing['recommended_credit_limit']).toLocaleString()}` : '—', false, true),
+        row('Risk-based APR', pricing['recommended_apr'] != null ? `${pricing['recommended_apr']}% APR` : '—', false, true),
+        row('Max monthly debt capacity', pricing['max_monthly_debt_service'] != null ? `$${Number(pricing['max_monthly_debt_service']).toLocaleString()}/mo` : '—'),
+        row('Collateral policy', pricing['collateral_policy'] ?? '—'),
+        row('Assessment record', result['assessment'] ?? '—', true),
       ];
     }
 

@@ -241,26 +241,64 @@
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Assessment</th>
-            <th class="table-th">Reputation</th>
-            <th class="table-th">Score</th>
-            <th class="table-th">Risk level</th>
-            <th class="table-th">Model</th>
-            <th class="table-th">Behavior summary</th>
+            <th class="table-th">Underwriting & Grade</th>
+            <th class="table-th">Default Proba</th>
+            <th class="table-th">NMB Score (300–850)</th>
+            <th class="table-th">Expected Loss & Limit</th>
+            <th class="table-th">Executive Decision Summary</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-[#e8e8e8]">
           @for (r of aiResults; track r.id) {
             <tr class="hover:bg-[#f7f7f7] transition-colors">
               <td class="table-td font-semibold text-[#1a1a1a]">#{{ r.assessment }}</td>
-              <td class="table-td"><span class="badge-green">{{ r.reputation }}</span></td>
-              <td class="table-td text-xl font-bold text-[#1a1a1a]">{{ r.score }}</td>
               <td class="table-td">
-                <span [class]="r.risk_level === 'LOW' ? 'badge-green' : r.risk_level === 'HIGH' ? 'badge-red' : 'badge-yellow'">
-                  {{ r.risk_level || '—' }}
+                @let decision = r.raw_result?.['decision'] || r.reputation;
+                @let grade = r.raw_result?.['credit_grade'] || (r.risk_level === 'LOW' ? 'A/B' : 'C/D');
+                <span [class]="decision === 'APPROVED' ? 'badge-green' : decision === 'CONDITIONAL_APPROVAL' ? 'badge-slate' : decision === 'DECLINED' ? 'badge-red' : 'badge-yellow'">
+                  {{ decision }}
+                </span>
+                <span class="block mt-1 text-xs font-semibold text-[#4a4a4a]">
+                  Grade {{ grade }} · {{ r.raw_result?.['credit_tier'] || r.risk_level }}
                 </span>
               </td>
-              <td class="table-td font-mono text-xs text-[#636363]">{{ r.model_version }}</td>
-              <td class="table-td max-w-xs text-[#636363] text-xs">{{ r.behavior_summary || '—' }}</td>
+              <td class="table-td">
+                <span class="text-base font-bold text-[#1a1a1a]">
+                  {{ (r.raw_result?.['default_probability'] !== undefined ? (r.raw_result?.['default_probability'] * 100).toFixed(1) : ((1 - Number(r.score)) * 100).toFixed(1)) }}%
+                </span>
+                <small class="block text-[11px] text-[#717171]">
+                  ML: {{ (r.raw_result?.['sklearn_metrics']?.['default_probability'] ? (r.raw_result?.['sklearn_metrics']?.['default_probability'] * 100).toFixed(1) + '%' : '—') }} | NMB: {{ (r.raw_result?.['nmb_metrics']?.['default_probability'] ? (r.raw_result?.['nmb_metrics']?.['default_probability'] * 100).toFixed(1) + '%' : '—') }}
+                </small>
+              </td>
+              <td class="table-td">
+                <span class="text-base font-bold text-[#024ad8]">
+                  {{ r.raw_result?.['nmb_metrics']?.['credit_score'] ?? '—' }}
+                </span>
+                <span class="text-xs text-[#9a9a9a]">/800</span>
+                @if (r.raw_result?.['consensus_metrics']?.['concordance']) {
+                  <span class="block text-[11px] text-[#636363]">{{ r.raw_result?.['consensus_metrics']?.['concordance'] }}</span>
+                }
+              </td>
+              <td class="table-td">
+                <div class="text-xs">
+                  <span class="font-semibold text-[#1a1a1a]">EL: ${{ r.raw_result?.['basel_metrics']?.['expected_loss'] != null ? r.raw_result?.['basel_metrics']?.['expected_loss'] : '—' }}</span>
+                  <span class="block text-[11px] text-[#024ad8] font-medium">Limit: ${{ r.raw_result?.['pricing_capacity']?.['recommended_credit_limit'] != null ? r.raw_result?.['pricing_capacity']?.['recommended_credit_limit'] : '—' }}</span>
+                  <span class="block text-[10px] text-[#717171]">Rate: {{ r.raw_result?.['pricing_capacity']?.['recommended_apr'] != null ? r.raw_result?.['pricing_capacity']?.['recommended_apr'] + '% APR' : '—' }}</span>
+                </div>
+              </td>
+              <td class="table-td max-w-sm text-[#3d3d3d] text-xs">
+                <p>{{ r.behavior_summary || '—' }}</p>
+                @if (r.raw_result?.['actionable_guidance']?.length) {
+                  <details class="mt-1">
+                    <summary class="cursor-pointer text-[11px] font-semibold text-[#024ad8]">Actionable Borrower Guidance</summary>
+                    <ul class="mt-1 list-disc pl-4 space-y-0.5 text-[11px] text-[#636363]">
+                      @for (guide of r.raw_result?.['actionable_guidance']; track guide) {
+                        <li>{{ guide }}</li>
+                      }
+                    </ul>
+                  </details>
+                }
+              </td>
             </tr>
           }
           @empty {
