@@ -192,11 +192,98 @@ class CreditFeatureSerializer(serializers.ModelSerializer):
 
 class AIReputationResultSerializer(serializers.ModelSerializer):
     assessment_reference = serializers.CharField(source="assessment.assessment_reference", read_only=True)
+    borrower_name = serializers.SerializerMethodField()
+    borrower_reference = serializers.CharField(source="assessment.borrower.borrower_reference", read_only=True)
+    score_explanation = serializers.SerializerMethodField()
+    # Pre-flattened key fields for quick frontend rendering without raw_result traversal
+    decision = serializers.SerializerMethodField()
+    credit_grade = serializers.SerializerMethodField()
+    credit_tier = serializers.SerializerMethodField()
+    nmb_credit_score = serializers.SerializerMethodField()
+    concordance = serializers.SerializerMethodField()
+    ensemble_pd = serializers.SerializerMethodField()
+    ml_pd = serializers.SerializerMethodField()
+    nmb_pd = serializers.SerializerMethodField()
+    recommended_credit_limit = serializers.SerializerMethodField()
+    recommended_apr = serializers.SerializerMethodField()
+    expected_loss = serializers.SerializerMethodField()
+    actionable_guidance = serializers.SerializerMethodField()
+    strengths = serializers.SerializerMethodField()
+    risk_factors = serializers.SerializerMethodField()
+    ml_weight = serializers.SerializerMethodField()
+    nmb_weight = serializers.SerializerMethodField()
+    history_band = serializers.SerializerMethodField()
 
     class Meta:
         model = AIReputationResult
         fields = "__all__"
         read_only_fields = ("created_at", "updated_at")
+
+    def _raw(self, obj):
+        return obj.raw_result if isinstance(obj.raw_result, dict) else {}
+
+    def get_borrower_name(self, obj):
+        try:
+            return obj.assessment.borrower.name or obj.assessment.borrower.borrower_reference
+        except Exception:
+            return None
+
+    def get_score_explanation(self, obj):
+        try:
+            return obj.assessment.score_explanation or []
+        except Exception:
+            return []
+
+    def get_decision(self, obj):
+        return self._raw(obj).get("decision")
+
+    def get_credit_grade(self, obj):
+        return self._raw(obj).get("credit_grade")
+
+    def get_credit_tier(self, obj):
+        return self._raw(obj).get("credit_tier")
+
+    def get_nmb_credit_score(self, obj):
+        return (self._raw(obj).get("nmb_metrics") or {}).get("credit_score")
+
+    def get_concordance(self, obj):
+        return (self._raw(obj).get("consensus_metrics") or {}).get("concordance")
+
+    def get_ensemble_pd(self, obj):
+        return self._raw(obj).get("default_probability")
+
+    def get_ml_pd(self, obj):
+        return (self._raw(obj).get("sklearn_metrics") or {}).get("default_probability")
+
+    def get_nmb_pd(self, obj):
+        return (self._raw(obj).get("nmb_metrics") or {}).get("default_probability")
+
+    def get_recommended_credit_limit(self, obj):
+        return (self._raw(obj).get("pricing_capacity") or {}).get("recommended_credit_limit")
+
+    def get_recommended_apr(self, obj):
+        return (self._raw(obj).get("pricing_capacity") or {}).get("recommended_apr")
+
+    def get_expected_loss(self, obj):
+        return (self._raw(obj).get("basel_metrics") or {}).get("expected_loss")
+
+    def get_actionable_guidance(self, obj):
+        return self._raw(obj).get("actionable_guidance", [])
+
+    def get_strengths(self, obj):
+        return self._raw(obj).get("strengths", [])
+
+    def get_risk_factors(self, obj):
+        return self._raw(obj).get("risk_factors", [])
+
+    def get_ml_weight(self, obj):
+        return (self._raw(obj).get("consensus_metrics") or {}).get("ml_weight")
+
+    def get_nmb_weight(self, obj):
+        return (self._raw(obj).get("consensus_metrics") or {}).get("nmb_weight")
+
+    def get_history_band(self, obj):
+        return (self._raw(obj).get("consensus_metrics") or {}).get("history_band")
 
 
 class SmartContractResultSerializer(serializers.ModelSerializer):

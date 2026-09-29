@@ -174,47 +174,49 @@ export interface AIReputationResult {
   id: number;
   assessment: number;
   assessment_reference?: string;
+  borrower_name?: string;
+  borrower_reference?: string;
   reputation: string;
   score: string | number;
   risk_level: string;
   behavior_summary: string;
   model_version: string;
   created_at: string;
-  /** Full ensemble result payload from the dual-model (ML + NMB) backend */
+  // Pre-flattened scoring fields (returned directly by serializer)
+  decision?: string;
+  credit_grade?: string;
+  credit_tier?: string;
+  nmb_credit_score?: number;
+  concordance?: string;
+  ensemble_pd?: number;
+  ml_pd?: number;
+  nmb_pd?: number;
+  recommended_credit_limit?: number;
+  recommended_apr?: number;
+  expected_loss?: number;
+  actionable_guidance?: string[];
+  strengths?: string[];
+  risk_factors?: string[];
+  ml_weight?: number;
+  nmb_weight?: number;
+  history_band?: string;
+  score_explanation?: Array<{dimension: string; name: string; value: string; reason: string}>;
+  /** Full ensemble result payload — still available for deep access */
   raw_result?: {
     decision?: string;
     credit_grade?: string;
     credit_tier?: string;
     default_probability?: number;
-    sklearn_metrics?: {
-      default_probability?: number;
-      survival_probability?: number;
-      risk_band?: string;
-      [key: string]: unknown;
-    };
-    nmb_metrics?: {
-      credit_score?: number;
-      default_probability?: number;
-      risk_band?: string;
-      [key: string]: unknown;
-    };
-    consensus_metrics?: {
-      concordance?: string;
-      ensemble_pd?: number;
-      [key: string]: unknown;
-    };
-    basel_metrics?: {
-      expected_loss?: number;
-      lgd?: number;
-      ead?: number;
-      [key: string]: unknown;
-    };
-    pricing_capacity?: {
-      recommended_credit_limit?: number;
-      recommended_apr?: number;
-      [key: string]: unknown;
-    };
+    sklearn_metrics?: { default_probability?: number; survival_probability?: number; risk_band?: string; [key: string]: unknown };
+    nmb_metrics?: { credit_score?: number; default_probability?: number; risk_band?: string; top_strengths?: unknown[]; top_risk_factors?: unknown[]; [key: string]: unknown };
+    consensus_metrics?: { concordance?: string; ensemble_pd?: number; ml_weight?: number; nmb_weight?: number; history_band?: string; model_spread?: number; agreement_pct?: number; [key: string]: unknown };
+    basel_metrics?: { expected_loss?: number; lgd?: number; ead?: number; pd?: number; loss_given_default?: number; exposure_at_default?: number; [key: string]: unknown };
+    pricing_capacity?: { recommended_credit_limit?: number; recommended_apr?: number; collateral_policy?: string; max_monthly_debt_service?: number; [key: string]: unknown };
     actionable_guidance?: string[];
+    strengths?: string[];
+    risk_factors?: string[];
+    underwriting_summary?: string;
+    decision_label?: string;
     [key: string]: unknown;
   };
 }
