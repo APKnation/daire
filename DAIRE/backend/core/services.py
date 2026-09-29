@@ -1270,16 +1270,63 @@ def _trained_model_reputation(model, row: dict[str, Any], borrower: Any | None =
         nmb_contributions = {}
         model_variant = "standalone_ml"
 
-    # 3. Model Consensus & Blended Ensemble
-    ensemble_pd = round(0.50 * sklearn_default_proba + 0.50 * nmb_default_proba, 4)
+    # 3. Adaptive Ensemble Weighting + Consensus
+    #
+    # The RandomForest (ML) is trained on datasets where credit-history length
+    # is a strong predictor. When that history is short (<2 yrs) the ML
+    # prediction becomes structurally uncertain — it lacks the longitudinal
+    # signal it was designed to exploit. In those cases the NMB WoE scorecard,
+    # which captures current behavioral signals (DTI, balance stability,
+    # verification, inquiry rate), is the more reliable anchor.
+    #
+    # Adaptive weights:
+    #   history ≥ 5 yrs  → ML 55 % | NMB 45 %  (ML well-informed)
+    #   history 2–5 yrs  → ML 50 % | NMB 50 %  (balanced)
+    #   history 0.5–2 yrs→ ML 35 % | NMB 65 %  (NMB more reliable)
+    #   history < 0.5 yr → ML 20 % | NMB 80 %  (NMB dominates)
+    #   history unknown  → ML 40 % | NMB 60 %  (slight NMB preference)
+    cred_hist = row.get("cb_person_cred_hist_length")
+    if cred_hist is None:
+        ml_weight, nmb_weight = 0.40, 0.60
+        history_band = "unknown"
+    else:
+        cred_hist_f = float(cred_hist)
+        if cred_hist_f >= 5.0:
+            ml_weight, nmb_weight = 0.55, 0.45
+            history_band = "established (≥5 yrs)"
+        elif cred_hist_f >= 2.0:
+            ml_weight, nmb_weight = 0.50, 0.50
+            history_band = "moderate (2–5 yrs)"
+        elif cred_hist_f >= 0.5:
+            ml_weight, nmb_weight = 0.35, 0.65
+            history_band = "short (0.5–2 yrs)"
+        else:
+            ml_weight, nmb_weight = 0.20, 0.80
+            history_band = "thin (<0.5 yr)"
+
+    ensemble_pd = round(ml_weight * sklearn_default_proba + nmb_weight * nmb_default_proba, 4)
     model_spread = abs(sklearn_default_proba - nmb_default_proba)
     agreement_pct = round(max(0.0, 1.0 - model_spread) * 100, 1)
-    if model_spread <= 0.08:
-        concordance = "HIGH_AGREEMENT"
-    elif model_spread <= 0.18:
-        concordance = "MODERATE_AGREEMENT"
+
+    # Concordance thresholds also account for history quality:
+    # when history is short, a wider spread is expected and acceptable —
+    # the DIVERGENT flag is reserved for cases where *both* models have
+    # sufficient data but still disagree strongly.
+    if cred_hist is not None and float(cred_hist) < 2.0:
+        # Relax thresholds for thin-file borrowers
+        if model_spread <= 0.15:
+            concordance = "HIGH_AGREEMENT"
+        elif model_spread <= 0.28:
+            concordance = "MODERATE_AGREEMENT"
+        else:
+            concordance = "DIVERGENT"
     else:
-        concordance = "DIVERGENT"
+        if model_spread <= 0.08:
+            concordance = "HIGH_AGREEMENT"
+        elif model_spread <= 0.18:
+            concordance = "MODERATE_AGREEMENT"
+        else:
+            concordance = "DIVERGENT"
 
     score = round(1.0 - ensemble_pd, 4)
 
@@ -1472,6 +1519,11 @@ def _trained_model_reputation(model, row: dict[str, Any], borrower: Any | None =
             "calibrated_bureau_score": round(nmb_credit_score, 1),
             "model_agreement_pct": agreement_pct,
             "concordance": concordance,
+            "model_spread": round(model_spread, 4),
+            "agreement_pct": agreement_pct,
+            "ml_weight": round(ml_weight, 2),
+            "nmb_weight": round(nmb_weight, 2),
+            "history_band": history_band,
         },
         "basel_metrics": {
             "probability_of_default": round(ensemble_pd, 4),
