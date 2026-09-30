@@ -41,8 +41,6 @@ ALLOWED_HOSTS = env.list(
         "172.17.16.76",
         "172.17.16.47",
         "172.17.16.70",
-        "daire.co.tz",
-        "*.daire.co.tz",
     ],
 )
 
