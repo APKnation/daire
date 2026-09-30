@@ -47,7 +47,8 @@ class Command(BaseCommand):
         now = timezone.now()
 
         # ---------------------------------------------------------------------
-        # 1. LENDERS
+        # 1. LENDERS — the network is NMB + CRDB only. To remove other lenders
+        #    from a live database run: python manage.py prune_lenders --yes
         # ---------------------------------------------------------------------
         lenders_data = [
             {
@@ -65,38 +66,6 @@ class Command(BaseCommand):
                 "api_base_url": "http://127.0.0.1:8000/api/mock-lender/NMB",
                 "api_status": Lender.Status.CONNECTED,
                 "authentication_method": "OAUTH2",
-            },
-            {
-                "lender_id": "LDR-EQT-03",
-                "institution_name": "Equity Bank Agri-Credit",
-                "institution_type": "Commercial Bank",
-                "api_base_url": "http://127.0.0.1:8000/api/mock-lender/EQUITY",
-                "api_status": Lender.Status.CONNECTED,
-                "authentication_method": "API_KEY",
-            },
-            {
-                "lender_id": "LDR-TZP-04",
-                "institution_name": "Tigo Pesa Nano-Lending",
-                "institution_type": "Digital Lender",
-                "api_base_url": "http://127.0.0.1:8000/api/mock-lender/TIGO",
-                "api_status": Lender.Status.CONNECTED,
-                "authentication_method": "API_KEY",
-            },
-            {
-                "lender_id": "LDR-AIR-05",
-                "institution_name": "Airtel Money QuickLoan",
-                "institution_type": "Digital Lender",
-                "api_base_url": "http://127.0.0.1:8000/api/mock-lender/AIRTEL",
-                "api_status": Lender.Status.DEGRADED,
-                "authentication_method": "API_KEY",
-            },
-            {
-                "lender_id": "LDR-MWG-06",
-                "institution_name": "Mwanga Community Bank",
-                "institution_type": "Microfinance Institution",
-                "api_base_url": "http://127.0.0.1:8000/api/mock-lender/MWANGA",
-                "api_status": Lender.Status.DISCONNECTED,
-                "authentication_method": "API_KEY",
             },
         ]
 
@@ -144,16 +113,10 @@ class Command(BaseCommand):
             # (borrower ref, lender key, account ref, account name)
             ("1001", "LDR-CRDB-01", "7712001", "Atanas · CRDB main"),
             ("1001", "LDR-NMB-02", "8834010", "Atanas · NMB savings"),
-            ("1001", "LDR-EQT-03", "5520987", "Atanas · Equity agri"),
             ("1002", "LDR-NMB-02", "8835220", "John · NMB main"),
-            ("1002", "LDR-TZP-04", "6103342", "John · Tigo wallet"),
             ("1003", "LDR-CRDB-01", "7713854", "Amina · CRDB main"),
-            ("1003", "LDR-AIR-05", "7745019", "Amina · Airtel money"),
-            ("1004", "LDR-EQT-03", "5521776", "Elvis · Equity main"),
             ("1005", "LDR-NMB-02", "8836902", "Antony · NMB main"),
             ("1005", "LDR-CRDB-01", "7714533", "Antony · CRDB savings"),
-            ("1005", "LDR-TZP-04", "6104188", "Antony · Tigo wallet"),
-            ("1006", "LDR-AIR-05", "7746230", "Amiri · Airtel money"),
         ]
         seeded_accounts = 0
         for borrower_ref, lender_key, account_ref, account_name in accounts_data:
@@ -207,15 +170,6 @@ class Command(BaseCommand):
                 "status": Consent.Status.ACTIVE,
             },
             {
-                "consent_id": "CST-2026-005",
-                "borrower": borrowers["1004"],
-                "lender": lenders["LDR-TZP-04"],
-                "purpose": "Retail pharmaceutical inventory replenishment loan",
-                "granted_at": now - timedelta(days=2),
-                "expires_at": now + timedelta(days=28),
-                "status": Consent.Status.ACTIVE,
-            },
-            {
                 "consent_id": "CST-2026-006",
                 "borrower": borrowers["1005"],
                 "lender": lenders["LDR-CRDB-01"],
@@ -232,15 +186,6 @@ class Command(BaseCommand):
                 "granted_at": now - timedelta(days=90),
                 "expires_at": now - timedelta(days=10),
                 "status": Consent.Status.EXPIRED,
-            },
-            {
-                "consent_id": "CST-2026-008",
-                "borrower": borrowers["1002"],
-                "lender": lenders["LDR-AIR-05"],
-                "purpose": "Short-term operational liquidity pre-approval",
-                "granted_at": now - timedelta(days=12),
-                "expires_at": now + timedelta(days=18),
-                "status": Consent.Status.REVOKED,
             },
         ]
 
