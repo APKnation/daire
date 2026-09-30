@@ -34,8 +34,24 @@ export interface Borrower {
   financial_profile?: FinancialProfile | null;
   accounts?: BorrowerAccount[];
   loans?: BorrowerLoan[];
+  loan_applications?: LoanApplication[];
   created_at?: string;
   updated_at?: string;
+}
+
+export interface LoanApplication {
+  id: number;
+  application_reference?: string;
+  lender?: number | null;
+  lender_name?: string | null;
+  applied_amount: string | number;
+  currency: string;
+  purpose?: string;
+  term_months?: number;
+  interest_rate?: string | number | null;
+  status: string;
+  assessment_reference?: string | null;
+  created_at?: string;
 }
 
 export interface FinancialProfile {

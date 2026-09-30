@@ -4,7 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import { Subscription } from 'rxjs';
 import {
   AIReputationResult, ApiService, BlockchainTransaction, Borrower,
-  Consent, IntegrationRequest, Lender, Paged, PAGE_SIZE, SmartContractResult
+  Consent, IntegrationRequest, Lender, LoanApplication, Paged, PAGE_SIZE, SmartContractResult
 } from '../core/api.service';
 import { PagerComponent } from '../core/pager.component';
 
@@ -190,6 +190,24 @@ export class RecordsComponent implements OnInit, OnDestroy {
 
   totalOutstanding(borrower: Borrower): number {
     return Number(borrower.financial_profile?.total_outstanding_debt || 0);
+  }
+
+  /** Latest application per lender — what the borrower is currently asking for. */
+  currentApplications(borrower: Borrower): LoanApplication[] {
+    const apps = [...(borrower.loan_applications || [])];
+    apps.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    const seen = new Set<string>();
+    return apps.filter((app) => {
+      const key = app.lender_name || `#${app.lender ?? 'central'}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  appliedTotal(borrower: Borrower): number {
+    return this.currentApplications(borrower)
+      .reduce((sum, app) => sum + Number(app.applied_amount || 0), 0);
   }
 
   paymentTotal(borrower: Borrower): number {
