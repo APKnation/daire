@@ -1,4 +1,5 @@
 import { ChangeDetectorRef, Component, inject } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, map, switchMap, tap } from 'rxjs';
 import { ApiRecord, ApiService, Borrower, PAGE_SIZE, PullResult } from '../core/api.service';
@@ -23,7 +24,7 @@ interface ExchangeStep {
 
 @Component({
   standalone: true,
-  imports: [FormsModule],
+  imports: [DecimalPipe, FormsModule],
   templateUrl: './data-exchange.component.html',
 })
 export class DataExchangeComponent {
@@ -57,6 +58,11 @@ export class DataExchangeComponent {
   blockchainRows: ResultRow[] = [];
   aiResult: ApiRecord | null = null;
   blockchainResult: ApiRecord | null = null;
+  /** Underwriting panels shown only after the analyst expands them — the raw
+   * model internals are for review, not the headline result. */
+  showUnderwritingDetails = false;
+  /** Which merged-data block is expanded. */
+  openDataPanel: '' | 'accounts' | 'loans' | 'profile' = '';
   /** Which engine produced `lastResult` — drives the panel heading. */
   resultKind = '';
   loading = false;
@@ -104,6 +110,54 @@ export class DataExchangeComponent {
   /** Label for a received borrower: name or reference, plus its data sources. */
   receivedBorrowerLabel(b: Borrower): string {
     return b.name ? `${b.name} — ${b.borrower_reference}` : b.borrower_reference;
+  }
+
+  toggleUnderwritingDetails(): void {
+    this.showUnderwritingDetails = !this.showUnderwritingDetails;
+  }
+
+  toggleDataPanel(panel: 'accounts' | 'loans' | 'profile'): void {
+    this.openDataPanel = this.openDataPanel === panel ? '' : panel;
+  }
+
+  /** Sources that actually contributed data to this borrower. */
+  sourceLenders(b: Borrower | null): Array<{ name: string; accounts: number; loans: number }> {
+    if (!b) return [];
+    const map = new Map<string, { name: string; accounts: number; loans: number }>();
+    for (const account of b.accounts || []) {
+      const name = account.lender_name || `Lender #${account.lender}`;
+      const entry = map.get(name) ?? { name, accounts: 0, loans: 0 };
+      entry.accounts += 1;
+      map.set(name, entry);
+    }
+    for (const loan of b.loans || []) {
+      const name = loan.lender_name || `Lender #${loan.lender}`;
+      const entry = map.get(name) ?? { name, accounts: 0, loans: 0 };
+      entry.loans += 1;
+      map.set(name, entry);
+    }
+    return [...map.values()];
+  }
+
+  mergedOutstanding(b: Borrower | null): number {
+    return (b?.loans || []).reduce((sum, loan) => sum + Number(loan.outstanding_balance || 0), 0);
+  }
+
+  mergedLoanCount(b: Borrower | null): number {
+    return (b?.loans || []).length;
+  }
+
+  mergedRepaymentStats(b: Borrower | null): { total: number; onTime: number; missed: number; late: number } {
+    let total = 0, onTime = 0, missed = 0, late = 0;
+    for (const loan of b?.loans || []) {
+      for (const rp of loan.repayments || []) {
+        total += 1;
+        if (Number(rp.missed_payments || 0) > 0) missed += 1;
+        else if (Number(rp.late_payments || 0) > 0 || Number(rp.days_overdue || 0) > 0) late += 1;
+        else onTime += 1;
+      }
+    }
+    return { total, onTime, missed, late };
   }
 
   /** Has Central actually received data for this borrower (account-level proof)? */
@@ -299,6 +353,7 @@ export class DataExchangeComponent {
         this.aiRows = this.buildResultRows(ai);
         this.blockchainRows = this.buildResultRows(blockchain);
         this.resultRows = [...this.aiRows, ...this.blockchainRows];
+        this.showUnderwritingDetails = false;
         this.setStep('analysis', 'done');
         this.loading = false;
         this.message = 'Assessment completed. Review the AI and blockchain results, then broadcast them.';

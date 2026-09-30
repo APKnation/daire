@@ -70,6 +70,67 @@
     @let raw = $any(aiResult);
     <div class="mt-8 space-y-6">
 
+      <!-- ── MERGED SOURCE DATA (what the score is actually based on) ── -->
+      @if (borrower; as b) {
+        @let repay = mergedRepaymentStats(b);
+        <div class="rounded-2xl border-2 border-[#024ad8]/25 bg-white p-6">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-widest text-[#024ad8]">Merged data behind this score</p>
+              <p class="mt-1 text-sm text-[#3d3d3d]">
+                Combined from <strong>{{ sourceLenders(b).length }}</strong> lender(s):
+                @for (src of sourceLenders(b); track src.name; let last = $last) {
+                  <strong>{{ src.name }}</strong> ({{ src.accounts }} account(s), {{ src.loans }} loan(s)){{ last ? '' : ', ' }}
+                }
+              </p>
+            </div>
+            <div class="flex gap-6 text-right">
+              <div><span class="block text-2xl font-black text-[#1a1a1a]">{{ mergedLoanCount(b) }}</span><span class="text-xs text-[#636363]">loans (all lenders)</span></div>
+              <div><span class="block text-2xl font-black text-[#1a1a1a] amount"><span class="currency">{{ mergedOutstanding(b) | number:'1.0-0' }}</span></span><span class="text-xs text-[#636363]">outstanding (merged)</span></div>
+              <div><span class="block text-2xl font-black text-[#1a1a1a]">{{ repay.total }}</span><span class="text-xs text-[#636363]">repayments</span></div>
+            </div>
+          </div>
+          <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <div class="rounded-lg bg-[#f0fdf4] px-4 py-2.5"><span class="block text-lg font-bold text-emerald-700">{{ repay.onTime }}</span><span class="text-xs text-[#636363]">on-time repayments</span></div>
+            <div class="rounded-lg bg-[#fffbeb] px-4 py-2.5"><span class="block text-lg font-bold text-amber-700">{{ repay.late }}</span><span class="text-xs text-[#636363]">late payments</span></div>
+            <div class="rounded-lg bg-[#fef2f2] px-4 py-2.5"><span class="block text-lg font-bold text-red-700">{{ repay.missed }}</span><span class="text-xs text-[#636363]">missed payments</span></div>
+            <div class="rounded-lg bg-[#f7f7f7] px-4 py-2.5"><span class="block text-lg font-bold text-[#1a1a1a]">{{ b.financial_profile?.transaction_frequency || 0 }}</span><span class="text-xs text-[#636363]">transactions (period)</span></div>
+          </div>
+
+          <div class="mt-4 space-y-2">
+            <button type="button" class="flex w-full items-center justify-between rounded-lg border border-[#e8e8e8] px-4 py-2.5 text-sm font-semibold text-[#1a1a1a] hover:bg-[#f7f7f7]" (click)="toggleDataPanel('accounts')">
+              <span>Accounts held at each lender ({{ b.accounts?.length || 0 }})</span><span class="text-[#9a9a9a]">{{ openDataPanel === 'accounts' ? '▲' : '▼' }}</span>
+            </button>
+            @if (openDataPanel === 'accounts') {
+              <table class="w-full text-left text-sm"><thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]"><tr><th class="px-4 py-2 text-xs font-semibold uppercase text-[#9a9a9a]">Lender</th><th class="px-4 py-2 text-xs font-semibold uppercase text-[#9a9a9a]">Account</th><th class="px-4 py-2 text-xs font-semibold uppercase text-[#9a9a9a]">Name</th></tr></thead>
+                <tbody class="divide-y divide-[#e8e8e8]">@for (acc of b.accounts || []; track acc.id) {<tr><td class="px-4 py-2 font-semibold">{{ acc.lender_name }}</td><td class="px-4 py-2 font-mono text-xs">{{ acc.account_reference || '—' }}</td><td class="px-4 py-2 text-[#636363]">{{ acc.account_name || '—' }}</td></tr>}</tbody></table>
+            }
+            <button type="button" class="flex w-full items-center justify-between rounded-lg border border-[#e8e8e8] px-4 py-2.5 text-sm font-semibold text-[#1a1a1a] hover:bg-[#f7f7f7]" (click)="toggleDataPanel('loans')">
+              <span>Loan history combined from all lenders ({{ mergedLoanCount(b) }})</span><span class="text-[#9a9a9a]">{{ openDataPanel === 'loans' ? '▲' : '▼' }}</span>
+            </button>
+            @if (openDataPanel === 'loans') {
+              <table class="w-full text-left text-sm"><thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]"><tr><th class="px-4 py-2 text-xs font-semibold uppercase text-[#9a9a9a]">Lender</th><th class="px-4 py-2 text-xs font-semibold uppercase text-[#9a9a9a]">Loan</th><th class="px-4 py-2 text-xs font-semibold uppercase text-[#9a9a9a]">Amount</th><th class="px-4 py-2 text-xs font-semibold uppercase text-[#9a9a9a]">Outstanding</th><th class="px-4 py-2 text-xs font-semibold uppercase text-[#9a9a9a]">Status</th><th class="px-4 py-2 text-xs font-semibold uppercase text-[#9a9a9a]">Repayments</th></tr></thead>
+                <tbody class="divide-y divide-[#e8e8e8]">@for (loan of b.loans || []; track loan.id) {<tr><td class="px-4 py-2 font-semibold">{{ loan.lender_name }}</td><td class="px-4 py-2 font-mono text-xs">{{ loan.loan_id }}</td><td class="px-4 py-2 amount"><span class="currency">{{ loan.loan_amount | number:'1.0-0' }}</span></td><td class="px-4 py-2 amount"><span class="currency">{{ loan.outstanding_balance | number:'1.0-0' }}</span></td><td class="px-4 py-2"><span [class]="loan.status === 'ACTIVE' || loan.status === 'CURRENT' ? 'badge-green' : 'badge-slate'">{{ loan.status }}</span></td><td class="px-4 py-2">{{ loan.repayments?.length || 0 }}</td></tr>}</tbody></table>
+            }
+            <button type="button" class="flex w-full items-center justify-between rounded-lg border border-[#e8e8e8] px-4 py-2.5 text-sm font-semibold text-[#1a1a1a] hover:bg-[#f7f7f7]" (click)="toggleDataPanel('profile')">
+              <span>Financial profile (merged)</span><span class="text-[#9a9a9a]">{{ openDataPanel === 'profile' ? '▲' : '▼' }}</span>
+            </button>
+            @if (openDataPanel === 'profile') {
+              <dl class="grid grid-cols-1 gap-x-8 gap-y-1 rounded-lg border border-[#e8e8e8] p-4 text-sm sm:grid-cols-2">
+                <div class="flex justify-between"><dt class="text-[#636363]">Income</dt><dd class="font-semibold amount"><span class="currency">{{ b.income | number:'1.0-0' }}</span></dd></div>
+                <div class="flex justify-between"><dt class="text-[#636363]">Savings</dt><dd class="font-semibold amount"><span class="currency">{{ b.financial_profile?.savings | number:'1.0-0' }}</span></dd></div>
+                <div class="flex justify-between"><dt class="text-[#636363]">Total outstanding debt</dt><dd class="font-semibold amount"><span class="currency">{{ b.financial_profile?.total_outstanding_debt | number:'1.0-0' }}</span></dd></div>
+                <div class="flex justify-between"><dt class="text-[#636363]">Debt-to-income</dt><dd class="font-semibold">{{ b.financial_profile?.debt_to_income_ratio || 0 }}</dd></div>
+                <div class="flex justify-between"><dt class="text-[#636363]">Transaction frequency</dt><dd class="font-semibold">{{ b.financial_profile?.transaction_frequency || 0 }}</dd></div>
+                <div class="flex justify-between"><dt class="text-[#636363]">Income frequency</dt><dd class="font-semibold">{{ b.financial_profile?.income_frequency || 0 }}</dd></div>
+                <div class="flex justify-between"><dt class="text-[#636363]">Active loans</dt><dd class="font-semibold">{{ b.financial_profile?.active_loans || 0 }}</dd></div>
+                <div class="flex justify-between"><dt class="text-[#636363]">Previous loans</dt><dd class="font-semibold">{{ b.financial_profile?.previous_loans || 0 }}</dd></div>
+              </dl>
+            }
+          </div>
+        </div>
+      }
+
       <!-- ── VERDICT BANNER ──────────────────────────────────────── -->
       @if (raw) {
         @let dec = raw['decision'] || raw['reputation'];
@@ -108,8 +169,14 @@
       }
 
 
-      <!-- ── BASEL II + PRICING ROW ──────────────────────────────── -->
+      <!-- ── BASEL II + PRICING ROW (collapsed by default — model internals) ── -->
       @if (raw) {
+        <button type="button" class="flex w-full items-center justify-between rounded-xl border border-[#e8e8e8] bg-white px-5 py-3 text-sm font-semibold text-[#1a1a1a] hover:bg-[#f7f7f7]" (click)="toggleUnderwritingDetails()">
+          <span>{{ showUnderwritingDetails ? '▾ Hide underwriting details (Basel II, pricing, model breakdown)' : '▸ Show underwriting details (Basel II, pricing, model breakdown)' }}</span>
+          <span class="text-xs font-normal text-[#9a9a9a]">for credit analysts</span>
+        </button>
+      }
+      @if (raw && showUnderwritingDetails) {
         @let basel = raw['raw_result']?.['basel_metrics'];
         @let pricing = raw['raw_result']?.['pricing_capacity'];
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -136,8 +203,8 @@
         </div>
       }
 
-      <!-- ── STRENGTHS & RISK FACTORS ────────────────────────────── -->
-      @if (raw && ((raw['strengths']?.length) || (raw['risk_factors']?.length))) {
+      <!-- ── STRENGTHS & RISK FACTORS (inside the analyst toggle) ── -->
+      @if (raw && showUnderwritingDetails && ((raw['strengths']?.length) || (raw['risk_factors']?.length))) {
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           @if (raw['strengths']?.length) {
             <div class="rounded-xl border border-[#d1fae5] bg-[#f0fdf4] p-5">
@@ -162,7 +229,7 @@
         </div>
       }
 
-      <!-- ── BORROWER SUGGESTIONS ────────────────────────────────── -->
+      <!-- ── BORROWER SUGGESTIONS (kept — the borrower-facing value) ── -->
       @if (raw && raw['actionable_guidance']?.length) {
         <div class="rounded-2xl border border-[#dbeafe] bg-[#eff6ff] p-6">
           <p class="mb-1 text-xs font-bold uppercase tracking-widest text-[#024ad8]">💡 Suggestions for the Borrower</p>
@@ -178,8 +245,8 @@
         </div>
       }
 
-      <!-- ── SCORE EXPLANATION TABLE ─────────────────────────────── -->
-      @if (raw && raw['score_explanation']?.length) {
+      <!-- ── SCORE EXPLANATION TABLE (inside the analyst toggle) ─── -->
+      @if (raw && showUnderwritingDetails && raw['score_explanation']?.length) {
         <div class="overflow-hidden rounded-xl border border-[#e8e8e8]">
           <div class="border-b border-[#e8e8e8] bg-[#f7f7f7] px-4 py-3"><p class="text-xs font-semibold uppercase tracking-wide text-[#9a9a9a]">Score Explanation (Dimension Breakdown)</p></div>
           <table class="w-full text-left text-sm"><tbody class="divide-y divide-[#e8e8e8]">
