@@ -1,9 +1,10 @@
+from django.db import models
 from django.utils import timezone
 from django.contrib.admin.models import LogEntry
 from rest_framework import serializers
 from .models import (
     AIReputationResult, Assessment, BlockchainTransaction, Borrower, BorrowerAccount, BorrowerFinancialProfile,
-    BorrowerLoan, Consent, CreditFeature, CreditProfile, IntegrationRequest, Lender,
+    BorrowerLoan, Consent, CreditFeature, CreditProfile, IntegrationRequest, Lender, LoanApplication,
     RepaymentRecord, SmartContractResult, DataExchange, DataRoutingPolicy,
 )
 
@@ -111,6 +112,21 @@ class CompactBorrowerLoanSerializer(serializers.ModelSerializer):
         )
 
 
+class CompactLoanApplicationSerializer(serializers.ModelSerializer):
+    """The loans a borrower is APPLYING for, shown in the unified profile."""
+
+    lender_name = serializers.CharField(source="lender.institution_name", read_only=True, default=None)
+    assessment_reference = serializers.CharField(source="assessment.assessment_reference", read_only=True, default=None)
+
+    class Meta:
+        model = LoanApplication
+        fields = (
+            "id", "application_reference", "lender", "lender_name", "applied_amount",
+            "currency", "purpose", "term_months", "interest_rate", "status",
+            "assessment_reference", "created_at",
+        )
+
+
 class CompactBorrowerSerializer(serializers.ModelSerializer):
     financial_profile = serializers.SerializerMethodField()
     source_lenders = serializers.SerializerMethodField()
@@ -133,9 +149,10 @@ class CompactBorrowerSerializer(serializers.ModelSerializer):
 class CompactUnifiedBorrowerSerializer(CompactBorrowerSerializer):
     accounts = CompactBorrowerAccountSerializer(many=True, read_only=True)
     loans = CompactBorrowerLoanSerializer(many=True, read_only=True)
+    loan_applications = CompactLoanApplicationSerializer(many=True, read_only=True)
 
     class Meta(CompactBorrowerSerializer.Meta):
-        fields = CompactBorrowerSerializer.Meta.fields + ("accounts", "loans")
+        fields = CompactBorrowerSerializer.Meta.fields + ("accounts", "loans", "loan_applications")
 
 
 class ConsentSerializer(serializers.ModelSerializer):
@@ -165,13 +182,62 @@ class IntegrationRequestSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class LoanApplicationSerializer(serializers.ModelSerializer):
+    borrower_reference = serializers.CharField(source="borrower.borrower_reference", read_only=True)
+    lender_id = serializers.CharField(source="lender.lender_id", read_only=True)
+    assessment_reference = serializers.CharField(source="assessment.assessment_reference", read_only=True)
+
+    class Meta:
+        model = LoanApplication
+        fields = "__all__"
+        read_only_fields = ("created_at", "updated_at", "borrower_reference", "lender_id", "assessment_reference")
+
+
+class LoanApplicationCreateSerializer(serializers.ModelSerializer):
+    """Direct application creation: identify the borrower by reference or NIDA."""
+
+    borrower_reference = serializers.CharField()
+    lender_id = serializers.CharField(required=False, allow_blank=True, default="")
+
+    class Meta:
+        model = LoanApplication
+        fields = ("borrower_reference", "lender_id", "application_reference", "applied_amount",
+                  "currency", "purpose", "term_months", "interest_rate", "assessment")
+
+    def validate(self, attrs):
+        borrower = Borrower.objects.filter(
+            models.Q(borrower_reference=attrs["borrower_reference"])
+            | models.Q(nida_number=attrs["borrower_reference"])
+        ).first()
+        if borrower is None:
+            raise serializers.ValidationError({"borrower_reference": "No borrower with this reference or NIDA number."})
+        attrs["borrower"] = borrower
+        lender_id = (attrs.get("lender_id") or "").strip()
+        if lender_id:
+            lender = Lender.objects.filter(lender_id=lender_id).first()
+            if lender is None:
+                raise serializers.ValidationError({"lender_id": "Lender not registered."})
+            attrs["lender"] = lender
+        return attrs
+
+    def create(self, validated_data):
+        validated_data.pop("borrower_reference", None)
+        validated_data.pop("lender_id", None)
+        return LoanApplication.objects.create(**validated_data)
+
+
 class AssessmentSerializer(serializers.ModelSerializer):
     borrower_reference = serializers.CharField(source="borrower.borrower_reference", read_only=True)
+    applied_loan_amount = serializers.SerializerMethodField()
 
     class Meta:
         model = Assessment
         fields = "__all__"
         read_only_fields = ("created_at", "updated_at", "borrower_reference")
+
+    def get_applied_loan_amount(self, obj: Assessment):
+        application = obj.loan_applications.order_by("-created_at").first()
+        return str(application.applied_amount) if application else None
 
 
 class CreditProfileSerializer(serializers.ModelSerializer):

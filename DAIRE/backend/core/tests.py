@@ -72,8 +72,9 @@ class IntegrationServiceTests(TestCase):
         )
         first = FeatureGenerationService().generate(profile)
         second = FeatureGenerationService().generate(profile)
-        self.assertEqual(len(first), 11)
-        self.assertEqual(len(second), 11)
+        # 11 history features + applied_loan_amount (the exposure being assessed)
+        self.assertEqual(len(first), 12)
+        self.assertEqual(len(second), 12)  # idempotent: same 12 on re-run
         self.assertEqual(profile.features.get(name="active_loan_count").value, 2)
 
     def test_ai_service_scores_in_valid_range(self):
@@ -579,7 +580,7 @@ class AssessmentFlowTests(TestCase):
             borrower__borrower_reference="BRW-FLOW-1").order_by("-created_at").first()
         self.assertIsNotNone(profile)
         self.assertEqual(profile.source_version, "lender-push-v1")
-        self.assertEqual(profile.features.count(), 11)
+        self.assertEqual(profile.features.count(), 12)
         self.assertEqual(profile.profile_data["active_loan_count"], 1)
         self.assertEqual(profile.profile_data["late_payment_count"], 1)
         self.assertEqual(profile.profile_data["max_days_overdue"], 5)

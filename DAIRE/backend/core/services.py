@@ -17,7 +17,7 @@ from rest_framework.exceptions import ValidationError
 from .models import (
     AIReputationResult, BlockchainTransaction, Borrower, BorrowerAccount, BorrowerFinancialProfile,
     BorrowerLoan, Consent, CreditFeature, CreditProfile, IntegrationRequest, Lender,
-    RepaymentRecord, SmartContractResult, DataExchange, DataRoutingPolicy,
+    LoanApplication, RepaymentRecord, SmartContractResult, DataExchange, DataRoutingPolicy,
 )
 from .nmb_engine import get_nmb_scorecard
 
@@ -196,6 +196,8 @@ LENDER_CONTRACT_TOP_LEVEL = {
     "transaction_count", "transaction_total_amount", "transaction_currency",
     "income_count", "income_total_amount", "transaction_period_start",
     "transaction_period_end", "transaction_summary",
+    # the loan the borrower is APPLYING for (the exposure being assessed)
+    "loan_application",
 }
 
 LENDER_TRANSACTION_FIELDS = {
@@ -301,7 +303,8 @@ def validate_and_filter_lender_payload(payload: Any) -> tuple[dict[str, Any], li
                 del clean[field]
                 ignored.append(f"{field} (invalid type)")
     for field in ("business_information", "account_information", "cash_flow_patterns",
-                  "account_activity", "verification", "source_metadata", "transaction_summary"):
+                  "account_activity", "verification", "source_metadata", "transaction_summary",
+                  "loan_application"):
         if field in clean and clean[field] is not None and not isinstance(clean[field], dict):
             del clean[field]
             ignored.append(f"{field} (not an object)")
@@ -588,6 +591,59 @@ def summarize_transactions(payload: dict[str, Any]) -> dict[str, Any]:
     return summary
 
 
+def _store_loan_application(*, lender: Lender, borrower: Borrower, payload: dict[str, Any]) -> LoanApplication | None:
+    """Persist the loan the borrower is APPLYING for from a lender push.
+
+    Lenders send it as::
+
+        "loan_application": {
+            "application_reference": "APP-2026-0001",   # optional (stable id)
+            "loan_amount": 500000.0,                     # REQUIRED, > 0 (TZS)
+            "term_months": 12,
+            "interest_rate": 12.5,
+            "purpose": "WORKING_CAPITAL"
+        }
+
+    A push without ``loan_application`` (or with an absent/zero amount) simply
+    updates history — applications are never deleted, so an amount that stops
+    being sent leaves the last known application on file.
+    """
+    application_payload = payload.get("loan_application")
+    if not isinstance(application_payload, dict):
+        return None
+    amount = _coerce_decimal(application_payload.get("loan_amount"))
+    if amount is None or amount <= 0:
+        return None
+    defaults = {
+        "applied_amount": amount,
+        "currency": str(application_payload.get("currency") or "TZS"),
+        "purpose": str(application_payload.get("purpose") or ""),
+        "term_months": int(application_payload.get("term_months") or 0),
+        "interest_rate": _coerce_decimal(application_payload.get("interest_rate")),
+        "status": LoanApplication.Status.SUBMITTED,
+        "payload": application_payload,
+    }
+    reference = str(application_payload.get("application_reference") or "").strip()
+    if not reference:
+        # One current application per borrower+lender when the lender does not
+        # send a stable id: the newest push replaces the previous application.
+        latest = (
+            LoanApplication.objects.filter(borrower=borrower, lender=lender)
+            .order_by("-created_at").first()
+        )
+        if latest is not None:
+            for field, value in defaults.items():
+                setattr(latest, field, value)
+            latest.save()
+            return latest
+        reference = f"APP-{borrower.borrower_reference}-{lender.lender_id}"
+    application, _ = LoanApplication.objects.update_or_create(
+        borrower=borrower, lender=lender, application_reference=reference,
+        defaults=defaults,
+    )
+    return application
+
+
 def merge_vendor_borrower_data(*, lender: Lender, borrower_reference: str, payload: dict[str, Any], account_reference: str | None = None):
     # Contract enforcement: only fields in the DAIRE lender format survive.
     # Anything outside the format is dropped here and reported for audit.
@@ -595,26 +651,27 @@ def merge_vendor_borrower_data(*, lender: Lender, borrower_reference: str, paylo
     returned_reference = str(payload.get("borrower_reference") or borrower_reference).strip()
     if returned_reference != borrower_reference:
         raise ValidationError("Lender data borrower_reference does not match the requested borrower.")
-    borrower, _ = Borrower.objects.get_or_create(borrower_reference=borrower_reference)
-    _record_borrower_conflicts(borrower, lender, payload)
-    # Materialize the canonical reference. NIDA is the lender's global unique
-    # customer identifier, so prefer linking on it when the lender sent one;
-    # fall back to the central borrower_reference otherwise. This keeps two
-    # lenders sharing a customer_id from merging into two records.
+    # Resolve the unified borrower. NIDA is the global unique customer id:
+    # if any central borrower already holds it, that record IS the borrower —
+    # even when the push used a different borrower_reference (NMB-CUST-1 and
+    # CRDB-CUST-77 are the same person). Resolve BEFORE creating anything so
+    # a second lender never spawns a duplicate shell record.
     nida_number = str(payload.get("nida_number") or "").strip()
+    borrower = None
     if nida_number:
-        # Unique on nida_number: no two central borrowers may hold the same
-        # national id. If a borrower already holds this NIDA under a different
-        # reference, re-point it to that borrower (never create a dup).
-        existing = Borrower.objects.filter(nida_number=nida_number).first()
-        if existing:
-            borrower = existing
-        else:
-            borrower, _ = Borrower.objects.get_or_create(
-                borrower_reference=borrower_reference, defaults={"nida_number": nida_number}
-            )
-    else:
-        borrower, _ = Borrower.objects.get_or_create(borrower_reference=borrower_reference)
+        borrower = Borrower.objects.filter(nida_number=nida_number).first()
+        if borrower is None:
+            clash = Borrower.objects.filter(nida_number=nida_number).exists()
+            if clash:  # pragma: no cover — guarded by unique constraint above
+                raise ValidationError("NIDA number is already linked to another central borrower.")
+    if borrower is None:
+        borrower = Borrower.objects.filter(borrower_reference=borrower_reference).first()
+    if borrower is None:
+        borrower = Borrower.objects.create(
+            borrower_reference=borrower_reference,
+            nida_number=nida_number or None,
+        )
+    _record_borrower_conflicts(borrower, lender, payload)
     # Always materialise nida_number onto the borrower when the lender sent
     # one, so the persisted record carries the lender's global customer id
     # even when re-merging an existing borrower that was found by reference.
@@ -651,6 +708,7 @@ def merge_vendor_borrower_data(*, lender: Lender, borrower_reference: str, paylo
             "account_name": payload.get("account_name") or lender.institution_name,
             "customer_id": borrower.customer_id,
             "metadata": {
+                "loan_application": payload.get("loan_application") or {},
                 "transaction_frequency": payload.get("transaction_frequency") or tx_summary["count"] or 0,
                 "income_frequency": payload.get("income_frequency") or tx_summary["income_count"] or 0,
                 "savings": payload.get("savings", 0),
@@ -712,6 +770,8 @@ def merge_vendor_borrower_data(*, lender: Lender, borrower_reference: str, paylo
                 },
             )
 
+    _store_loan_application(lender=lender, borrower=borrower, payload=payload)
+
     return refresh_borrower_financial_profile(borrower)
 
 
@@ -760,10 +820,15 @@ class FeatureGenerationService:
             "total_outstanding_debt", "on_time_payment_ratio", "missed_payment_count",
             "late_payment_count", "max_days_overdue", "transaction_frequency",
             "income_frequency", "balance_stability",
+            # The loan being applied for — the exposure under assessment.
+            "applied_loan_amount",
         )
         features = []
         for name in names:
-            value = Decimal(str(values.get(name, 0)))
+            raw = values.get(name, 0)
+            if raw is None:
+                continue
+            value = Decimal(str(raw))
             feature, _ = CreditFeature.objects.update_or_create(
                 profile=profile, name=name, defaults={"value": value},
             )
@@ -774,8 +839,23 @@ class FeatureGenerationService:
 LENDER_PUSH_PROFILE_VERSION = "lender-push-v1"
 
 
+def _applied_loan(borrower: Borrower) -> LoanApplication | None:
+    """The application being assessed: explicit assessment link first, else newest."""
+    return (
+        LoanApplication.objects.filter(borrower=borrower, assessment__isnull=False)
+        .order_by("-assessment__created_at").first()
+        or LoanApplication.objects.filter(borrower=borrower).order_by("-created_at").first()
+    )
+
+
 def _synthesize_profile_data(borrower: Borrower) -> dict[str, Any]:
-    """Derive the 11 normalized credit features from merged lender records."""
+    """Derive the normalized credit features from MERGED lender records.
+
+    Merged = every lender that reported this borrower (unified on NIDA), so a
+    borrower at both NMB and CRDB contributes loans/repayments/transactions
+    from both into ONE profile. The loan the borrower is APPLYING for
+    (``loan_application``) is added as the exposure being assessed.
+    """
     financial = refresh_borrower_financial_profile(borrower)
     loans = list(BorrowerLoan.objects.filter(borrower=borrower))
     defaulted_statuses = {"DEFAULTED", "WRITTEN_OFF"}
@@ -804,6 +884,11 @@ def _synthesize_profile_data(borrower: Borrower) -> dict[str, Any]:
         balance_stability = max(stabilities) if stabilities else 0.0
     except Exception:
         pass
+    # The NEW loan being applied for (real amount the borrower requested).
+    # Distinct from existing BorrowerLoan history — it is the exposure this
+    # assessment is deciding on.
+    application = _applied_loan(borrower)
+    applied_amount = float(application.applied_amount) if application else 0.0
     return {
         "active_loan_count": active,
         "completed_loan_count": completed,
@@ -816,6 +901,12 @@ def _synthesize_profile_data(borrower: Borrower) -> dict[str, Any]:
         "transaction_frequency": financial.transaction_frequency if financial else 0,
         "income_frequency": financial.income_frequency if financial else 0,
         "balance_stability": balance_stability,
+        "applied_loan_amount": applied_amount,
+        "applied_loan_currency": application.currency if application else "TZS",
+        "applied_loan_purpose": application.purpose if application else "",
+        "applied_loan_term_months": application.term_months if application else 0,
+        "applied_loan_interest_rate": float(application.interest_rate) if application and application.interest_rate is not None else None,
+        "applied_loan_count": 1 if application else 0,
     }
 
 
@@ -880,6 +971,12 @@ def _score(value: float) -> int:
 def blockchain_dimensions(*, features: dict[str, Any], borrower: Borrower) -> dict[str, int]:
     """Collapse central-system features into the five values sent on-chain.
 
+    ``features`` comes from the MERGED cross-lender profile and includes
+    ``applied_loan_amount`` — the real amount the borrower is applying for,
+    which drives the debt-burden check in D3.
+    """
+    """Collapse central-system features into the five values sent on-chain.
+
     Raw transactions, balances, repayment rows, and identity evidence stay in
     the central system. The contract receives only these bounded dimensions.
     """
@@ -907,9 +1004,20 @@ def blockchain_dimensions(*, features: dict[str, Any], borrower: Borrower) -> di
     defaults = float(features.get("defaulted_loan_count", 0))
     completed = float(features.get("completed_loan_count", 0))
     debt = float(features.get("total_outstanding_debt", 0))
+    # The exposure being decided is the APPLIED amount; existing outstanding
+    # debt from all lenders sits on top of it.
+    applied = float(features.get("applied_loan_amount", 0) or 0)
     income = float(borrower.income or 0)
-    debt_to_income = debt / max(income, 1)
+    monthly_income = income / 12.0 if income > 100000 else income
+    applied_burden = applied / max(monthly_income, 1.0)
+    debt_to_income = (debt + applied) / max(income, 1)
     d3 = 100 - defaults * 35 + min(20, completed * 10)
+    # The applied loan itself strains repayment capacity: penalise by how many
+    # months of income the requested amount represents (>12x monthly = heavy).
+    if applied_burden > 12:
+        d3 -= 25
+    elif applied_burden > 6:
+        d3 -= 15
     if debt_to_income > 0.9:
         d3 -= 25
 
@@ -1074,6 +1182,18 @@ def _representative_loan(borrower: Borrower) -> BorrowerLoan | None:
     return max(pool, key=lambda loan: float(loan.loan_amount or 0))
 
 
+def _application_exposure(borrower: Borrower) -> Decimal | None:
+    """The amount the borrower is APPLYING for, in the ledger currency.
+
+    Returned as a Decimal so monetary comparisons (annual income, existing
+    debt) stay exact. Returns None when no application is on file.
+    """
+    application = _applied_loan(borrower)
+    if application is None or application.applied_amount is None:
+        return None
+    return application.applied_amount
+
+
 def _credit_history_years(borrower: Borrower) -> float | None:
     """Years between first and last transaction seen across lender accounts."""
     best: float | None = None
@@ -1107,17 +1227,27 @@ def build_credit_risk_row(borrower: Borrower) -> dict[str, Any]:
     | person_emp_length         | not collected -> None (training-median imputed)         |
     | loan_intent               | not collected -> None (imputed 'missing')               |
     | loan_grade                | not collected -> None (imputed 'missing')               |
-    | loan_amnt                 | representative loan amount                              |
-    | loan_int_rate             | representative loan interest rate                       |
+    | loan_amnt                 | APPLIED loan amount (loan_application) else largest historical loan |
+    | loan_int_rate             | APPLIED rate else representative loan rate           |
     | loan_percent_income       | loan_amnt / person_income                               |
     | cb_person_default_on_file | 'Y' if a defaulted loan/repayment exists else 'N'       |
     | cb_person_cred_hist_length| years of transaction history across accounts            |
     """
     income = getattr(borrower, "income", None)
     income_value = float(income) if income not in (None, "") else None
+    # The amount the borrower is APPLYING for is the exposure being decided —
+    # it overrides the representative historical loan for loan_amnt.
+    application = _applied_loan(borrower)
+    applied_amount = _application_exposure(borrower)
     loan = _representative_loan(borrower)
-    loan_amount = float(loan.loan_amount) if loan is not None and loan.loan_amount else None
-    loan_rate = float(loan.interest_rate) if loan is not None and loan.interest_rate else None
+    loan_amount = float(applied_amount) if applied_amount is not None else (
+        float(loan.loan_amount) if loan is not None and loan.loan_amount else None
+    )
+    loan_rate = None
+    if application is not None and application.interest_rate is not None:
+        loan_rate = float(application.interest_rate)
+    elif loan is not None and loan.interest_rate:
+        loan_rate = float(loan.interest_rate)
     percent_income = None
     if loan_amount and income_value:
         percent_income = round(loan_amount / income_value, 4)
@@ -1188,15 +1318,22 @@ def build_nmb_scorecard_row(borrower: Any | None = None, fallback_row: dict[str,
             except (ValueError, TypeError):
                 dti_val = None
 
-    # Term months & interest rate
+    # Term months & interest rate — the APPLICATION's terms win, else the
+    # representative historical loan.
     term_months = 36
     int_rate = None
+    application = _applied_loan(borrower) if borrower is not None else None
+    if application is not None:
+        if application.term_months and application.term_months > 0:
+            term_months = application.term_months
+        if application.interest_rate and float(application.interest_rate) > 0:
+            int_rate = float(application.interest_rate)
     if borrower is not None:
         rep_loan = _representative_loan(borrower)
         if rep_loan is not None:
-            if rep_loan.loan_duration_months and rep_loan.loan_duration_months > 0:
+            if term_months == 36 and rep_loan.loan_duration_months and rep_loan.loan_duration_months > 0:
                 term_months = rep_loan.loan_duration_months
-            if rep_loan.interest_rate and float(rep_loan.interest_rate) > 0:
+            if int_rate is None and rep_loan.interest_rate and float(rep_loan.interest_rate) > 0:
                 int_rate = float(rep_loan.interest_rate)
     if int_rate is None and fallback_row:
         rate = fallback_row.get("loan_int_rate")
@@ -1388,6 +1525,8 @@ def _trained_model_reputation(model, row: dict[str, Any], borrower: Any | None =
         )
 
     # 6. Quantitative Exposure & Basel II Expected Loss
+    # Exposure = the amount the borrower is APPLYING for (loan_amnt carries
+    # the applied amount when an application is on file).
     loan_amount = float(row.get("loan_amnt") or 0)
     exposure_at_default = max(loan_amount, 5000.0 if not loan_amount else loan_amount)
     savings_amount = 0.0

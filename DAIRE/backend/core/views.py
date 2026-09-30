@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.contrib.admin.models import CHANGE, LogEntry
@@ -18,13 +20,15 @@ from rest_framework.response import Response
 from .models import (
     AIReputationResult, Assessment, BlockchainTransaction, Borrower, BorrowerAccount,
     BorrowerFinancialProfile, BorrowerLoan, Consent, CreditFeature, CreditProfile,
-    IntegrationRequest, Lender, RepaymentRecord, SmartContractResult, DataExchange, DataRoutingPolicy,
+    IntegrationRequest, Lender, LoanApplication, RepaymentRecord, SmartContractResult,
+    DataExchange, DataRoutingPolicy,
 )
 from .serializers import (
     AIReputationResultSerializer, AssessmentSerializer, BorrowerAccountSerializer,
     BorrowerFinancialProfileSerializer, BorrowerLoanSerializer, BorrowerSerializer,
     BlockchainTransactionSerializer, ConsentSerializer, CreditFeatureSerializer,
     CreditProfileSerializer, IntegrationRequestSerializer, LenderSerializer,
+    LoanApplicationSerializer, LoanApplicationCreateSerializer,
     RepaymentRecordSerializer, SmartContractResultSerializer,
     DataExchangeSerializer, DataRoutingPolicySerializer,
     AdminLogEntrySerializer, LenderDataReceiveSerializer,
@@ -330,7 +334,9 @@ class LenderViewSet(viewsets.ModelViewSet):
 
 
 class BorrowerViewSet(viewsets.ModelViewSet):
-    queryset = Borrower.objects.prefetch_related("accounts__lender", "loans__repayments").all()
+    queryset = Borrower.objects.prefetch_related(
+        "accounts__lender", "loans__repayments", "loan_applications__lender", "loan_applications__assessment",
+    ).all()
     serializer_class = BorrowerSerializer
     http_method_names = ("get", "post", "put", "patch", "head", "options")
 
@@ -685,6 +691,29 @@ class BorrowerLoanViewSet(viewsets.ModelViewSet):
     serializer_class = BorrowerLoanSerializer
 
 
+class LoanApplicationViewSet(mixins.CreateModelMixin, viewsets.ReadOnlyModelViewSet):
+    """Loan applications — the amounts borrowers are APPLYING for.
+
+    Lenders report them inside a data push (``payload.loan_application``);
+    assessments can also create one directly (``POST /api/assessments/`` with
+    ``applied_loan_amount``). One assessment scores the merged borrower
+    history PLUS this single application.
+    """
+
+    queryset = LoanApplication.objects.select_related("borrower", "lender", "assessment")
+    serializer_class = LoanApplicationSerializer
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return LoanApplicationCreateSerializer
+        return LoanApplicationSerializer
+
+    def perform_create(self, serializer):
+        application = serializer.save()
+        if application.assessment_id:
+            refresh_borrower_financial_profile(application.borrower)
+
+
 class RepaymentRecordViewSet(viewsets.ModelViewSet):
     queryset = RepaymentRecord.objects.select_related("borrower", "lender", "loan")
     serializer_class = RepaymentRecordSerializer
@@ -708,18 +737,39 @@ class AssessmentViewSet(mixins.CreateModelMixin, viewsets.ReadOnlyModelViewSet):
     def create(self, request, *args, **kwargs):
         """Open an assessment on merged lender data.
 
-        POST /api/assessments/ {"borrower_reference": "1001"}
-        The borrower must already exist (pull or receive lender data first).
-        A scoring profile is synthesized from the merged records when the
-        borrower has none, so Send-to-AI / Send-to-blockchain work directly.
+        POST /api/assessments/
+
+        ::
+
+            {"borrower_reference": "1001",
+             "applied_loan_amount": 500000,        # optional — the REAL amount
+             "lender_id": "NMB-001",               # optional — who received the application
+             "applied_term_months": 12,             # optional
+             "applied_interest_rate": 12.5,         # optional
+             "applied_purpose": "WORKING_CAPITAL"}  # optional
+
+        The borrower must already exist (pull or receive lender data first) and
+        is resolved on ``borrower_reference`` OR ``nida_number`` — the same
+        unified record regardless of which lender reported it. The applied
+        amount becomes the exposure scored by AI + blockchain. When omitted,
+        the newest lender-reported ``loan_application`` is used; with neither,
+        scoring falls back to the largest historical loan.
         """
         reference = str(request.data.get("borrower_reference") or "").strip()
-        if not reference:
-            return Response({"detail": "borrower_reference is required."}, status=status.HTTP_400_BAD_REQUEST)
-        borrower = Borrower.objects.filter(borrower_reference=reference).first()
+        nida = str(request.data.get("nida_number") or "").strip()
+        if not reference and not nida:
+            return Response(
+                {"detail": "borrower_reference or nida_number is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        borrower = None
+        if reference:
+            borrower = Borrower.objects.filter(borrower_reference=reference).first()
+        if borrower is None and nida:
+            borrower = Borrower.objects.filter(nida_number=nida).first()
         if borrower is None:
             return Response(
-                {"detail": f"Borrower '{reference}' not found. Pull or receive lender data first."},
+                {"detail": f"Borrower '{reference or nida}' not found. Pull or receive lender data first."},
                 status=status.HTTP_404_NOT_FOUND,
             )
         assessment = Assessment.objects.create(
@@ -727,6 +777,43 @@ class AssessmentViewSet(mixins.CreateModelMixin, viewsets.ReadOnlyModelViewSet):
         )
         assessment.assessment_reference = f"ASM-{timezone.now():%Y}-{assessment.id:04d}"
         assessment.save(update_fields=("assessment_reference", "updated_at"))
+
+        # Record the loan being applied for (the real requested amount).
+        applied_amount = request.data.get("applied_loan_amount")
+        if applied_amount not in (None, ""):
+            from .models import LoanApplication
+
+            lender = None
+            lender_id = str(request.data.get("lender_id") or "").strip()
+            if lender_id:
+                lender = Lender.objects.filter(lender_id=lender_id).first()
+            try:
+                amount = Decimal(str(applied_amount))
+            except Exception:
+                return Response({"detail": "applied_loan_amount must be a number."}, status=status.HTTP_400_BAD_REQUEST)
+            if amount <= 0:
+                return Response({"detail": "applied_loan_amount must be positive."}, status=status.HTTP_400_BAD_REQUEST)
+            rate = request.data.get("applied_interest_rate")
+            application = LoanApplication.objects.create(
+                borrower=borrower, lender=lender,
+                application_reference=str(request.data.get("application_reference") or f"APP-{assessment.assessment_reference}"),
+                applied_amount=amount,
+                currency=str(request.data.get("applied_currency") or "TZS"),
+                purpose=str(request.data.get("applied_purpose") or ""),
+                term_months=int(request.data.get("applied_term_months") or 0),
+                interest_rate=Decimal(str(rate)) if rate not in (None, "") else None,
+                status=LoanApplication.Status.ASSESSED,
+                assessment=assessment,
+            )
+            assessment.score_explanation = [
+                {"dimension": "APPLICATION", "name": "Applied loan",
+                 "value": str(application.applied_amount),
+                 "reason": f"Assessing a {application.currency} {application.applied_amount} application"
+                           f"{(f" over {application.term_months} months" if application.term_months else "")}"
+                           f"{(f" from {lender.institution_name}" if lender else "")}."},
+            ]
+            assessment.save(update_fields=("score_explanation", "updated_at"))
+
         ensure_credit_profile(borrower)
         return Response(AssessmentSerializer(assessment).data, status=status.HTTP_201_CREATED)
 

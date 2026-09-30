@@ -423,7 +423,36 @@ pair of lenders conflicts on every borrower, the outlier's upstream data — not
 needs fixing. Send `null` (not `0`/guesses) for unknown values so a guess never
 overwrites a real value as "latest".
 
-### 11.4 Lightweight pushes — aggregates instead of rows
+### 11.4 The loan the borrower is APPLYING for (`payload.loan_application`)
+
+To assess a new loan, send the application the borrower just submitted inside your push:
+
+```json
+{
+  "lender_id": "NMB-001",
+  "borrower_reference": "1001",
+  "payload": {
+    "borrower_reference": "1001",
+    "nida_number": "199508121234500001",
+    "loan_application": {
+      "application_reference": "APP-2026-0001",
+      "loan_amount": 500000.0,
+      "term_months": 12,
+      "interest_rate": 12.5,
+      "purpose": "WORKING_CAPITAL",
+      "currency": "TZS"
+    },
+    "loans": []
+  }
+}
+```
+
+- `loan_amount` (required, > 0) is the REAL amount the borrower is applying for — the exposure the assessment decides on. It becomes the AI model's `loan_amnt` and drives the debt-burden check in the blockchain D3 dimension.
+- One current application per borrower+lender: a new push replaces the previous one unless you send distinct `application_reference` values (those are kept individually).
+- A push without `loan_application` still updates history; the last known application stays on file.
+- At assessment time Central may also override/record the amount directly (`POST /api/assessments/` with `applied_loan_amount`).
+
+### 11.5 Lightweight pushes — aggregates instead of rows
 
 Do **not** send thousands of `transactions` rows per push. Send counts + totals
 (Central scores and stores from these; raw rows are optional audit detail):
