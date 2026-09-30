@@ -121,6 +121,8 @@ The **new** loan being requested — distinct from `core_borrowerloan` (existing
 
 The applied amount becomes `applied_loan_amount` in the scoring profile: the AI model receives it as `loan_amnt`, and the blockchain D3 dimension penalises how many months of income it represents (plus existing debt from all lenders).
 
+**Decision lifecycle:** `POST /api/loan-applications/{id}/decision/` records `APPROVED` / `DECLINED` (or `ASSESSED`) and links the deciding `Assessment` — explicitly by `assessment_reference`, or automatically to the borrower's latest assessment. Cross-borrower assessment links are rejected; admin log keeps the audit trail. The unified borrower payload (`/api/borrowers/search/`) exposes every application with its `status` and `assessment_reference`, which the frontend borrower detail view renders with an Approve/Decline action.
+
 ### `core_borrowerfinancialprofile` — one per borrower (feeds D2/D4)
 | Column | Notes |
 |---|---|

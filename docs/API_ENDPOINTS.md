@@ -572,6 +572,62 @@ The middleware listens to contract events (HTTP polling — works on local node 
 }
 ```
 
+### 5.1.1 Unified borrower payload — `loan_applications` field
+
+The unified borrower object returned by `GET /api/borrowers/search/` (and used by the frontend borrower detail view) includes every loan the borrower is APPLYING for across all merged lenders:
+
+```json
+{
+  "borrower_reference": "NMB-C1",
+  "nida_number": "199508121234500009",
+  "source_lenders": ["NMB Bank", "CRDB Bank"],
+  "financial_profile": { "...": "merged aggregates" },
+  "accounts": [ "..." ],
+  "loans": [ "..." ],
+  "loan_applications": [
+    {
+      "id": 1,
+      "application_reference": "APP-NMB-1",
+      "lender": 1,
+      "lender_name": "NMB Bank",
+      "applied_amount": "500000.0000",
+      "currency": "TZS",
+      "purpose": "WORKING_CAPITAL",
+      "term_months": 12,
+      "interest_rate": "12.5000",
+      "status": "APPROVED",
+      "assessment_reference": "ASM-2026-0001",
+      "created_at": "2026-09-30T11:32:05.171549Z"
+    },
+    {
+      "id": 2,
+      "application_reference": "APP-CRDB-1",
+      "lender_name": "CRDB Bank",
+      "applied_amount": "300000.0000",
+      "status": "SUBMITTED",
+      "assessment_reference": null,
+      "...": "..."
+    }
+  ]
+}
+```
+
+**`loan_applications[]` columns**
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | int | Row id — use for the decision endpoint |
+| `application_reference` | string | Lender's stable application id |
+| `lender` / `lender_name` | int / string | Reporting lender (`null` when Central-recorded) |
+| `applied_amount` | decimal string | The REAL amount the borrower applied for (exposure scored) |
+| `currency` | string | Default `TZS` |
+| `purpose` / `term_months` / `interest_rate` | | Application terms |
+| `status` | enum | `SUBMITTED` → `ASSESSED` → `APPROVED` / `DECLINED` |
+| `assessment_reference` | string\|null | Assessment that scored/decided this application |
+| `created_at` | ISO-8601 | When the push arrived |
+
+Decisions are recorded with `POST /api/loan-applications/{id}/decision/` (`{"decision": "APPROVED" | "DECLINED" | "ASSESSED", "assessment_reference?": "ASM-...", "reason?": "..."}`) — the assessment must belong to the same borrower, otherwise the latest borrower assessment is linked automatically.
+
 ### 5.2 Channel B — full result returned to the requesting lender (API response enrichment)
 
 When the lender asked for a score through the Central System, Central joins the on-chain result with the AI result and returns one enriched object:
