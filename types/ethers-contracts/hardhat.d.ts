@@ -10,17 +10,17 @@ import * as Contracts from "./index.js";
 
 declare module "@nomicfoundation/hardhat-ethers/types" {
   interface HardhatEthersHelpers extends HardhatEthersHelpersBase {
-  getContractFactory(name: 'DaireHandshake', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.DaireHandshake__factory>
-getContractFactory(name: 'DaireCreditScore', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.DaireCreditScore__factory>
+  getContractFactory(name: 'DaireCreditScore', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.DaireCreditScore__factory>
+getContractFactory(name: 'DaireHandshake', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.DaireHandshake__factory>
 
-  getContractAt(name: 'DaireHandshake', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.DaireHandshake>
-getContractAt(name: 'DaireCreditScore', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.DaireCreditScore>
+  getContractAt(name: 'DaireCreditScore', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.DaireCreditScore>
+getContractAt(name: 'DaireHandshake', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.DaireHandshake>
 
-  deployContract(name: 'DaireHandshake', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.DaireHandshake>
-deployContract(name: 'DaireCreditScore', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.DaireCreditScore>
+  deployContract(name: 'DaireCreditScore', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.DaireCreditScore>
+deployContract(name: 'DaireHandshake', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.DaireHandshake>
 
-  deployContract(name: 'DaireHandshake', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.DaireHandshake>
-deployContract(name: 'DaireCreditScore', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.DaireCreditScore>
+  deployContract(name: 'DaireCreditScore', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.DaireCreditScore>
+deployContract(name: 'DaireHandshake', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.DaireHandshake>
 
     // default types
     getContractFactory(

@@ -204,6 +204,29 @@ function calculateCreditScore(dims) {
 }
 
 /**
+ * Band ya FICO kutoka kwenye score. KANUNI: dimension yoyote < 40
+ * inazuia band kuwa bora kuliko FAIR (sawa na riskBandOf ya contract).
+ *
+ * @param {number} score - 300-850
+ * @param {number|null} minDimension - dimension ndogo zaidi (null = 100)
+ * @returns {string} POOR | FAIR | GOOD | VERY_GOOD | EXCEPTIONAL
+ */
+function bandOfScore(score, minDimension) {
+  let band;
+  if      (score < 580) band = "POOR";
+  else if (score < 670) band = "FAIR";
+  else if (score < 740) band = "GOOD";
+  else if (score < 800) band = "VERY_GOOD";
+  else                        band = "EXCEPTIONAL";
+
+  const minDim = minDimension === null || minDimension === undefined ? 100 : minDimension;
+  if (minDim < 40 && (band === "GOOD" || band === "VERY_GOOD" || band === "EXCEPTIONAL")) {
+    band = "FAIR";
+  }
+  return band;
+}
+
+/**
  * Njia kamili ya off-chain: features -> gates -> dimensions -> single score.
  * @returns {{ok:boolean, missingMask?:number, reason?:string,
  *            dimensions?:object, finalScore?:number, band?:string}}
@@ -217,20 +240,9 @@ function evaluateOffChain(f) {
   const dimensions = deriveDimensions(f);
   const finalScore = calculateCreditScore(dimensions);
 
-  // Band kama FICO; dimension yoyote < 40 inazuia band bora kuliko FAIR.
-  const DIMENSION_FLOOR = 40;
-  let band;
-  if      (finalScore < 580) band = "POOR";
-  else if (finalScore < 670) band = "FAIR";
-  else if (finalScore < 740) band = "GOOD";
-  else if (finalScore < 800) band = "VERY_GOOD";
-  else                        band = "EXCEPTIONAL";
-
   const minDim = Math.min(dimensions.d1, dimensions.d2, dimensions.d3,
                           dimensions.d4, dimensions.d5);
-  if (minDim < DIMENSION_FLOOR && (band === "GOOD" || band === "VERY_GOOD" || band === "EXCEPTIONAL")) {
-    band = "FAIR";
-  }
+  const band = bandOfScore(finalScore, minDim);
 
   return { ok: true, dimensions, finalScore, band, missingMask: 0 };
 }
@@ -239,6 +251,7 @@ module.exports = {
   WEIGHTS,
   deriveDimensions,
   calculateCreditScore,
+  bandOfScore,
   evaluateOffChain,
   checkSufficiency,
   explainMissing

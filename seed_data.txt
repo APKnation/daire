@@ -5,7 +5,11 @@
 # 1. Deploy contract:      npx hardhat run scripts/deploy.js --network localhost
 # 2. Copy address kwenye   daire-middleware/.env  (CONTRACT_ADDRESS=0x...)
 # 3. Anza middleware:      cd daire-middleware && npm start
-# 4. Run curls hapa chini
+# 4. (Hiari) Sajili webhook ya lender — kila matokeo yatasukumwa kwako:
+#      curl -X POST http://localhost:5000/api/v1/webhooks \
+#        -H "Content-Type: application/json" \
+#        -d '{"url":"http://localhost:6000/daire/callback","lenderId":"LDR-DEMO-FLOW"}'
+# 5. Run curls hapa chini
 
 
 
