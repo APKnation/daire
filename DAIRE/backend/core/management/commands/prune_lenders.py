@@ -86,16 +86,17 @@ class Command(BaseCommand):
                 continue
 
             # Safe order: leaves first, then the protected relations, then the lender.
-            # Repayments/IntegrationRequests have no direct lender FK conflict but are
-            # covered for completeness; DataExchange rows are audit history for this
-            # lender and go with it.
+            # IntegrationRequests PROTECT their Consent, so integrations (and their
+            # credit profiles) go BEFORE consents.
             repayments.delete()
             for loan in loans:
                 loan.delete()          # cascades its repayments if any were missed
             applications.delete()
-            consents.delete()
+            from core.models import CreditProfile
+            CreditProfile.objects.filter(integration_request__in=integrations).delete()
             for request in integrations:
-                request.delete()       # OneToOne credit profile cascades via PROTECT-safe order
+                request.delete()
+            consents.delete()
             accounts.delete()
             exchanges.delete()
             lender.delete()

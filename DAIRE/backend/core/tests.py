@@ -2,10 +2,12 @@ from contextlib import ExitStack
 from datetime import timedelta
 from unittest import mock
 from django.contrib.auth import get_user_model
+from django.contrib.admin.models import LogEntry
+from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
-from .models import AIReputationResult, Assessment, Borrower, BorrowerAccount, BorrowerFinancialProfile, BorrowerLoan, Consent, CreditProfile, DataExchange, Lender
+from .models import AIReputationResult, Assessment, Borrower, BorrowerAccount, BorrowerFinancialProfile, BorrowerLoan, Consent, CreditProfile, DataExchange, IntegrationRequest, Lender, LoanApplication, RepaymentRecord
 from .services import (
     ExternalServiceUnavailable, FeatureGenerationService, AIReputationService,
     create_integration_request, merge_vendor_borrower_data, validate_and_normalize,
@@ -683,6 +685,108 @@ class PaginationTests(TestCase):
         second = self.client.get("/api/lenders/?page=2").json()
         self.assertEqual(len(second["results"]), 2)
         self.assertIsNone(second["next"])
+
+
+class LenderCascadeDeleteTests(TestCase):
+    """DELETE /api/lenders/{id}/ removes the lender AND every connected row
+    (accounts, loans, repayments, consents, integration requests + credit
+    profiles, loan applications, audit exchanges) in one 204 — never the
+    ProtectedError 500, and never the borrower itself."""
+
+    def setUp(self):
+        self.lender = Lender.objects.create(
+            lender_id="GONE-01", institution_name="Retired Bank",
+            institution_type="COMMERCIAL_BANK", api_base_url="https://gone.example.test",
+        )
+        self.keeper = Lender.objects.create(
+            lender_id="KEEP-01", institution_name="Keep Bank",
+            institution_type="COMMERCIAL_BANK", api_base_url="https://keep.example.test",
+        )
+        self.borrower = Borrower.objects.create(borrower_reference="BRW-DEL-1")
+        self.other_borrower = Borrower.objects.create(borrower_reference="BRW-DEL-2")
+
+        # Full dependency web on the lender being deleted
+        self.account = BorrowerAccount.objects.create(
+            borrower=self.borrower, lender=self.lender, account_reference="ACC-GONE-1",
+        )
+        self.loan = BorrowerLoan.objects.create(
+            borrower=self.borrower, lender=self.lender, loan_id="LN-GONE-1", loan_amount=1000,
+        )
+        self.repayment = RepaymentRecord.objects.create(
+            borrower=self.borrower, lender=self.lender, loan=self.loan, repayment_amount=100,
+        )
+        self.consent = Consent.objects.create(
+            consent_id="CONSENT-GONE-1", lender=self.lender, borrower=self.borrower,
+            purpose="t", granted_at=timezone.now() - timedelta(days=1),
+            expires_at=timezone.now() + timedelta(days=1),
+        )
+        self.integration = IntegrationRequest.objects.create(
+            lender=self.lender, borrower=self.borrower, consent=self.consent,
+        )
+        self.credit_profile = CreditProfile.objects.create(
+            borrower=self.borrower, integration_request=self.integration, profile_data={"x": 1},
+        )
+        self.application = LoanApplication.objects.create(
+            borrower=self.borrower, lender=self.lender, applied_amount=500,
+            application_reference="APP-GONE-1",
+        )
+        self.exchange = DataExchange.objects.create(
+            system=DataExchange.System.LENDER, direction=DataExchange.Direction.PUSH,
+            operation="receive_lender_data", lender=self.lender, borrower=self.borrower,
+        )
+
+        # Rows that must SURVIVE the delete
+        self.kept_account = BorrowerAccount.objects.create(
+            borrower=self.borrower, lender=self.keeper, account_reference="ACC-KEEP-1",
+        )
+        self.kept_loan = BorrowerLoan.objects.create(
+            borrower=self.other_borrower, lender=self.keeper, loan_id="LN-KEEP-1", loan_amount=2000,
+        )
+
+    def test_delete_returns_204_and_cascades_connected_data(self):
+        response = self.client.delete(f"/api/lenders/{self.lender.pk}/")
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(Lender.objects.filter(pk=self.lender.pk).exists())
+        self.assertFalse(BorrowerAccount.objects.filter(pk=self.account.pk).exists())
+        self.assertFalse(BorrowerLoan.objects.filter(pk=self.loan.pk).exists())
+        self.assertFalse(RepaymentRecord.objects.filter(pk=self.repayment.pk).exists())
+        self.assertFalse(Consent.objects.filter(pk=self.consent.pk).exists())
+        self.assertFalse(IntegrationRequest.objects.filter(pk=self.integration.pk).exists())
+        self.assertFalse(CreditProfile.objects.filter(pk=self.credit_profile.pk).exists())
+        self.assertFalse(LoanApplication.objects.filter(pk=self.application.pk).exists())
+        self.assertFalse(DataExchange.objects.filter(pk=self.exchange.pk).exists())
+
+    def test_delete_keeps_borrowers_and_other_lenders_data(self):
+        response = self.client.delete(f"/api/lenders/{self.lender.pk}/")
+        self.assertEqual(response.status_code, 204)
+        self.assertTrue(Borrower.objects.filter(pk=self.borrower.pk).exists())
+        self.assertTrue(Borrower.objects.filter(pk=self.other_borrower.pk).exists())
+        self.assertTrue(Lender.objects.filter(pk=self.keeper.pk).exists())
+        self.assertTrue(BorrowerAccount.objects.filter(pk=self.kept_account.pk).exists())
+        self.assertTrue(BorrowerLoan.objects.filter(pk=self.kept_loan.pk).exists())
+
+    def test_delete_of_retired_lender_with_push_history(self):
+        """The exact scenario that used to 500: push data first, then DELETE."""
+        push = self.client.post("/api/lender-data/receive/", data={
+            "lender_id": "GONE-01", "borrower_reference": "BRW-DEL-1",
+            "payload": {"borrower_reference": "BRW-DEL-1", "income": 100, "loans": []},
+        }, content_type="application/json")
+        self.assertEqual(push.status_code, 201)
+        response = self.client.delete(f"/api/lenders/{self.lender.pk}/")
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(Lender.objects.filter(pk=self.lender.pk).exists())
+        self.assertFalse(BorrowerAccount.objects.filter(lender=self.lender).exists())
+
+    def test_delete_writes_admin_audit_log(self):
+        before = LogEntry.objects.count()
+        self.client.force_login(get_user_model().objects.create_user("auditor", password="x"))
+        response = self.client.delete(f"/api/lenders/{self.lender.pk}/")
+        self.assertEqual(response.status_code, 204)
+        entry = LogEntry.objects.order_by("-pk").first()
+        self.assertEqual(LogEntry.objects.count(), before + 1)
+        self.assertEqual(entry.object_id, str(self.lender.pk))
+        self.assertEqual(entry.content_type, ContentType.objects.get_for_model(Lender))
+        self.assertIn("deleted", entry.change_message)
 
 
 class StageRecordActionTests(TestCase):
