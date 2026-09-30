@@ -392,8 +392,11 @@ export class ApiService {
   pushAi(reference: string): Observable<ApiRecord> {
     return this.http.post<ApiRecord>(`/api/assessments/${reference}/ai-reputation/`, {});
   }
-  pushBlockchain(reference: string): Observable<ApiRecord> {
-    return this.http.post<ApiRecord>(`/api/assessments/${reference}/blockchain-score/`, {});
+  pushBlockchain(reference: string, autoBroadcast?: boolean): Observable<ApiRecord> {
+    // auto_broadcast: when true, the backend pushes the combined AI + blockchain
+    // results to every linked lender right after storing the score (default ON).
+    return this.http.post<ApiRecord>(`/api/assessments/${reference}/blockchain-score/`,
+      autoBroadcast === undefined ? {} : { auto_broadcast: autoBroadcast });
   }
   broadcastResult(borrowerId: number, resultType: string, assessmentReference?: string, payload?: ApiRecord): Observable<ApiRecord> {
     // Without a payload the backend assembles the combined AI + blockchain results.

@@ -58,6 +58,11 @@ export class DataExchangeComponent {
   blockchainRows: ResultRow[] = [];
   aiResult: ApiRecord | null = null;
   blockchainResult: ApiRecord | null = null;
+  /** Auto-broadcast ON: lenders receive the combined results the moment the
+   * assessment button completes — no separate broadcast click needed. */
+  autoBroadcast = true;
+  /** Outcome of the auto-broadcast performed by the backend, for the UI. */
+  broadcastInfo: { enabled: boolean; broadcasts?: Array<ApiRecord>; error?: string } | null = null;
   /** Underwriting panels shown only after the analyst expands them — the raw
    * model internals are for review, not the headline result. */
   showUnderwritingDetails = false;
@@ -341,7 +346,7 @@ export class DataExchangeComponent {
       // Run the engines in sequence: both refresh the same backend credit
       // profile, so parallel requests can race on SQLite/development DBs.
       switchMap((assessment) => this.api.pushAi(assessment.assessment_reference).pipe(
-        switchMap((ai) => this.api.pushBlockchain(assessment.assessment_reference).pipe(
+        switchMap((ai) => this.api.pushBlockchain(assessment.assessment_reference, this.autoBroadcast).pipe(
           map((blockchain) => ({ ai, blockchain })),
         )),
       )),
@@ -355,9 +360,14 @@ export class DataExchangeComponent {
         this.resultRows = [...this.aiRows, ...this.blockchainRows];
         this.showUnderwritingDetails = false;
         this.setStep('analysis', 'done');
+        this.broadcastInfo = this.readBroadcastInfo(blockchain);
         this.loading = false;
-        this.message = 'Assessment completed. Review the AI and blockchain results, then broadcast them.';
-        void toast('Assessment completed');
+        this.message = this.autoBroadcast && this.broadcastInfo?.broadcasts?.length
+          ? 'Assessment completed — results stored in Central and broadcast to all linked lenders.'
+          : 'Assessment completed. Review the AI and blockchain results, then broadcast them.';
+        void toast(this.autoBroadcast && this.broadcastInfo?.broadcasts?.length
+          ? `Assessment completed — broadcast to ${this.broadcastInfo?.broadcasts?.length} lender(s)`
+          : 'Assessment completed');
         this.cdr.markForCheck();
       },
       error: (err) => {
@@ -412,7 +422,7 @@ export class DataExchangeComponent {
     this.cdr.markForCheck();
     forkJoin({
       ai: this.api.pushAi(this.assessmentReference.trim()),
-      blockchain: this.api.pushBlockchain(this.assessmentReference.trim()),
+      blockchain: this.api.pushBlockchain(this.assessmentReference.trim(), this.autoBroadcast),
     }).subscribe({
       next: ({ ai, blockchain }) => {
         this.aiResult = ai;
@@ -422,8 +432,11 @@ export class DataExchangeComponent {
         this.blockchainRows = this.buildResultRows(blockchain);
         this.resultRows = [...this.aiRows, ...this.blockchainRows];
         this.setStep('analysis', 'done');
+        this.broadcastInfo = this.readBroadcastInfo(blockchain);
         this.loading = false;
-        this.message = 'AI and blockchain analysis completed. Review the results, then broadcast them.';
+        this.message = this.autoBroadcast && this.broadcastInfo?.broadcasts?.length
+          ? 'Analysis completed — results stored in Central and broadcast to all linked lenders.'
+          : 'AI and blockchain analysis completed. Review the results, then broadcast them.';
         void toast('Borrower analysis completed');
         this.cdr.markForCheck();
       },
@@ -446,6 +459,15 @@ export class DataExchangeComponent {
     this.blockchainRows = [];
     this.resultRows = [];
     this.resultKind = '';
+    this.broadcastInfo = null;
+  }
+
+  /** Extract the backend's auto-broadcast outcome from a blockchain-score
+   * response so the UI can show which lenders received the results. */
+  private readBroadcastInfo(source: ApiRecord | null): { enabled: boolean; broadcasts?: Array<ApiRecord>; error?: string } | null {
+    const info = source?.['auto_broadcast'] as { enabled?: boolean; broadcasts?: Array<ApiRecord>; error?: string } | undefined;
+    if (!info) return null;
+    return { enabled: !!info.enabled, broadcasts: info.broadcasts, error: info.error };
   }
 
   broadcast(event: Event): void {

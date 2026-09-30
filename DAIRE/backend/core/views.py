@@ -6,6 +6,7 @@ from django.contrib.admin.models import CHANGE, LogEntry
 from django.contrib.contenttypes.models import ContentType
 from django.db.models.deletion import ProtectedError
 from django.db.models import Avg, Count
+import os
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlencode, urlsplit, parse_qsl
@@ -587,90 +588,125 @@ class BorrowerViewSet(viewsets.ModelViewSet):
             result_payload = {"borrower_reference": borrower.borrower_reference,
                               "result_type": result_type, "result": result_payload}
         else:
-            requested_reference = str(request.data.get("assessment_reference") or "").strip()
-            assessments = Assessment.objects.filter(borrower=borrower)
-            if requested_reference:
-                latest_assessment = assessments.filter(assessment_reference=requested_reference).first()
-                if latest_assessment is None:
-                    return Response(
-                        {"detail": f"Assessment '{requested_reference}' does not belong to borrower '{borrower.borrower_reference}'."},
-                        status=status.HTTP_404_NOT_FOUND,
-                    )
-            else:
-                latest_assessment = assessments.order_by("-created_at").first()
-            # Both engine results must come from the same assessment. This is
-            # important when a borrower has been assessed more than once.
-            ai = (AIReputationResult.objects.filter(assessment=latest_assessment)
-                  .select_related("assessment").first()) if latest_assessment else None
-            blockchain = (SmartContractResult.objects.filter(assessment=latest_assessment)
-                          .select_related("assessment").first()) if latest_assessment else None
-            if ai is None and blockchain is None:
-                return Response(
-                    {"detail": "No AI or blockchain result exists for this borrower. Score first, then broadcast."},
-                    status=status.HTTP_409_CONFLICT,
-                )
-            latest = max((r for r in (ai, blockchain) if r is not None), key=lambda r: r.created_at)
-            latest_is_ai = latest is ai
-            result_payload = {
+            # Both stored results must come from the same assessment; the
+            # helper assembles the combined AI + blockchain envelope.
+            envelope, error = build_result_envelope(
+                borrower,
+                str(request.data.get("assessment_reference") or "").strip(),
+                result_type,
+            )
+            if error:
+                return Response({"detail": error["detail"]}, status=error["status_code"])
+            result_payload = envelope
+
+        # Auto-broadcast (default ON): push the combined result to every linked
+        # lender right away when enabled — lenders see the result the moment the
+        # assessment button is clicked, with no separate broadcast step.
+        if _auto_broadcast_requested(request):
+            broadcasts = _push_results_to_lenders(
+                borrower, result_payload, target_url=str(request.data.get("target_url") or ""))
+            return Response({
                 "borrower_reference": borrower.borrower_reference,
                 "result_type": result_type,
-                "assessment_reference": latest_assessment.assessment_reference if latest_assessment else None,        # Backwards-compatible single result: the most recently generated score.
-                "result": {
-                    "kind": "AI_REPUTATION" if latest_is_ai else "BLOCKCHAIN_SCORE",
-                    "generated_at": latest.created_at.isoformat(),
-                    **(AIReputationResultSerializer(ai) if latest_is_ai else SmartContractResultSerializer(blockchain)).data,
-                },
-                # Combined payload: both engines, whichever exist.
-                "results": {
-                    "ai": AIReputationResultSerializer(ai).data if ai else None,
-                    "blockchain": SmartContractResultSerializer(blockchain).data if blockchain else None,
-                },
-            }
+                "auto_broadcast": {"enabled": True, "broadcasts": broadcasts},
+            })
 
-        # --- borrower_reference for the broadcast ----
-        # ``borrower_reference`` identifies the customer the result belongs to in
-        # the lender's own system. Use the lender's NIDA number when present (that
-        # is the lender's global unique customer id); fall back to the central
-        # borrower_reference otherwise.
-        broadcast_reference = borrower.nida_number or borrower.borrower_reference
-        broadcast_reference = str(broadcast_reference) if broadcast_reference else str(borrower.borrower_reference)
+        # Manual mode: nothing is pushed here; the caller decides when to run
+        # POST /api/borrowers/{id}/broadcast-result/ (or the UI Broadcast button).
+        return Response({
+            "borrower_reference": borrower.borrower_reference,
+            "result_type": result_type,
+            "auto_broadcast": {"enabled": False, "broadcasts": []},
+            "detail": "Auto-broadcast disabled. Call broadcast-result to push the results to lenders.",
+        })
 
-        results = []
-        sent_to = set()
-        for account in borrower.accounts.select_related("lender").all():
-            lender = account.lender
-            if lender.id in sent_to:
-                continue
-            sent_to.add(lender.id)
-            # Per-lender payload: lenders match results to their own customer
-            # by the reference they hold for that customer. NIDA is the
-            # lender's global unique customer id, so use it as the
-            # borrower_reference when the lender holds NIDA for this
-            # customer — lenders can map the result to their own record by
-            # that value. The central reference still rides along for audit.
-            if account.lender.nida_number:
-                # Public accounts hold NIDA centrally; send the lender's own NIDA
-                # as borrower_reference so the lender can map the result to its
-                # customer by its global unique id.
-                per_lender_reference = account.lender.nida_number
-            else:
-                per_lender_reference = account.customer_id or broadcast_reference
-            per_lender_payload = {
-                **result_payload,
-                "borrower_reference": per_lender_reference,
-                "central_borrower_reference": borrower.borrower_reference,
-            }
-            # The registered receiver endpoint is {api_base_url}/api/daire/central/receive/.
-            # The lender's own global customer id (NIDA) is included in the
-            # payload so a lender that holds NIDA can map the result to its own
-            # record; it is the lender's responsibility to keep that value private.
-            exchange = record_exchange(system=DataExchange.System.LENDER, direction=DataExchange.Direction.PUSH,
-                                       operation="broadcast_credit_result", borrower=borrower, lender=lender,
-                                       fields_sent=list(per_lender_payload.keys()),
-                                       payload=per_lender_payload)
+
+def _auto_broadcast_requested(request) -> bool:
+    """Resolve the auto-broadcast flag for a request.
+
+    Default is ON: results become visible to lenders as soon as the assessment
+    button is clicked. Callers can disable it per-request with
+    ``auto_broadcast=false`` (or any of 0/no/off) or globally with the
+    ``AUTO_BROADCAST_RESULTS`` environment variable.
+    """
+    raw = request.data.get("auto_broadcast")
+    if raw is None:
+        raw = os.environ.get("AUTO_BROADCAST_RESULTS", "true")
+    return str(raw).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def build_result_envelope(borrower: Borrower, assessment_reference: str, result_type: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """Assemble the combined AI + blockchain broadcast envelope from Central storage.
+
+    Returns ``(envelope, None)`` on success or ``(None, error_dict)`` where the
+    error dict carries ``status_code`` (404 unknown assessment / 409 nothing to
+    broadcast). Both engine results always come from the SAME assessment.
+    """
+    assessments = Assessment.objects.filter(borrower=borrower)
+    if assessment_reference:
+        latest_assessment = assessments.filter(assessment_reference=assessment_reference).first()
+        if latest_assessment is None:
+            return None, {"detail": f"Assessment '{assessment_reference}' does not belong to borrower '{borrower.borrower_reference}'.", "status_code": status.HTTP_404_NOT_FOUND}
+    else:
+        latest_assessment = assessments.order_by("-created_at").first()
+    ai = (AIReputationResult.objects.filter(assessment=latest_assessment)
+          .select_related("assessment").first()) if latest_assessment else None
+    blockchain = (SmartContractResult.objects.filter(assessment=latest_assessment)
+                  .select_related("assessment").first()) if latest_assessment else None
+    if ai is None and blockchain is None:
+        return None, {"detail": "No AI or blockchain result exists for this borrower. Score first, then broadcast.", "status_code": status.HTTP_409_CONFLICT}
+    latest = max((r for r in (ai, blockchain) if r is not None), key=lambda r: r.created_at)
+    latest_is_ai = latest is ai
+    envelope = {
+        "borrower_reference": borrower.borrower_reference,
+        "result_type": result_type,
+        "assessment_reference": latest_assessment.assessment_reference if latest_assessment else None,
+        # Backwards-compatible single result: the most recently generated score.
+        "result": {
+            "kind": "AI_REPUTATION" if latest_is_ai else "BLOCKCHAIN_SCORE",
+            "generated_at": latest.created_at.isoformat(),
+            **(AIReputationResultSerializer(ai) if latest_is_ai else SmartContractResultSerializer(blockchain)).data,
+        },
+        # Combined payload: both engines, whichever exist.
+        "results": {
+            "ai": AIReputationResultSerializer(ai).data if ai else None,
+            "blockchain": SmartContractResultSerializer(blockchain).data if blockchain else None,
+        },
+    }
+    return envelope, None
+
+
+def _push_results_to_lenders(borrower: Borrower, result_payload: dict[str, Any], *, actor=None, target_url: str = "") -> list[dict[str, Any]]:
+    """Push an assembled result envelope to every lender linked to the borrower.
+
+    Per-lender ``borrower_reference`` uses the lender's NIDA when known so the
+    lender can map the result to its own customer; the central reference rides
+    along for audit. Every push (success or failure) is logged as a
+    ``DataExchange`` (system=LENDER, direction=PUSH, operation=broadcast_credit_result).
+    """
+    broadcast_reference = borrower.nida_number or borrower.borrower_reference
+    broadcast_reference = str(broadcast_reference) if broadcast_reference else str(borrower.borrower_reference)
+
+    results = []
+    sent_to = set()
+    for account in borrower.accounts.select_related("lender").all():
+        lender = account.lender
+        if lender.id in sent_to:
+            continue
+        sent_to.add(lender.id)
+        per_lender_reference = lender.nida_number or account.customer_id or broadcast_reference
+        per_lender_payload = {
+            **result_payload,
+            "borrower_reference": per_lender_reference,
+            "central_borrower_reference": borrower.borrower_reference,
+        }
+        exchange = record_exchange(system=DataExchange.System.LENDER, direction=DataExchange.Direction.PUSH,
+                                   operation="broadcast_credit_result", borrower=borrower, lender=lender,
+                                   fields_sent=list(per_lender_payload.keys()),
+                                   payload=per_lender_payload)
         try:
             response = _post_json(
-                request.data.get("target_url") or lender_broadcast_url(lender.api_base_url),
+                target_url or lender_broadcast_url(lender.api_base_url),
                 exchange.payload,
                 # Keys are only sent when REQUIRE_API_KEYS=true — same
                 # network by default means no credentials on the wire.
@@ -683,7 +719,7 @@ class BorrowerViewSet(viewsets.ModelViewSet):
             exchange.status, exchange.error_message = DataExchange.Status.FAILED, str(exc)
             exchange.save(update_fields=("status", "error_message", "updated_at"))
             results.append({"lender": lender.institution_name, "status": "FAILED", "detail": str(exc)})
-        return Response({"borrower_reference": borrower.borrower_reference, "result_type": result_type, "broadcasts": results})
+    return results
 
 
 class LenderDataReceiveView(APIView):
@@ -1046,7 +1082,27 @@ class AssessmentViewSet(mixins.CreateModelMixin, viewsets.ReadOnlyModelViewSet):
         exchange.status = DataExchange.Status.COMPLETED
         exchange.response = SmartContractResultSerializer(result).data
         exchange.save(update_fields=("status", "response", "updated_at"))
-        return Response(SmartContractResultSerializer(result).data)
+
+        response = SmartContractResultSerializer(result).data
+
+        # Auto-broadcast (default ON): the blockchain score is the last step of
+        # the assessment pipeline, so this is the natural point to make the
+        # combined AI + blockchain results visible to lenders — no second
+        # button click required.
+        auto_broadcast: dict[str, Any] = {"enabled": False, "broadcasts": []}
+        if _auto_broadcast_requested(request):
+            envelope, error = build_result_envelope(
+                assessment.borrower, str(assessment.assessment_reference or ""), "CREDIT_RESULT")
+            if error:
+                auto_broadcast = {"enabled": True, "error": error["detail"]}
+            else:
+                auto_broadcast = {
+                    "enabled": True,
+                    "assessment_reference": envelope.get("assessment_reference"),
+                    "broadcasts": _push_results_to_lenders(assessment.borrower, envelope),
+                }
+
+        return Response({**response, "auto_broadcast": auto_broadcast})
 
 
 class CreditProfileViewSet(viewsets.ModelViewSet):

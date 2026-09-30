@@ -7,7 +7,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
-from .models import AIReputationResult, Assessment, Borrower, BorrowerAccount, BorrowerFinancialProfile, BorrowerLoan, Consent, CreditProfile, DataExchange, IntegrationRequest, Lender, LoanApplication, RepaymentRecord
+from .models import AIReputationResult, Assessment, Borrower, BorrowerAccount, BorrowerFinancialProfile, BorrowerLoan, Consent, CreditProfile, DataExchange, IntegrationRequest, Lender, LoanApplication, RepaymentRecord, SmartContractResult
 from .services import (
     ExternalServiceUnavailable, FeatureGenerationService, AIReputationService,
     create_integration_request, merge_vendor_borrower_data, validate_and_normalize,
@@ -787,6 +787,77 @@ class LenderCascadeDeleteTests(TestCase):
         self.assertEqual(entry.object_id, str(self.lender.pk))
         self.assertEqual(entry.content_type, ContentType.objects.get_for_model(Lender))
         self.assertIn("deleted", entry.change_message)
+
+
+class AutoBroadcastTests(TestCase):
+    """Auto-broadcast (default ON): results reach lenders the moment the
+    assessment pipeline finishes — and the flow works without a mock lender
+    accepting requests, by asserting on the audited DataExchange records."""
+
+    def setUp(self):
+        self.lender = Lender.objects.create(
+            lender_id="LDR-AUTO-01", institution_name="Auto Broadcast Bank",
+            institution_type="COMMERCIAL_BANK", api_base_url="https://auto.example.test",
+        )
+        self.borrower = Borrower.objects.create(borrower_reference="BRW-AUTO-1")
+        BorrowerAccount.objects.create(
+            borrower=self.borrower, lender=self.lender, account_reference="ACC-AUTO-1")
+
+    def _score_both_engines(self):
+        assessment = Assessment.objects.create(borrower=self.borrower)
+        AIReputationResult.objects.create(
+            assessment=assessment, model_version="test",
+            raw_result={"models_used": ["unit-test"]}, score=660)
+        SmartContractResult.objects.create(
+            assessment=assessment, credit_score=680, ruleset_version="test-ruleset")
+        return assessment
+
+    def test_blockchain_score_auto_broadcasts_by_default(self):
+        assessment = self._score_both_engines()
+        response = self.client.post(
+            f"/api/assessments/{assessment.assessment_reference}/blockchain-score/",
+            data={}, content_type="application/json")
+        self.assertEqual(response.status_code, 200)
+        # Default ON: the push happened even though no explicit flag was sent.
+        body = response.json()
+        self.assertTrue(body["auto_broadcast"]["enabled"])
+        self.assertEqual(len(body["auto_broadcast"]["broadcasts"]), 1)
+        # The push was audited even though the (unreachable) lender endpoint failed.
+        exchange = DataExchange.objects.filter(
+            operation="broadcast_credit_result", borrower=self.borrower).first()
+        self.assertIsNotNone(exchange)
+        self.assertEqual(exchange.lender, self.lender)
+        self.assertEqual(exchange.status, DataExchange.Status.FAILED)
+
+    def test_blockchain_score_auto_broadcast_opt_out(self):
+        assessment = self._score_both_engines()
+        response = self.client.post(
+            f"/api/assessments/{assessment.assessment_reference}/blockchain-score/",
+            data={"auto_broadcast": False}, content_type="application/json")
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()["auto_broadcast"]["enabled"])
+        self.assertFalse(DataExchange.objects.filter(
+            operation="broadcast_credit_result", borrower=self.borrower).exists())
+
+    def test_broadcast_result_defaults_to_pushing(self):
+        self._score_both_engines()
+        response = self.client.post(
+            f"/api/borrowers/{self.borrower.pk}/broadcast-result/",
+            data={}, content_type="application/json")
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertTrue(body["auto_broadcast"]["enabled"])
+        self.assertEqual(len(body["auto_broadcast"]["broadcasts"]), 1)
+
+    def test_broadcast_result_opt_out_reports_detail(self):
+        self._score_both_engines()
+        response = self.client.post(
+            f"/api/borrowers/{self.borrower.pk}/broadcast-result/",
+            data={"auto_broadcast": False}, content_type="application/json")
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertFalse(body["auto_broadcast"]["enabled"])
+        self.assertIn("broadcast-result", body["detail"])
 
 
 class StageRecordActionTests(TestCase):

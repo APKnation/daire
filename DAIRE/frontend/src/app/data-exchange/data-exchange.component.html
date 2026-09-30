@@ -62,9 +62,34 @@
 
 <section class="card p-6">
   <div class="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:items-end">
-    <button class="btn-primary w-full justify-center" [disabled]="loading || !borrowerReference" (click)="performAssessment($event)">Perform assessment</button>
+    <div class="space-y-3">
+      <button class="btn-primary w-full justify-center" [disabled]="loading || !borrowerReference" (click)="performAssessment($event)">Perform assessment</button>
+      <label class="flex items-center gap-2 text-xs font-medium text-[#3d3d3d]">
+        <input type="checkbox" class="size-4 accent-[#024ad8]" [(ngModel)]="autoBroadcast" />
+        Auto-broadcast results to lenders (NMB + CRDB) when the assessment completes
+      </label>
+    </div>
     <button class="btn-primary w-full justify-center" [disabled]="loading || !borrower || !aiResult || !blockchainResult" (click)="broadcast($event)">Broadcast to organizations</button>
   </div>
+
+  @if (broadcastInfo?.broadcasts?.length) {
+    <div class="mt-4 rounded-xl border border-[#c9e0fc] bg-[rgb(201,224,252,0.35)] px-4 py-3">
+      <p class="text-xs font-semibold uppercase tracking-wide text-[#0e3191]">Broadcast to lenders</p>
+      <ul class="mt-2 space-y-1">
+        @for (b of broadcastInfo!.broadcasts; track b['lender']) {
+          <li class="text-sm text-[#1a1a1a]">
+            <span class="font-semibold">{{ b['lender'] }}</span> — {{ b['status'] }}
+            @if (b['detail']) {<span class="text-xs text-[#636363]"> — {{ b['detail'] }}</span>}
+          </li>
+        }
+      </ul>
+    </div>
+  }
+  @if (broadcastInfo?.error) {
+    <div class="mt-4 rounded-xl border border-[#f3c4c4] bg-[#fdf2f2] px-4 py-3">
+      <p class="text-sm text-[#8a1f1f]">Auto-broadcast failed: {{ broadcastInfo!.error }}</p>
+    </div>
+  }
 
   @if (aiResult || blockchainResult) {
     @let raw = $any(aiResult);
@@ -276,5 +301,5 @@
 
     </div>
   }
-  <p class="mt-4 text-xs text-[#9a9a9a]">AI reputation and blockchain results are stored read-only in Central. Review both results, then click Broadcast to organizations.</p>
+  <p class="mt-4 text-xs text-[#9a9a9a]">AI reputation and blockchain results are stored read-only in Central. With auto-broadcast ON (default), lenders see the results the moment the assessment completes — use Broadcast to organizations to resend manually.</p>
 </section>
