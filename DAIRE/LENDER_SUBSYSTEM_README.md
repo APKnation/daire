@@ -2,16 +2,18 @@
 
 This document is a build prompt and integration contract for **one lender subsystem** that connects to DAIRE Central System.
 
-Build one lender implementation from this specification first. After it is working, duplicate the project for another institution and change only the institution configuration, branding, credentials, and internal data adapters.
+> **The DAIRE lender network is FIXED at two institutions: NMB and CRDB.** Exactly two
+> subsystems exist — `DAIRE NMB Lender Subsystem` and `DAIRE CRDB Lender Subsystem`.
+> Any other lender is outside the network: Central rejects unregistered `lender_id`s
+> (`404 Lender '<id>' is not registered`), the mock endpoints answer only `NMB`/`CRDB`,
+> and no other institution may be added without a governance decision.
 
-Recommended first implementation name: `DAIRE NMB Lender Subsystem`.
+Build one lender implementation from this specification first, then duplicate it for CRDB, changing only the institution configuration, branding, credentials, and internal data adapters.
 
-The same implementation can later be duplicated as:
+The two implementations are:
 
-- `DAIRE CRDB Lender Subsystem`
-- `DAIRE MPESA Lender Subsystem`
-- `DAIRE MIXX Lender Subsystem`
-- `DAIRE MICROFINANCE Lender Subsystem`
+- `DAIRE NMB Lender Subsystem` (`LDR-NMB-02`)
+- `DAIRE CRDB Lender Subsystem` (`LDR-CRDB-01`)
 
 ## 1. Purpose
 
@@ -23,10 +25,10 @@ The lender subsystem must:
 2. Return all data that the lender is legally allowed to share.
 3. Return an empty/not-found response when the customer does not exist.
 4. Never return another customer's data.
-5. Use the exact normalized JSON contract in this document.
+5. Use the exact normalized JSON contract in this document — **including the borrower's `nida_number` and, when a new loan is requested, `payload.loan_application`**.
 6. Support audit logging for every data pull.
 
-DAIRE Central System aggregates data from all lender subsystems. The lender subsystem must not calculate the final cross-lender credit score.
+DAIRE Central System merges the two lenders' data on `nida_number` into ONE unified borrower and runs a single assessment (AI + blockchain) on the merged profile. The lender subsystem must not calculate the final cross-lender credit score.
 
 ## 2. Configuration
 
@@ -361,7 +363,7 @@ The duplicated lender subsystem is ready when:
 
 Use the following prompt when creating the first lender subsystem:
 
-> Build a production-ready lender data subsystem named `DAIRE NMB Lender Subsystem`. It must expose an authenticated `GET /borrowers?borrower_reference={id}` endpoint for DAIRE Central System. Implement lender-owned models for customers, accounts, transactions, balances, loans, repayments, identity verification, consent, and data-sharing audit logs. Return the exact response contract in `LENDER_SUBSYSTEM_README.md`. Do not calculate the final cross-lender credit score. Include environment configuration, database migrations, seed data, API authentication, validation, rate limiting, audit logging, OpenAPI documentation, automated tests, Docker support, and a README explaining how to run it. Ensure a borrower lookup can only return the requested borrower, and return 404 when no match exists. Use ISO dates, numeric monetary values, stable IDs, source metadata, and TZS currency support. Keep provider-specific adapters isolated so this subsystem can later be duplicated for CRDB, M-Pesa, Mixx by Yas, or another lender by changing configuration and adapters.
+> Build a production-ready lender data subsystem named `DAIRE NMB Lender Subsystem`. It must expose an authenticated `GET /borrowers?borrower_reference={id}` endpoint for DAIRE Central System. Implement lender-owned models for customers, accounts, transactions, balances, loans, repayments, identity verification, consent, and data-sharing audit logs. Return the exact response contract in `LENDER_SUBSYSTEM_README.md` — including `nida_number` on every borrower and `loan_application` when a new loan is requested. Do not calculate the final cross-lender credit score. Include environment configuration, database migrations, seed data, API authentication, validation, rate limiting, audit logging, OpenAPI documentation, automated tests, Docker support, and a README explaining how to run it. Ensure a borrower lookup can only return the requested borrower, and return 404 when no match exists. Use ISO dates, numeric monetary values, stable IDs, source metadata, and TZS currency support. The only other subsystem is the CRDB duplicate — change configuration and adapters, never the contract.
 
 ## 10. Duplication guide
 

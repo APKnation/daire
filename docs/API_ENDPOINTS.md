@@ -31,10 +31,12 @@ Base URLs:
 
 | Service | Base URL (dev) | Code |
 |---|---|---|
-| Central System (Django Hub) | `http://127.0.0.1:8000` | receives lender data, feature builder |
+| Central System (Django Hub) | `http://127.0.0.1:8000` | receives lender data, feature builder — **PostgreSQL `daire` @ `127.0.0.1:5433`** |
 | DAIRE Middleware (this repo) | `http://localhost:5000` | `daire-middleware/index.js` |
 | AI model service (portable scorecard) | `python score_pd.py` / wheel service | `nmb_credit_models.../portable/score_pd.py` |
 | Sepolia chain | chainId `11155111` | `contracts/DaireCreditScore.sol` |
+
+> **Lender network (2026-09-30): NMB + CRDB ONLY.** Registered lenders are `LDR-NMB-02` (NMB Bank Microfinance) and `LDR-CRDB-01` (CRDB Bank Plc). Pushes from any other `lender_id` are rejected (`404 Lender '<id>' is not registered`), and mock endpoints `/api/mock-lender/<OTHER>/…` return 404 as well. Retired lenders are removed with `python manage.py prune_lenders --yes`.
 
 ---
 
@@ -574,6 +576,8 @@ The middleware listens to contract events (HTTP polling — works on local node 
 
 ### 5.1.1 Unified borrower payload — `loan_applications` field
 
+Central merges lenders on **`nida_number`**: pushes from NMB and CRDB carrying the same NIDA resolve to ONE central borrower even when their `borrower_reference` values differ (`NMB-CUST-1` + `CRDB-CUST-77` = one person). Loans, repayments, accounts and applications from both lenders attach to that single record, and ONE assessment scores the merged profile.
+
 The unified borrower object returned by `GET /api/borrowers/search/` (and used by the frontend borrower detail view) includes every loan the borrower is APPLYING for across all merged lenders:
 
 ```json
@@ -627,6 +631,26 @@ The unified borrower object returned by `GET /api/borrowers/search/` (and used b
 | `created_at` | ISO-8601 | When the push arrived |
 
 Decisions are recorded with `POST /api/loan-applications/{id}/decision/` (`{"decision": "APPROVED" | "DECLINED" | "ASSESSED", "assessment_reference?": "ASM-...", "reason?": "..."}`) — the assessment must belong to the same borrower, otherwise the latest borrower assessment is linked automatically.
+
+### 5.1.2 Loan application decision — `POST /api/loan-applications/{id}/decision/`
+
+Records the underwriting verdict on an application and links the deciding assessment:
+
+```json
+{
+  "decision": "APPROVED",
+  "assessment_reference": "ASM-2026-0001",
+  "reason": "clean history"
+}
+```
+
+| Field | Required | Notes |
+|---|---|---|
+| `decision` | ✅ | `APPROVED` \| `DECLINED` \| `ASSESSED` |
+| `assessment_reference` | ⬜ | Must belong to the same borrower — otherwise **400**. Omitted → the borrower's latest assessment is linked automatically |
+| `reason` | ⬜ | Audit note, stored in the Django admin log |
+
+**Response 200** — `{ "status": "DECISION_RECORDED", "application": { …LoanApplicationSerializer… } }` with `status` and `assessment_reference` updated. The unified borrower payload (§5.1.1) then shows the new status, and the frontend borrower detail view renders it with the linked assessment.
 
 ### 5.2 Channel B — full result returned to the requesting lender (API response enrichment)
 
@@ -682,17 +706,20 @@ When the lender asked for a score through the Central System, Central joins the 
 
 | # | Method | Endpoint | Direction | Purpose |
 |---|---|---|---|---|
-| 1 | POST | `/api/lender-data/receive/` | Lender → Central | Push raw borrower data |
+| 1 | POST | `/api/lender-data/receive/` | Lender → Central | Push raw borrower data (+ optional `payload.loan_application`) |
 | 2 | POST | AI model call (`score_pd.Scorecard.score`) | Central → AI | PD + 300–850 score + reason codes |
-| 3 | POST | `/api/v1/score/submit` | Central → Middleware → Chain | On-chain scoring (contract computes) |
-| 4 | POST | `/api/v1/score/submit-calculated` | Central → Middleware → Chain | Store off-chain computed score |
-| 5 | POST | `/api/v1/score/preview` | Central / Web app → Middleware | Compute score + dimensions **without writing to chain** (zero gas) |
-| 6 | GET | `/api/v1/score/:borrowerRef` | Any consumer → Middleware | Free read of current score |
-| 7 | POST | `/api/v1/webhooks` | Lender → Middleware | Register a webhook URL to receive score broadcasts |
-| 8 | GET | `/api/v1/webhooks` | Admin → Middleware | List registered webhooks |
-| 9 | DELETE | `/api/v1/webhooks/:id` | Admin → Middleware | Remove a webhook registration |
-| 10 | POST | `/api/v1/webhooks/:id/test` | Admin → Middleware | Send a signed test ping |
-| 11 | Push | `POST <lender webhook url>` | Middleware → Lender | Signed broadcast on every contract event |
+| 3 | POST | `/api/assessments/` | Central internal | Open assessment on MERGED data (`borrower_reference` or `nida_number`, optional `applied_loan_amount`) |
+| 4 | POST | `/api/v1/score/submit` | Central → Middleware → Chain | On-chain scoring (contract computes) |
+| 5 | POST | `/api/v1/score/submit-calculated` | Central → Middleware → Chain | Store off-chain computed score |
+| 6 | POST | `/api/v1/score/preview` | Central / Web app → Middleware | Compute score + dimensions **without writing to chain** (zero gas) |
+| 7 | GET | `/api/v1/score/:borrowerRef` | Any consumer → Middleware | Free read of current score |
+| 8 | GET | `/api/borrowers/search/` | Frontend / consumers | Unified borrower incl. `loan_applications[]` (see §5.1.1) |
+| 9 | POST | `/api/loan-applications/{id}/decision/` | Central analyst | APPROVED / DECLINED + assessment link (see §5.1.2) |
+| 10 | POST | `/api/v1/webhooks` | Lender → Middleware | Register a webhook URL to receive score broadcasts |
+| 11 | GET / DELETE | `/api/v1/webhooks/:id` | Admin → Middleware | List / remove webhook registrations |
+| 12 | POST | `/api/v1/webhooks/:id/test` | Admin → Middleware | Send a signed test ping |
+| 13 | Push | `POST <lender webhook url>` | Middleware → Lender | Signed broadcast on every contract event |
+| 14 | DELETE | `/api/lenders/{id}/` | Admin | Cascade-deletes the lender + ALL connected rows (204, audited) |
 
 All writes require the Hub wallet (`onlyHub`); reads and previews are permissionless and free.
 

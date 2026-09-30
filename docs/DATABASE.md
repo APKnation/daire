@@ -1,8 +1,9 @@
 # DAIRE Central System — Database Documentation
 
 **Project:** DAIRE — Decentralized AI Reputation Engine
-**Database:** PostgreSQL 16 (owner `daire`), defined by Django models in `DAIRE/backend/core/models.py`
+**Database:** PostgreSQL 18 on **`127.0.0.1:5433`**, database **`daire`**, owner role **`daire`** (credentials in `DAIRE/backend/.env` as `DATABASE_URL=postgres://daire:…@127.0.0.1:5433/daire` — never committed). Schema defined by Django models in `DAIRE/backend/core/models.py`.
 **Role:** The Central System (Credit Information Hub) database is the **system of record** — it holds all raw, identifying borrower data. The blockchain holds **none** of it (see §5).
+**Lender network:** NMB (`LDR-NMB-02`) + CRDB (`LDR-CRDB-01`) only. Lenders merge on `nida_number`; retired lenders and their connected rows are removed with `python manage.py prune_lenders --yes` (dry-run default) or the cascade `DELETE /api/lenders/{id}/`.
 
 Every `core_*` table inherits `created_at` + `updated_at` timestamps.
 
@@ -34,9 +35,11 @@ Lender ──┬──< BorrowerAccount >──┐
 
 ### `core_lender` — registered lender institutions
 
+Only **`LDR-NMB-02` (NMB Bank Microfinance)** and **`LDR-CRDB-01` (CRDB Bank Plc)** may exist; pushes from unregistered `lender_id`s are rejected and the mock endpoints serve those two names only.
+
 | Column | Type | Notes |
 |---|---|---|
-| `lender_id` | varchar(64), unique | Business id, e.g. `LDR-DEMO-FLOW` |
+| `lender_id` | varchar(64), unique | Business id, e.g. `LDR-NMB-02` |
 | `institution_name` | varchar(255) | Display name |
 | `institution_type` | varchar(100) | Bank / MFI / mobile lender … |
 | `api_base_url` | URL | Lender's endpoint for pushes |

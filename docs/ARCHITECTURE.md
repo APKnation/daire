@@ -5,6 +5,17 @@
 
 ---
 
+## 0. Mtandao wa walipa — NMB + CRDB pekee
+
+DAIRE inaunganisha **benki mbili tu**: **NMB Bank Microfinance** (`LDR-NMB-02`) na **CRDB Bank Plc** (`LDR-CRDB-01`).
+
+- Kila benki ina subsystem yake inayotuma data kwenda `POST /api/lender-data/receive/` na kupokea matokeo kupitia webhook.
+- **Muunganisho wa mteja (borrower merge) unafanyika kwenye `nida_number`** — kama mteja yuleyule yuko NMB na CRDB, data zote mbili zinaingia kwenye rekodi moja ya central, na assessment moja inapimwa kwenye data iliyounganishwa (AI + blockchain).
+- Kiasi cha mkopo anachotaka (applied loan amount) kinatumwa na benki kwenye push (`payload.loan_application`) na ndicho exposure inayopimwa.
+- Walipa wengine (Equity, Tigo, Airtel, Mwanga…) wameondolewa kabisa: hawana rekodi kwenye database (`python manage.py prune_lenders --yes`), hawana seed data, na mock endpoints zinawarudishia 404.
+
+---
+
 ## 1. Uamuzi na maana yake
 
 Supervisor amesema hesabu ya credit score ifanyike ndani ya project — yaani **ndani ya smart contract**. Hii ni tofauti na mifumo mingi ya dunia (Spectral, Cred Protocol) inayohesabu nje ya chain kisha kuandika matokeo tu.
@@ -51,12 +62,13 @@ Central System (Credit Information Hub) inashikilia data ghafi. Contract inapoke
 ## 3. Mtiririko kamili
 
 ```
-[1] LENDER SYSTEM
-      inatuma rekodi ghafi
+[1] LENDER SYSTEMS — NMB na CRDB tu
+      zinatuma rekodi ghafi (push au pull)
       |
-      v  POST /api/loan-data   (consent inakaguliwa hapa)
-[2] DJANGO + DRF  —  Credit Information Hub
+      v  POST /api/lender-data/receive/   (consent inakaguliwa hapa)
+[2] DJANGO + DRF  —  Credit Information Hub  (PostgreSQL: daire @ :5433)
       - validation
+      - NIDA merge: data za NMB + CRDB kwenye borrower mmoja
       - consent enforcement
       - evidence + SHA-256
       |
@@ -66,19 +78,20 @@ Central System (Credit Information Hub) inashikilia data ghafi. Contract inapoke
       |
       v  inasoma
 [4] PYTHON FEATURE BUILDER
-      inageuza rekodi ghafi kuwa NAMBA ZISIZOMTAMBULISHA MTU:
-        on_time_ratio          = 9750   (yaani 97.50%)
+      inageuza rekodi ghafi ZILIZOUNGANISHWA (NMB + CRDB) kuwa NAMBA ZISIZOMTAMBULISHA MTU:
+        on_time_ratio          = 9750   (yaani 97.50% — marejesho ya benki zote mbili)
         max_days_late          = 12
         missed_count           = 1
         default_count          = 0
         completed_count        = 3
         utilization_bps        = 4200   (yaani 42.00%)
-        active_lender_count    = 2
+        active_lender_count    = 2      (NMB + CRDB)
         history_months         = 28
         verified_source_count  = 2
         distinct_source_count  = 3
         behaviour_event_count  = 41
         open_conflict_count    = 0
+        applied_loan_amount    = 500000 (kiasi anachotaka — exposure inayopimwa)
       |
       v  web3.py, imesainiwa na Hub key
 [5] SMART CONTRACT  —  DaireCreditScore.sol   *** HAPA NDIPO SCORE INAPOHESABIWA ***
@@ -98,7 +111,7 @@ Central System (Credit Information Hub) inashikilia data ghafi. Contract inapoke
       |
       v  contract.functions.getScore(borrowerRef).call()
 [7] DJANGO API
-      GET /api/reputation/{customer_id}
+      GET /api/borrowers/search/  (unified borrower: accounts, loans, loan_applications[])
       inasoma score kutoka chain, inaunganisha na explanation ya PostgreSQL
       |
       v

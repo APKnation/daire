@@ -33,7 +33,58 @@ Fungua terminal ya VS Code (`Ctrl + \``) kwenye folder ya project, kisha thibiti
 |---|---|---|
 | Node.js | `node -v` | `v18.x` au juu zaidi |
 | npm | `npm -v` | `9.x` au juu zaidi |
+| PostgreSQL 18 | `pg_isready -p 5433` | `accepting connections` |
 | Browser | Chrome / Brave / Firefox | Yoyote inayokubali MetaMask |
+
+### 1.1 PostgreSQL — database ya Central System
+
+Central System inatumia **PostgreSQL 18 kwenye port `5433`**, database **`daire`**, mtumiaji **`daire`**:
+
+```bash
+# Hakikisha server inaendelea (Ubuntu):
+sudo systemctl status postgresql
+pg_isready -h 127.0.0.1 -p 5433        # -> accepting connections
+
+# Tengeneza role + database (mara moja tu). Badilisha nenosiri:
+sudo -u postgres psql -p 5433 <<'SQL'
+CREATE ROLE daire LOGIN PASSWORD 'Kafuka2004!' CREATEDB;
+CREATE DATABASE daire OWNER daire;
+SQL
+```
+
+Kisha point backend kwake — `DAIRE/backend/.env`:
+
+```env
+DATABASE_URL=postgres://daire:<nenosiri>@127.0.0.1:5433/daire
+```
+
+Zindua migracji na thibitisha:
+
+```bash
+cd DAIRE/backend
+python manage.py migrate
+python manage.py shell -c "from django.db import connection; c=connection.cursor(); c.execute('SELECT current_database(), current_user'); print(c.fetchone())"
+# -> ('daire', 'daire')
+```
+
+**Mtandao wa walipa:** database inaruhusu benki mbili tu — **NMB (`LDR-NMB-02`)** na **CRDB (`LDR-CRDB-01`)**. Walipa wa kale (Equity, Tigo, Airtel, Mwanga) huondolewa na data zao kwa:
+
+```bash
+python manage.py prune_lenders          # dry run
+python manage.py prune_lenders --yes    # futa kweli
+```
+
+### 1.2 Backend + frontend ya Central System
+
+```bash
+# Backend (Django, port 8000)
+cd DAIRE/backend && python manage.py runserver
+
+# Frontend (Angular, port 4200) — terminal ya pili
+cd DAIRE/frontend && npm start
+```
+
+> `python manage.py test core` inatengeneza test database ya muda — ndiyo sababu role ya `daire` inahitaji `CREATEDB`.
 
 Kama Node haipo:
 
