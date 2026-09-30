@@ -1,0 +1,5671 @@
+openapi: 3.0.3
+info:
+  title: DAIRE Central System API
+  version: 1.1.0
+  description: |-
+    Consent-aware lender integration and assessment orchestration API.
+
+    The lender network is **NMB (LDR-NMB-02) and CRDB (LDR-CRDB-01) only** — pushes from any other lender_id are rejected. Lenders merge on `nida_number`: the same person at both banks becomes ONE central borrower and a single assessment scores the merged profile.
+
+    Machine-checkable schema of record: `docs/openapi-schema.yml` (regenerate with `./export_openapi.sh`). Human-readable contracts: `docs/API_ENDPOINTS.md` and `DAIRE/LENDER_SUBSYSTEM_README.md`.
+paths:
+  /api/ai-reputation/:
+    get:
+      operationId: ai_reputation_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - ai-reputation
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAIReputationResultList'
+          description: ''
+  /api/ai-reputation-results/:
+    get:
+      operationId: ai_reputation_results_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - ai-reputation-results
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAIReputationResultList'
+          description: ''
+  /api/ai-reputation-results/{id}/:
+    get:
+      operationId: ai_reputation_results_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this ai reputation result.
+        required: true
+      tags:
+      - ai-reputation-results
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIReputationResult'
+          description: ''
+  /api/ai-reputation/{id}/:
+    get:
+      operationId: ai_reputation_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this ai reputation result.
+        required: true
+      tags:
+      - ai-reputation
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIReputationResult'
+          description: ''
+  /api/assessments/:
+    get:
+      operationId: assessments_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - assessments
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAssessmentList'
+          description: ''
+    post:
+      operationId: assessments_create
+      description: |-
+        Open an assessment on merged lender data.
+
+        POST /api/assessments/
+
+        ::
+
+            {"borrower_reference": "1001",
+             "applied_loan_amount": 500000,        # optional — the REAL amount
+             "lender_id": "NMB-001",               # optional — who received the application
+             "applied_term_months": 12,             # optional
+             "applied_interest_rate": 12.5,         # optional
+             "applied_purpose": "WORKING_CAPITAL"}  # optional
+
+        The borrower must already exist (pull or receive lender data first) and
+        is resolved on ``borrower_reference`` OR ``nida_number`` — the same
+        unified record regardless of which lender reported it. The applied
+        amount becomes the exposure scored by AI + blockchain. When omitted,
+        the newest lender-reported ``loan_application`` is used; with neither,
+        scoring falls back to the largest historical loan.
+      tags:
+      - assessments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AssessmentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AssessmentRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assessment'
+          description: ''
+  /api/assessments/{assessment_reference}/:
+    get:
+      operationId: assessments_retrieve
+      parameters:
+      - in: path
+        name: assessment_reference
+        schema:
+          type: string
+        required: true
+      tags:
+      - assessments
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assessment'
+          description: ''
+  /api/assessments/{assessment_reference}/ai-reputation/:
+    post:
+      operationId: assessments_ai_reputation_create
+      parameters:
+      - in: path
+        name: assessment_reference
+        schema:
+          type: string
+        required: true
+      tags:
+      - assessments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AssessmentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AssessmentRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assessment'
+          description: ''
+  /api/assessments/{assessment_reference}/ai-result/:
+    get:
+      operationId: assessments_ai_result_retrieve
+      parameters:
+      - in: path
+        name: assessment_reference
+        schema:
+          type: string
+        required: true
+      tags:
+      - assessments
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assessment'
+          description: ''
+  /api/assessments/{assessment_reference}/blockchain-score/:
+    post:
+      operationId: assessments_blockchain_score_create
+      parameters:
+      - in: path
+        name: assessment_reference
+        schema:
+          type: string
+        required: true
+      tags:
+      - assessments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AssessmentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AssessmentRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assessment'
+          description: ''
+  /api/assessments/{assessment_reference}/verify/:
+    get:
+      operationId: assessments_verify_retrieve
+      parameters:
+      - in: path
+        name: assessment_reference
+        schema:
+          type: string
+        required: true
+      tags:
+      - assessments
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assessment'
+          description: ''
+  /api/audit-logs/:
+    get:
+      operationId: audit_logs_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - audit-logs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAdminLogEntryList'
+          description: ''
+  /api/audit-logs/{id}/:
+    get:
+      operationId: audit_logs_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this log entry.
+        required: true
+      tags:
+      - audit-logs
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminLogEntry'
+          description: ''
+  /api/blockchain/:
+    get:
+      operationId: blockchain_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - blockchain
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBlockchainTransactionList'
+          description: ''
+  /api/blockchain-transactions/:
+    get:
+      operationId: blockchain_transactions_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - blockchain-transactions
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBlockchainTransactionList'
+          description: ''
+  /api/blockchain-transactions/{id}/:
+    get:
+      operationId: blockchain_transactions_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this blockchain transaction.
+        required: true
+      tags:
+      - blockchain-transactions
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlockchainTransaction'
+          description: ''
+  /api/blockchain/{id}/:
+    get:
+      operationId: blockchain_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this blockchain transaction.
+        required: true
+      tags:
+      - blockchain
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlockchainTransaction'
+          description: ''
+  /api/borrower-accounts/:
+    get:
+      operationId: borrower_accounts_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - borrower-accounts
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBorrowerAccountList'
+          description: ''
+    post:
+      operationId: borrower_accounts_create
+      tags:
+      - borrower-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BorrowerAccountRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BorrowerAccountRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BorrowerAccountRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BorrowerAccount'
+          description: ''
+  /api/borrower-accounts/{id}/:
+    get:
+      operationId: borrower_accounts_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this borrower account.
+        required: true
+      tags:
+      - borrower-accounts
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BorrowerAccount'
+          description: ''
+    put:
+      operationId: borrower_accounts_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this borrower account.
+        required: true
+      tags:
+      - borrower-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BorrowerAccountRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BorrowerAccountRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BorrowerAccountRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BorrowerAccount'
+          description: ''
+    patch:
+      operationId: borrower_accounts_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this borrower account.
+        required: true
+      tags:
+      - borrower-accounts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBorrowerAccountRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBorrowerAccountRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBorrowerAccountRequest'
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BorrowerAccount'
+          description: ''
+    delete:
+      operationId: borrower_accounts_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this borrower account.
+        required: true
+      tags:
+      - borrower-accounts
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/borrower-financial-profiles/:
+    get:
+      operationId: borrower_financial_profiles_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - borrower-financial-profiles
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBorrowerFinancialProfileList'
+          description: ''
+    post:
+      operationId: borrower_financial_profiles_create
+      tags:
+      - borrower-financial-profiles
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BorrowerFinancialProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BorrowerFinancialProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BorrowerFinancialProfileRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BorrowerFinancialProfile'
+          description: ''
+  /api/borrower-financial-profiles/{id}/:
+    get:
+      operationId: borrower_financial_profiles_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this borrower financial profile.
+        required: true
+      tags:
+      - borrower-financial-profiles
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BorrowerFinancialProfile'
+          description: ''
+    put:
+      operationId: borrower_financial_profiles_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this borrower financial profile.
+        required: true
+      tags:
+      - borrower-financial-profiles
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BorrowerFinancialProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BorrowerFinancialProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BorrowerFinancialProfileRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BorrowerFinancialProfile'
+          description: ''
+    patch:
+      operationId: borrower_financial_profiles_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this borrower financial profile.
+        required: true
+      tags:
+      - borrower-financial-profiles
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBorrowerFinancialProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBorrowerFinancialProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBorrowerFinancialProfileRequest'
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BorrowerFinancialProfile'
+          description: ''
+    delete:
+      operationId: borrower_financial_profiles_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this borrower financial profile.
+        required: true
+      tags:
+      - borrower-financial-profiles
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/borrower-loans/:
+    get:
+      operationId: borrower_loans_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - borrower-loans
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBorrowerLoanList'
+          description: ''
+    post:
+      operationId: borrower_loans_create
+      tags:
+      - borrower-loans
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BorrowerLoanRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BorrowerLoanRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BorrowerLoanRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BorrowerLoan'
+          description: ''
+  /api/borrower-loans/{id}/:
+    get:
+      operationId: borrower_loans_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this borrower loan.
+        required: true
+      tags:
+      - borrower-loans
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BorrowerLoan'
+          description: ''
+    put:
+      operationId: borrower_loans_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this borrower loan.
+        required: true
+      tags:
+      - borrower-loans
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BorrowerLoanRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BorrowerLoanRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BorrowerLoanRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BorrowerLoan'
+          description: ''
+    patch:
+      operationId: borrower_loans_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this borrower loan.
+        required: true
+      tags:
+      - borrower-loans
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBorrowerLoanRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBorrowerLoanRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBorrowerLoanRequest'
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BorrowerLoan'
+          description: ''
+    delete:
+      operationId: borrower_loans_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this borrower loan.
+        required: true
+      tags:
+      - borrower-loans
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/borrowers/:
+    get:
+      operationId: borrowers_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - borrowers
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCompactBorrowerList'
+          description: ''
+    post:
+      operationId: borrowers_create
+      tags:
+      - borrowers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BorrowerRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BorrowerRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BorrowerRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Borrower'
+          description: ''
+  /api/borrowers/{id}/:
+    get:
+      operationId: borrowers_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this borrower.
+        required: true
+      tags:
+      - borrowers
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompactUnifiedBorrower'
+          description: ''
+    put:
+      operationId: borrowers_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this borrower.
+        required: true
+      tags:
+      - borrowers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BorrowerRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BorrowerRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BorrowerRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Borrower'
+          description: ''
+    patch:
+      operationId: borrowers_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this borrower.
+        required: true
+      tags:
+      - borrowers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedBorrowerRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedBorrowerRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedBorrowerRequest'
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Borrower'
+          description: ''
+  /api/borrowers/{id}/broadcast-result/:
+    post:
+      operationId: borrowers_broadcast_result_create
+      description: |-
+        Broadcast the combined AI + blockchain results to every linked lender.
+
+        Every broadcast carries both stored results when they exist
+        (``results.ai`` / ``results.blockchain``); ``result`` mirrors the most
+        recent one for consumers that read a single object. A custom ``payload``
+        is still honored verbatim for exceptional, caller-defined broadcasts.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this borrower.
+        required: true
+      tags:
+      - borrowers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BorrowerRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BorrowerRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BorrowerRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Borrower'
+          description: ''
+  /api/borrowers/{id}/merge-vendor-data/:
+    post:
+      operationId: borrowers_merge_vendor_data_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this borrower.
+        required: true
+      tags:
+      - borrowers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BorrowerRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BorrowerRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BorrowerRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Borrower'
+          description: ''
+  /api/borrowers/ingest/:
+    post:
+      operationId: borrowers_ingest_create
+      description: Accept one institution's normalized payload and merge it into a
+        borrower.
+      tags:
+      - borrowers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompactUnifiedBorrowerRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CompactUnifiedBorrowerRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CompactUnifiedBorrowerRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompactUnifiedBorrower'
+          description: ''
+  /api/borrowers/pull-from-all-lenders/:
+    post:
+      operationId: borrowers_pull_from_all_lenders_create
+      description: Pull a borrower from every lender; the caller never chooses a lender.
+      tags:
+      - borrowers
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BorrowerRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BorrowerRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BorrowerRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Borrower'
+          description: ''
+  /api/borrowers/search/:
+    get:
+      operationId: borrowers_search_retrieve
+      tags:
+      - borrowers
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompactUnifiedBorrower'
+          description: ''
+  /api/consents/:
+    get:
+      operationId: consents_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - consents
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedConsentList'
+          description: ''
+    post:
+      operationId: consents_create
+      tags:
+      - consents
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ConsentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ConsentRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consent'
+          description: ''
+  /api/consents/{id}/:
+    get:
+      operationId: consents_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this consent.
+        required: true
+      tags:
+      - consents
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consent'
+          description: ''
+    put:
+      operationId: consents_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this consent.
+        required: true
+      tags:
+      - consents
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ConsentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ConsentRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consent'
+          description: ''
+    patch:
+      operationId: consents_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this consent.
+        required: true
+      tags:
+      - consents
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedConsentRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedConsentRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedConsentRequest'
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Consent'
+          description: ''
+    delete:
+      operationId: consents_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this consent.
+        required: true
+      tags:
+      - consents
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/credit-profiles/:
+    get:
+      operationId: credit_profiles_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - credit-profiles
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCreditProfileList'
+          description: ''
+    post:
+      operationId: credit_profiles_create
+      tags:
+      - credit-profiles
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreditProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CreditProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreditProfileRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditProfile'
+          description: ''
+  /api/credit-profiles/{id}/:
+    get:
+      operationId: credit_profiles_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this credit profile.
+        required: true
+      tags:
+      - credit-profiles
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditProfile'
+          description: ''
+    put:
+      operationId: credit_profiles_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this credit profile.
+        required: true
+      tags:
+      - credit-profiles
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreditProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CreditProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreditProfileRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditProfile'
+          description: ''
+    patch:
+      operationId: credit_profiles_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this credit profile.
+        required: true
+      tags:
+      - credit-profiles
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCreditProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCreditProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCreditProfileRequest'
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditProfile'
+          description: ''
+    delete:
+      operationId: credit_profiles_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this credit profile.
+        required: true
+      tags:
+      - credit-profiles
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/credit-profiles/{id}/features/:
+    get:
+      operationId: credit_profiles_features_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this credit profile.
+        required: true
+      tags:
+      - credit-profiles
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditProfile'
+          description: ''
+  /api/credit-profiles/{id}/generate-features/:
+    post:
+      operationId: credit_profiles_generate_features_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this credit profile.
+        required: true
+      tags:
+      - credit-profiles
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreditProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CreditProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreditProfileRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditProfile'
+          description: ''
+  /api/dashboard/:
+    get:
+      operationId: dashboard_retrieve
+      tags:
+      - dashboard
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/data-exchanges/:
+    get:
+      operationId: data_exchanges_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - data-exchanges
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDataExchangeList'
+          description: ''
+  /api/data-exchanges/{id}/:
+    get:
+      operationId: data_exchanges_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this data exchange.
+        required: true
+      tags:
+      - data-exchanges
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataExchange'
+          description: ''
+  /api/features/:
+    get:
+      operationId: features_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - features
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCreditFeatureList'
+          description: ''
+  /api/features/{id}/:
+    get:
+      operationId: features_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this credit feature.
+        required: true
+      tags:
+      - features
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreditFeature'
+          description: ''
+  /api/integrations/request-credit-data/:
+    get:
+      operationId: integrations_request_credit_data_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - integrations
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedIntegrationRequestList'
+          description: ''
+    post:
+      operationId: integrations_request_credit_data_create
+      tags:
+      - integrations
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationRequest'
+          description: ''
+  /api/integrations/request-credit-data/{id}/:
+    get:
+      operationId: integrations_request_credit_data_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this integration request.
+        required: true
+      tags:
+      - integrations
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationRequest'
+          description: ''
+  /api/lender-data/receive/:
+    post:
+      operationId: lender_data_receive_create
+      description: |-
+        Primary LENDER -> Central push endpoint.
+
+        POST /api/lender-data/receive/
+        Body (wrapped)::
+
+            {
+              "lender_id": "LDR-NMB-02",
+              "borrower_reference": 1001,
+              "account_reference": 3001,
+              "payload": { ...full lender contract (LENDER_SUBSYSTEM_README.md)... }
+            }
+
+        A flat contract (lender fields at top level + ``lender_id``) is also
+        accepted. The payload is validated, merged into the unified borrower
+        (Borrower + Account + Loans + Repayments + FinancialProfile), audited as a
+        ``DataExchange`` (system=LENDER, direction=PUSH, operation=receive_lender_data)
+        and the merged borrower is returned with ``201``.
+
+        Transaction volume stays small: lenders should send aggregates
+        (``transaction_count`` / ``transaction_total_amount`` / ``income_count`` /
+        ``income_total_amount``, optionally nested under ``transaction_summary``)
+        instead of full ``transactions`` rows — see services.summarize_transactions.
+      tags:
+      - lender-data
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LenderDataReceiveRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LenderDataReceiveRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LenderDataReceiveRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LenderDataReceive'
+          description: ''
+  /api/lenders/:
+    get:
+      operationId: lenders_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - lenders
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedLenderList'
+          description: ''
+    post:
+      operationId: lenders_create
+      description: |-
+        Register a lender: assigns the lender_id record plus a fresh API key.
+
+        The plaintext `api_key` is returned ONLY here — store it now, it is
+        never shown or stored again (only its hash is kept).
+      tags:
+      - lenders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LenderRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LenderRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LenderRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lender'
+          description: ''
+  /api/lenders/{id}/:
+    get:
+      operationId: lenders_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this lender.
+        required: true
+      tags:
+      - lenders
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lender'
+          description: ''
+    put:
+      operationId: lenders_update
+      description: |-
+        Save lender changes; auto-issue a key when the lender has none yet.
+
+        Existing (legacy) lenders get their key on first save — shown once in
+        the response, exactly like registration. Saving never rotates a key
+        that already exists; use regenerate-key for rotation.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this lender.
+        required: true
+      tags:
+      - lenders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LenderRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LenderRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LenderRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lender'
+          description: ''
+    patch:
+      operationId: lenders_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this lender.
+        required: true
+      tags:
+      - lenders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedLenderRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedLenderRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedLenderRequest'
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lender'
+          description: ''
+    delete:
+      operationId: lenders_destroy
+      description: |-
+        Delete a lender together with its connected data.
+
+        Lender rows are PROTECT-ed by accounts, loans, repayments, consents,
+        integration requests, applications and audit exchanges, so a plain
+        delete raises ProtectedError (the old 500). This performs the same
+        safe ordered cascade as ``manage.py prune_lenders`` inside one
+        transaction, audits it, and returns 204.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this lender.
+        required: true
+      tags:
+      - lenders
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/lenders/{id}/pull-borrower-data/:
+    post:
+      operationId: lenders_pull_borrower_data_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this lender.
+        required: true
+      tags:
+      - lenders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LenderRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LenderRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LenderRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lender'
+          description: ''
+  /api/lenders/{id}/push-borrower-data/:
+    post:
+      operationId: lenders_push_borrower_data_create
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this lender.
+        required: true
+      tags:
+      - lenders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LenderRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LenderRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LenderRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lender'
+          description: ''
+  /api/lenders/{id}/receive-data/:
+    post:
+      operationId: lenders_receive_data_create
+      description: |-
+        Receive a lender push on the lender's own URL.
+
+        POST /api/lenders/{pk}/receive-data/
+        Headers: X-API-Key: <key> (required when the lender has a key).
+        Body: full lender contract, with or without a ``payload`` wrapper.
+        ``lender_id`` in the body is optional here (URL identifies the lender)
+        but when present it must match the URL lender.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this lender.
+        required: true
+      tags:
+      - lenders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LenderRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LenderRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LenderRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lender'
+          description: ''
+  /api/lenders/{id}/regenerate-key/:
+    post:
+      operationId: lenders_regenerate_key_create
+      description: Revoke the current key and issue a new one (plaintext shown once).
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this lender.
+        required: true
+      tags:
+      - lenders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LenderRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LenderRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LenderRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lender'
+          description: ''
+  /api/loan-applications/:
+    get:
+      operationId: loan_applications_list
+      description: |-
+        Loan applications — the amounts borrowers are APPLYING for.
+
+        Lenders report them inside a data push (``payload.loan_application``);
+        assessments can also create one directly (``POST /api/assessments/`` with
+        ``applied_loan_amount``). One assessment scores the merged borrower
+        history PLUS this single application.
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - loan-applications
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedLoanApplicationList'
+          description: ''
+    post:
+      operationId: loan_applications_create
+      description: |-
+        Loan applications — the amounts borrowers are APPLYING for.
+
+        Lenders report them inside a data push (``payload.loan_application``);
+        assessments can also create one directly (``POST /api/assessments/`` with
+        ``applied_loan_amount``). One assessment scores the merged borrower
+        history PLUS this single application.
+      tags:
+      - loan-applications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoanApplicationCreateRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoanApplicationCreateRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoanApplicationCreateRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanApplicationCreate'
+          description: ''
+  /api/loan-applications/{id}/:
+    get:
+      operationId: loan_applications_retrieve
+      description: |-
+        Loan applications — the amounts borrowers are APPLYING for.
+
+        Lenders report them inside a data push (``payload.loan_application``);
+        assessments can also create one directly (``POST /api/assessments/`` with
+        ``applied_loan_amount``). One assessment scores the merged borrower
+        history PLUS this single application.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this loan application.
+        required: true
+      tags:
+      - loan-applications
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanApplication'
+          description: ''
+  /api/loan-applications/{id}/decision/:
+    post:
+      operationId: loan_applications_decision_create
+      description: |-
+        Approve/decline an application and link the assessment that decided it.
+
+        POST /api/loan-applications/{id}/decision/
+
+        ::
+
+            {"decision": "APPROVED" | "DECLINED" | "ASSESSED",
+             "assessment_reference": "ASM-2026-0001",   # optional
+             "reason": "optional audit note"}
+
+        ``assessment_reference`` must belong to the same borrower. When omitted,
+        the borrower's most recent assessment is linked automatically if one
+        exists — an application is never left verdict-less without a note.
+        Admin log records the change for audit.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this loan application.
+        required: true
+      tags:
+      - loan-applications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoanApplicationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoanApplicationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoanApplicationRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanApplication'
+          description: ''
+  /api/mock-lender/{base}:
+    post:
+      operationId: mock_lender_create
+      description: |-
+        Development stand-in for a lender system receiving credit results.
+
+        POST /api/mock-lender/<name>/broadcast — acknowledges any JSON payload.
+        NMB + CRDB only, same as MockLenderDataView.
+      parameters:
+      - in: path
+        name: base
+        schema:
+          type: string
+        required: true
+      tags:
+      - mock-lender
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/mock-lender/{base}/api/daire/central/receive/:
+    post:
+      operationId: mock_lender_api_daire_central_receive_create
+      description: |-
+        Development stand-in for a lender system receiving credit results.
+
+        POST /api/mock-lender/<name>/broadcast — acknowledges any JSON payload.
+        NMB + CRDB only, same as MockLenderDataView.
+      parameters:
+      - in: path
+        name: base
+        schema:
+          type: string
+        required: true
+      tags:
+      - mock-lender
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/mock-lender/{base}/borrowers:
+    get:
+      operationId: mock_lender_borrowers_retrieve_2
+      description: |-
+        Development stand-in for a real lender Open-Banking API.
+
+        GET /api/mock-lender/borrowers?borrower_reference=1001
+        Returns a normalized borrower payload so "Pull from all lenders" has a
+        live target. Data varies deterministically per lender name + borrower.
+
+        The lender network is NMB + CRDB ONLY: requests for any other lender
+        return 404 so retired lenders can never serve data again.
+      parameters:
+      - in: path
+        name: base
+        schema:
+          type: string
+        required: true
+      tags:
+      - mock-lender
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/mock-lender/{base}/broadcast:
+    post:
+      operationId: mock_lender_broadcast_create_2
+      description: |-
+        Development stand-in for a lender system receiving credit results.
+
+        POST /api/mock-lender/<name>/broadcast — acknowledges any JSON payload.
+        NMB + CRDB only, same as MockLenderDataView.
+      parameters:
+      - in: path
+        name: base
+        schema:
+          type: string
+        required: true
+      tags:
+      - mock-lender
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/mock-lender/borrowers:
+    get:
+      operationId: mock_lender_borrowers_retrieve
+      description: |-
+        Development stand-in for a real lender Open-Banking API.
+
+        GET /api/mock-lender/borrowers?borrower_reference=1001
+        Returns a normalized borrower payload so "Pull from all lenders" has a
+        live target. Data varies deterministically per lender name + borrower.
+
+        The lender network is NMB + CRDB ONLY: requests for any other lender
+        return 404 so retired lenders can never serve data again.
+      tags:
+      - mock-lender
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/mock-lender/broadcast:
+    post:
+      operationId: mock_lender_broadcast_create
+      description: |-
+        Development stand-in for a lender system receiving credit results.
+
+        POST /api/mock-lender/<name>/broadcast — acknowledges any JSON payload.
+        NMB + CRDB only, same as MockLenderDataView.
+      tags:
+      - mock-lender
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/predict_credit_risk/:
+    post:
+      operationId: predict_credit_risk_create
+      description: |-
+        Direct scoring with the trained model on raw CSV-schema loan applications.
+
+        Same model file as the AI reputation engine (see services.get_credit_risk_model),
+        but here the caller supplies the 11 model columns directly instead of the
+        central borrower record. Response shape is unchanged.
+      tags:
+      - predict_credit_risk
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/repayments/:
+    get:
+      operationId: repayments_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - repayments
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRepaymentRecordList'
+          description: ''
+    post:
+      operationId: repayments_create
+      tags:
+      - repayments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepaymentRecordRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RepaymentRecordRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RepaymentRecordRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepaymentRecord'
+          description: ''
+  /api/repayments/{id}/:
+    get:
+      operationId: repayments_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this repayment record.
+        required: true
+      tags:
+      - repayments
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepaymentRecord'
+          description: ''
+    put:
+      operationId: repayments_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this repayment record.
+        required: true
+      tags:
+      - repayments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepaymentRecordRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RepaymentRecordRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RepaymentRecordRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepaymentRecord'
+          description: ''
+    patch:
+      operationId: repayments_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this repayment record.
+        required: true
+      tags:
+      - repayments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedRepaymentRecordRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedRepaymentRecordRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedRepaymentRecordRequest'
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepaymentRecord'
+          description: ''
+    delete:
+      operationId: repayments_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this repayment record.
+        required: true
+      tags:
+      - repayments
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/routing-policies/:
+    get:
+      operationId: routing_policies_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - routing-policies
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDataRoutingPolicyList'
+          description: ''
+    post:
+      operationId: routing_policies_create
+      tags:
+      - routing-policies
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DataRoutingPolicyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DataRoutingPolicyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DataRoutingPolicyRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataRoutingPolicy'
+          description: ''
+  /api/routing-policies/{id}/:
+    get:
+      operationId: routing_policies_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this data routing policy.
+        required: true
+      tags:
+      - routing-policies
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataRoutingPolicy'
+          description: ''
+    put:
+      operationId: routing_policies_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this data routing policy.
+        required: true
+      tags:
+      - routing-policies
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DataRoutingPolicyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DataRoutingPolicyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DataRoutingPolicyRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataRoutingPolicy'
+          description: ''
+    patch:
+      operationId: routing_policies_partial_update
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this data routing policy.
+        required: true
+      tags:
+      - routing-policies
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDataRoutingPolicyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDataRoutingPolicyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDataRoutingPolicyRequest'
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataRoutingPolicy'
+          description: ''
+    delete:
+      operationId: routing_policies_destroy
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this data routing policy.
+        required: true
+      tags:
+      - routing-policies
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+  /api/schema/:
+    get:
+      operationId: schema_retrieve
+      description: |-
+        OpenApi3 schema for this API. Format can be selected via content negotiation.
+
+        - YAML: application/vnd.oai.openapi
+        - JSON: application/vnd.oai.openapi+json
+      parameters:
+      - in: query
+        name: format
+        schema:
+          type: string
+          enum:
+          - json
+          - yaml
+      - in: query
+        name: lang
+        schema:
+          type: string
+          enum:
+          - af
+          - ar
+          - ar-dz
+          - ast
+          - az
+          - be
+          - bg
+          - bn
+          - br
+          - bs
+          - ca
+          - ckb
+          - cs
+          - cy
+          - da
+          - de
+          - dsb
+          - el
+          - en
+          - en-au
+          - en-gb
+          - eo
+          - es
+          - es-ar
+          - es-co
+          - es-mx
+          - es-ni
+          - es-ve
+          - et
+          - eu
+          - fa
+          - fi
+          - fr
+          - fy
+          - ga
+          - gd
+          - gl
+          - he
+          - hi
+          - hr
+          - hsb
+          - hu
+          - hy
+          - ia
+          - id
+          - ig
+          - io
+          - is
+          - it
+          - ja
+          - ka
+          - kab
+          - kk
+          - km
+          - kn
+          - ko
+          - ky
+          - lb
+          - lt
+          - lv
+          - mk
+          - ml
+          - mn
+          - mr
+          - ms
+          - my
+          - nb
+          - ne
+          - nl
+          - nn
+          - os
+          - pa
+          - pl
+          - pt
+          - pt-br
+          - ro
+          - ru
+          - sk
+          - sl
+          - sq
+          - sr
+          - sr-latn
+          - sv
+          - sw
+          - ta
+          - te
+          - tg
+          - th
+          - tk
+          - tr
+          - tt
+          - udm
+          - ug
+          - uk
+          - ur
+          - uz
+          - vi
+          - zh-hans
+          - zh-hant
+      tags:
+      - schema
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/vnd.oai.openapi:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/yaml:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/vnd.oai.openapi+json:
+              schema:
+                type: object
+                additionalProperties: {}
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/smart-contract/:
+    get:
+      operationId: smart_contract_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - smart-contract
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSmartContractResultList'
+          description: ''
+  /api/smart-contract-results/:
+    get:
+      operationId: smart_contract_results_list
+      parameters:
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      tags:
+      - smart-contract-results
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedSmartContractResultList'
+          description: ''
+  /api/smart-contract-results/{id}/:
+    get:
+      operationId: smart_contract_results_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this smart contract result.
+        required: true
+      tags:
+      - smart-contract-results
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartContractResult'
+          description: ''
+  /api/smart-contract/{id}/:
+    get:
+      operationId: smart_contract_retrieve
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: A unique integer value identifying this smart contract result.
+        required: true
+      tags:
+      - smart-contract
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SmartContractResult'
+          description: ''
+components:
+  schemas:
+    AIReputationResult:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        assessment_reference:
+          type: string
+          readOnly: true
+        borrower_name:
+          type: string
+          readOnly: true
+        borrower_reference:
+          type: string
+          readOnly: true
+        score_explanation:
+          type: string
+          readOnly: true
+        decision:
+          type: string
+          readOnly: true
+        credit_grade:
+          type: string
+          readOnly: true
+        credit_tier:
+          type: string
+          readOnly: true
+        nmb_credit_score:
+          type: string
+          readOnly: true
+        concordance:
+          type: string
+          readOnly: true
+        ensemble_pd:
+          type: string
+          readOnly: true
+        ml_pd:
+          type: string
+          readOnly: true
+        nmb_pd:
+          type: string
+          readOnly: true
+        recommended_credit_limit:
+          type: string
+          readOnly: true
+        recommended_apr:
+          type: string
+          readOnly: true
+        expected_loss:
+          type: string
+          readOnly: true
+        actionable_guidance:
+          type: string
+          readOnly: true
+        strengths:
+          type: string
+          readOnly: true
+        risk_factors:
+          type: string
+          readOnly: true
+        ml_weight:
+          type: string
+          readOnly: true
+        nmb_weight:
+          type: string
+          readOnly: true
+        history_band:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        reputation:
+          type: string
+          maxLength: 30
+        score:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,4})?$
+        risk_level:
+          type: string
+          maxLength: 30
+        behavior_summary:
+          type: string
+        model_version:
+          type: string
+          maxLength: 64
+        raw_result: {}
+        assessment:
+          type: integer
+      required:
+      - actionable_guidance
+      - assessment
+      - assessment_reference
+      - borrower_name
+      - borrower_reference
+      - concordance
+      - created_at
+      - credit_grade
+      - credit_tier
+      - decision
+      - ensemble_pd
+      - expected_loss
+      - history_band
+      - id
+      - ml_pd
+      - ml_weight
+      - model_version
+      - nmb_credit_score
+      - nmb_pd
+      - nmb_weight
+      - recommended_apr
+      - recommended_credit_limit
+      - reputation
+      - risk_factors
+      - score
+      - score_explanation
+      - strengths
+      - updated_at
+    ActionFlagEnum:
+      enum:
+      - 1
+      - 2
+      - 3
+      type: integer
+      description: |-
+        * `1` - Addition
+        * `2` - Change
+        * `3` - Deletion
+    AdminLogEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        action_time:
+          type: string
+          format: date-time
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+        app_label:
+          type: string
+          readOnly: true
+        model:
+          type: string
+          readOnly: true
+        object_id:
+          type: string
+          readOnly: true
+          nullable: true
+        object_repr:
+          type: string
+          readOnly: true
+        action_flag:
+          allOf:
+          - $ref: '#/components/schemas/ActionFlagEnum'
+          readOnly: true
+        change_message:
+          type: string
+          readOnly: true
+      required:
+      - action_flag
+      - action_time
+      - app_label
+      - change_message
+      - id
+      - model
+      - object_id
+      - object_repr
+      - username
+    ApiStatusEnum:
+      enum:
+      - CONNECTED
+      - DEGRADED
+      - DISCONNECTED
+      type: string
+      description: |-
+        * `CONNECTED` - Connected
+        * `DEGRADED` - Degraded
+        * `DISCONNECTED` - Disconnected
+    Assessment:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        borrower_reference:
+          type: string
+          readOnly: true
+        applied_loan_amount:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        assessment_reference:
+          type: string
+          maxLength: 64
+        reputation:
+          type: string
+          maxLength: 30
+        reputation_score:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,4})?$
+          nullable: true
+        risk_level:
+          type: string
+          maxLength: 20
+        behavior_summary:
+          type: string
+        credit_score:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          nullable: true
+        ruleset_version:
+          type: string
+          maxLength: 64
+        model_version:
+          type: string
+          maxLength: 64
+        blockchain_transaction_hash:
+          type: string
+          maxLength: 255
+        blockchain_block_number:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        verification_status:
+          type: string
+          default: PENDING
+          maxLength: 30
+        score_inputs: {}
+        score_explanation: {}
+        borrower:
+          type: integer
+      required:
+      - applied_loan_amount
+      - assessment_reference
+      - borrower
+      - borrower_reference
+      - created_at
+      - id
+      - updated_at
+    AssessmentRequest:
+      type: object
+      properties:
+        assessment_reference:
+          type: string
+          minLength: 1
+          maxLength: 64
+        reputation:
+          type: string
+          maxLength: 30
+        reputation_score:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,1}(?:\.\d{0,4})?$
+          nullable: true
+        risk_level:
+          type: string
+          maxLength: 20
+        behavior_summary:
+          type: string
+        credit_score:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          nullable: true
+        ruleset_version:
+          type: string
+          maxLength: 64
+        model_version:
+          type: string
+          maxLength: 64
+        blockchain_transaction_hash:
+          type: string
+          maxLength: 255
+        blockchain_block_number:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        verification_status:
+          type: string
+          minLength: 1
+          default: PENDING
+          maxLength: 30
+        score_inputs: {}
+        score_explanation: {}
+        borrower:
+          type: integer
+      required:
+      - assessment_reference
+      - borrower
+    BlockchainTransaction:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        assessment_reference:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        transaction_hash:
+          type: string
+          maxLength: 255
+        network:
+          type: string
+          maxLength: 100
+        block_number:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          nullable: true
+        status:
+          type: string
+          default: PENDING
+          maxLength: 30
+        verification_data: {}
+        assessment:
+          type: integer
+      required:
+      - assessment
+      - assessment_reference
+      - created_at
+      - id
+      - network
+      - transaction_hash
+      - updated_at
+    Borrower:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        borrower_reference:
+          type: string
+          maxLength: 64
+        nida_number:
+          type: string
+          nullable: true
+          maxLength: 128
+        is_active:
+          type: boolean
+          default: true
+        customer_id:
+          type: string
+          default: ''
+          maxLength: 64
+        age:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          nullable: true
+        gender:
+          type: string
+          maxLength: 20
+        employment_status:
+          type: string
+          maxLength: 50
+        income:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,4})?$
+          nullable: true
+        business_information: {}
+        account_information: {}
+        data_conflicts: {}
+        financial_profile:
+          type: string
+          readOnly: true
+        source_lenders:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - borrower_reference
+      - created_at
+      - financial_profile
+      - id
+      - source_lenders
+      - updated_at
+    BorrowerAccount:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        lender_name:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        account_reference:
+          type: string
+          default: ''
+          maxLength: 128
+        account_name:
+          type: string
+          default: ''
+          maxLength: 255
+        customer_id:
+          type: string
+          default: ''
+          maxLength: 64
+        metadata: {}
+        borrower:
+          type: integer
+        lender:
+          type: integer
+      required:
+      - borrower
+      - created_at
+      - id
+      - lender
+      - lender_name
+      - updated_at
+    BorrowerAccountRequest:
+      type: object
+      properties:
+        account_reference:
+          type: string
+          default: ''
+          maxLength: 128
+        account_name:
+          type: string
+          default: ''
+          maxLength: 255
+        customer_id:
+          type: string
+          default: ''
+          maxLength: 64
+        metadata: {}
+        borrower:
+          type: integer
+        lender:
+          type: integer
+      required:
+      - borrower
+      - lender
+    BorrowerFinancialProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        transaction_frequency:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        income_frequency:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        cash_flow_patterns: {}
+        savings:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        account_activity: {}
+        active_loans:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        total_outstanding_debt:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        monthly_repayment:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        previous_loans:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        debt_to_income_ratio:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,5}(?:\.\d{0,4})?$
+          default: '0.0000'
+        borrower:
+          type: integer
+      required:
+      - borrower
+      - created_at
+      - id
+      - updated_at
+    BorrowerFinancialProfileRequest:
+      type: object
+      properties:
+        transaction_frequency:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        income_frequency:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        cash_flow_patterns: {}
+        savings:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        account_activity: {}
+        active_loans:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        total_outstanding_debt:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        monthly_repayment:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        previous_loans:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        debt_to_income_ratio:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,5}(?:\.\d{0,4})?$
+          default: '0.0000'
+        borrower:
+          type: integer
+      required:
+      - borrower
+    BorrowerLoan:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        loan_id:
+          type: string
+          maxLength: 128
+        lender:
+          type: integer
+        lender_name:
+          type: string
+          readOnly: true
+        loan_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        loan_date:
+          type: string
+          format: date
+          nullable: true
+        loan_duration_months:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        interest_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,4})?$
+          default: '0.0000'
+        outstanding_balance:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        status:
+          type: string
+          default: ACTIVE
+          maxLength: 30
+        repayments:
+          type: string
+          readOnly: true
+      required:
+      - id
+      - lender
+      - lender_name
+      - loan_id
+      - repayments
+    BorrowerLoanRequest:
+      type: object
+      properties:
+        loan_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        lender:
+          type: integer
+        loan_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        loan_date:
+          type: string
+          format: date
+          nullable: true
+        loan_duration_months:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        interest_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,4})?$
+          default: '0.0000'
+        outstanding_balance:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        status:
+          type: string
+          minLength: 1
+          default: ACTIVE
+          maxLength: 30
+      required:
+      - lender
+      - loan_id
+    BorrowerRequest:
+      type: object
+      properties:
+        borrower_reference:
+          type: string
+          minLength: 1
+          maxLength: 64
+        nida_number:
+          type: string
+          nullable: true
+          maxLength: 128
+        is_active:
+          type: boolean
+          default: true
+        customer_id:
+          type: string
+          default: ''
+          maxLength: 64
+        age:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          nullable: true
+        gender:
+          type: string
+          maxLength: 20
+        employment_status:
+          type: string
+          maxLength: 50
+        income:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,4})?$
+          nullable: true
+        business_information: {}
+        account_information: {}
+        data_conflicts: {}
+      required:
+      - borrower_reference
+    CompactBorrower:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        borrower_reference:
+          type: string
+          maxLength: 64
+        nida_number:
+          type: string
+          nullable: true
+          maxLength: 128
+        is_active:
+          type: boolean
+          default: true
+        customer_id:
+          type: string
+          default: ''
+          maxLength: 64
+        age:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          nullable: true
+        gender:
+          type: string
+          maxLength: 20
+        employment_status:
+          type: string
+          maxLength: 50
+        income:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,4})?$
+          nullable: true
+        source_lenders:
+          type: string
+          readOnly: true
+        financial_profile:
+          type: string
+          readOnly: true
+      required:
+      - borrower_reference
+      - financial_profile
+      - id
+      - source_lenders
+    CompactBorrowerAccount:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        lender:
+          type: integer
+        lender_name:
+          type: string
+          readOnly: true
+        account_reference:
+          type: string
+          default: ''
+          maxLength: 128
+        account_name:
+          type: string
+          default: ''
+          maxLength: 255
+        customer_id:
+          type: string
+          default: ''
+          maxLength: 64
+      required:
+      - id
+      - lender
+      - lender_name
+    CompactBorrowerAccountRequest:
+      type: object
+      properties:
+        lender:
+          type: integer
+        account_reference:
+          type: string
+          default: ''
+          maxLength: 128
+        account_name:
+          type: string
+          default: ''
+          maxLength: 255
+        customer_id:
+          type: string
+          default: ''
+          maxLength: 64
+      required:
+      - lender
+    CompactBorrowerLoan:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        loan_id:
+          type: string
+          maxLength: 128
+        lender:
+          type: integer
+        lender_name:
+          type: string
+          readOnly: true
+        loan_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        loan_date:
+          type: string
+          format: date
+          nullable: true
+        loan_duration_months:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        interest_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,4})?$
+          default: '0.0000'
+        outstanding_balance:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        status:
+          type: string
+          default: ACTIVE
+          maxLength: 30
+        repayments:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompactRepayment'
+          readOnly: true
+      required:
+      - id
+      - lender
+      - lender_name
+      - loan_id
+      - repayments
+    CompactBorrowerLoanRequest:
+      type: object
+      properties:
+        loan_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        lender:
+          type: integer
+        loan_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        loan_date:
+          type: string
+          format: date
+          nullable: true
+        loan_duration_months:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        interest_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,4})?$
+          default: '0.0000'
+        outstanding_balance:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        status:
+          type: string
+          minLength: 1
+          default: ACTIVE
+          maxLength: 30
+      required:
+      - lender
+      - loan_id
+    CompactLoanApplication:
+      type: object
+      description: The loans a borrower is APPLYING for, shown in the unified profile.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        application_reference:
+          type: string
+          default: ''
+          maxLength: 64
+        lender:
+          type: integer
+          nullable: true
+        lender_name:
+          type: string
+          readOnly: true
+        applied_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+        currency:
+          type: string
+          default: TZS
+          maxLength: 8
+        purpose:
+          type: string
+          default: ''
+          maxLength: 100
+        term_months:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        interest_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,4})?$
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/Status26fEnum'
+          default: SUBMITTED
+        assessment_reference:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - applied_amount
+      - assessment_reference
+      - created_at
+      - id
+      - lender_name
+    CompactLoanApplicationRequest:
+      type: object
+      description: The loans a borrower is APPLYING for, shown in the unified profile.
+      properties:
+        application_reference:
+          type: string
+          default: ''
+          maxLength: 64
+        lender:
+          type: integer
+          nullable: true
+        applied_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+        currency:
+          type: string
+          minLength: 1
+          default: TZS
+          maxLength: 8
+        purpose:
+          type: string
+          default: ''
+          maxLength: 100
+        term_months:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        interest_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,4})?$
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/Status26fEnum'
+          default: SUBMITTED
+      required:
+      - applied_amount
+    CompactRepayment:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        repayment_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        repayment_date:
+          type: string
+          format: date
+          nullable: true
+        due_date:
+          type: string
+          format: date
+          nullable: true
+        days_overdue:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        missed_payments:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        late_payments:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        default_status:
+          type: string
+          default: ''
+          maxLength: 20
+      required:
+      - id
+    CompactRepaymentRequest:
+      type: object
+      properties:
+        repayment_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        repayment_date:
+          type: string
+          format: date
+          nullable: true
+        due_date:
+          type: string
+          format: date
+          nullable: true
+        days_overdue:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        missed_payments:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        late_payments:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        default_status:
+          type: string
+          default: ''
+          maxLength: 20
+    CompactUnifiedBorrower:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        borrower_reference:
+          type: string
+          maxLength: 64
+        nida_number:
+          type: string
+          nullable: true
+          maxLength: 128
+        is_active:
+          type: boolean
+          default: true
+        customer_id:
+          type: string
+          default: ''
+          maxLength: 64
+        age:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          nullable: true
+        gender:
+          type: string
+          maxLength: 20
+        employment_status:
+          type: string
+          maxLength: 50
+        income:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,4})?$
+          nullable: true
+        source_lenders:
+          type: string
+          readOnly: true
+        financial_profile:
+          type: string
+          readOnly: true
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompactBorrowerAccount'
+          readOnly: true
+        loans:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompactBorrowerLoan'
+          readOnly: true
+        loan_applications:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompactLoanApplication'
+          readOnly: true
+      required:
+      - accounts
+      - borrower_reference
+      - financial_profile
+      - id
+      - loan_applications
+      - loans
+      - source_lenders
+    CompactUnifiedBorrowerRequest:
+      type: object
+      properties:
+        borrower_reference:
+          type: string
+          minLength: 1
+          maxLength: 64
+        nida_number:
+          type: string
+          nullable: true
+          maxLength: 128
+        is_active:
+          type: boolean
+          default: true
+        customer_id:
+          type: string
+          default: ''
+          maxLength: 64
+        age:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          nullable: true
+        gender:
+          type: string
+          maxLength: 20
+        employment_status:
+          type: string
+          maxLength: 50
+        income:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,4})?$
+          nullable: true
+      required:
+      - borrower_reference
+    Consent:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        borrower_id:
+          type: integer
+          readOnly: true
+        lender_id:
+          type: integer
+          readOnly: true
+        borrower_reference:
+          type: string
+          readOnly: true
+        lender_name:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        consent_id:
+          type: string
+          maxLength: 64
+        purpose:
+          type: string
+          maxLength: 255
+        granted_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ConsentStatusEnum'
+          default: ACTIVE
+        borrower:
+          type: integer
+        lender:
+          type: integer
+      required:
+      - borrower
+      - borrower_id
+      - borrower_reference
+      - consent_id
+      - created_at
+      - expires_at
+      - granted_at
+      - id
+      - lender
+      - lender_id
+      - lender_name
+      - purpose
+      - updated_at
+    ConsentRequest:
+      type: object
+      properties:
+        consent_id:
+          type: string
+          minLength: 1
+          maxLength: 64
+        purpose:
+          type: string
+          minLength: 1
+          maxLength: 255
+        granted_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ConsentStatusEnum'
+          default: ACTIVE
+        borrower:
+          type: integer
+        lender:
+          type: integer
+      required:
+      - borrower
+      - consent_id
+      - expires_at
+      - granted_at
+      - lender
+      - purpose
+    ConsentStatusEnum:
+      enum:
+      - ACTIVE
+      - EXPIRED
+      - REVOKED
+      type: string
+      description: |-
+        * `ACTIVE` - Active
+        * `EXPIRED` - Expired
+        * `REVOKED` - Revoked
+    CreditFeature:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        name:
+          type: string
+          maxLength: 100
+        value:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,16}(?:\.\d{0,4})?$
+        feature_version:
+          type: string
+          default: '1'
+          maxLength: 64
+        profile:
+          type: integer
+      required:
+      - created_at
+      - id
+      - name
+      - profile
+      - updated_at
+      - value
+    CreditProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        borrower_reference:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        profile_data: {}
+        source_version:
+          type: string
+          default: '1'
+          maxLength: 64
+        borrower:
+          type: integer
+        integration_request:
+          type: integer
+          nullable: true
+      required:
+      - borrower
+      - borrower_reference
+      - created_at
+      - id
+      - updated_at
+    CreditProfileRequest:
+      type: object
+      properties:
+        profile_data: {}
+        source_version:
+          type: string
+          minLength: 1
+          default: '1'
+          maxLength: 64
+        borrower:
+          type: integer
+        integration_request:
+          type: integer
+          nullable: true
+      required:
+      - borrower
+    DataExchange:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        borrower_reference:
+          type: string
+          readOnly: true
+        lender_id:
+          type: string
+          readOnly: true
+        lender_name:
+          type: string
+          readOnly: true
+        assessment_reference:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        system:
+          $ref: '#/components/schemas/SystemEnum'
+        direction:
+          $ref: '#/components/schemas/DirectionEnum'
+        operation:
+          type: string
+          maxLength: 100
+        batch_reference:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/DataExchangeStatusEnum'
+          readOnly: true
+        fields_sent: {}
+        payload: {}
+        response:
+          readOnly: true
+        error_message:
+          type: string
+          readOnly: true
+        borrower:
+          type: integer
+          nullable: true
+        lender:
+          type: integer
+          nullable: true
+        assessment:
+          type: integer
+          nullable: true
+        policy:
+          type: integer
+          nullable: true
+      required:
+      - assessment_reference
+      - borrower_reference
+      - created_at
+      - direction
+      - error_message
+      - id
+      - lender_id
+      - lender_name
+      - operation
+      - response
+      - status
+      - system
+      - updated_at
+    DataExchangeStatusEnum:
+      enum:
+      - STARTED
+      - COMPLETED
+      - FAILED
+      type: string
+      description: |-
+        * `STARTED` - Started
+        * `COMPLETED` - Completed
+        * `FAILED` - Failed
+    DataRoutingPolicy:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        policy_id:
+          type: string
+          maxLength: 64
+        name:
+          type: string
+          maxLength: 255
+        lender_fields: {}
+        ai_fields: {}
+        blockchain_fields: {}
+        active:
+          type: boolean
+          default: true
+        version:
+          type: string
+          default: '1'
+          maxLength: 64
+      required:
+      - created_at
+      - id
+      - name
+      - policy_id
+      - updated_at
+    DataRoutingPolicyRequest:
+      type: object
+      properties:
+        policy_id:
+          type: string
+          minLength: 1
+          maxLength: 64
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        lender_fields: {}
+        ai_fields: {}
+        blockchain_fields: {}
+        active:
+          type: boolean
+          default: true
+        version:
+          type: string
+          minLength: 1
+          default: '1'
+          maxLength: 64
+      required:
+      - name
+      - policy_id
+    DirectionEnum:
+      enum:
+      - PUSH
+      - PULL
+      type: string
+      description: |-
+        * `PUSH` - Push
+        * `PULL` - Pull
+    IntegrationRequest:
+      type: object
+      properties:
+        request_reference:
+          type: string
+          format: uuid
+          readOnly: true
+        lender_id:
+          type: string
+          readOnly: true
+        borrower_reference:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/IntegrationStatusEnum'
+          readOnly: true
+        error_message:
+          type: string
+          readOnly: true
+        raw_payload:
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - borrower_reference
+      - created_at
+      - error_message
+      - lender_id
+      - raw_payload
+      - request_reference
+      - status
+    IntegrationStatusEnum:
+      enum:
+      - RECEIVED
+      - VALIDATED
+      - REJECTED
+      - COMPLETED
+      type: string
+      description: |-
+        * `RECEIVED` - Received
+        * `VALIDATED` - Validated
+        * `REJECTED` - Rejected
+        * `COMPLETED` - Completed
+    Lender:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        lender_id:
+          type: string
+          maxLength: 64
+        institution_name:
+          type: string
+          maxLength: 255
+        institution_type:
+          type: string
+          maxLength: 100
+        api_base_url:
+          type: string
+          format: uri
+          maxLength: 200
+        api_status:
+          allOf:
+          - $ref: '#/components/schemas/ApiStatusEnum'
+          default: DISCONNECTED
+        authentication_method:
+          type: string
+          default: API_KEY
+          maxLength: 50
+        api_key_prefix:
+          type: string
+          readOnly: true
+      required:
+      - api_base_url
+      - api_key_prefix
+      - created_at
+      - id
+      - institution_name
+      - institution_type
+      - lender_id
+      - updated_at
+    LenderDataReceive:
+      type: object
+      description: |-
+        Payload a lender pushes to Central (LENDER -> Central, direction=PUSH).
+
+        Accepts either a wrapped payload::
+
+            {
+              "lender_id": "LDR-NMB-02",
+              "borrower_reference": "BRW-TZ-1001",
+              "account_reference": "NMB-ACC-0001",   # optional
+              "payload": { ...full lender contract... }
+            }
+
+        or a flat contract (lender fields at top level + ``lender_id``)::
+
+            {
+              "lender_id": "LDR-NMB-02",
+              "borrower_reference": "BRW-TZ-1001",
+              "customer_id": "NMB-CUST-0001",
+              "loans": [...],
+              ...
+            }
+      properties:
+        lender_id:
+          type: string
+          maxLength: 64
+        borrower_reference:
+          type: string
+          maxLength: 64
+        account_reference:
+          type: string
+          maxLength: 128
+        payload:
+          type: object
+          additionalProperties: {}
+      required:
+      - lender_id
+    LenderDataReceiveRequest:
+      type: object
+      description: |-
+        Payload a lender pushes to Central (LENDER -> Central, direction=PUSH).
+
+        Accepts either a wrapped payload::
+
+            {
+              "lender_id": "LDR-NMB-02",
+              "borrower_reference": "BRW-TZ-1001",
+              "account_reference": "NMB-ACC-0001",   # optional
+              "payload": { ...full lender contract... }
+            }
+
+        or a flat contract (lender fields at top level + ``lender_id``)::
+
+            {
+              "lender_id": "LDR-NMB-02",
+              "borrower_reference": "BRW-TZ-1001",
+              "customer_id": "NMB-CUST-0001",
+              "loans": [...],
+              ...
+            }
+      properties:
+        lender_id:
+          type: string
+          minLength: 1
+          maxLength: 64
+        borrower_reference:
+          type: string
+          maxLength: 64
+        account_reference:
+          type: string
+          maxLength: 128
+        payload:
+          type: object
+          additionalProperties: {}
+      required:
+      - lender_id
+    LenderRequest:
+      type: object
+      properties:
+        lender_id:
+          type: string
+          minLength: 1
+          maxLength: 64
+        institution_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        institution_type:
+          type: string
+          minLength: 1
+          maxLength: 100
+        api_base_url:
+          type: string
+          format: uri
+          minLength: 1
+          maxLength: 200
+        api_status:
+          allOf:
+          - $ref: '#/components/schemas/ApiStatusEnum'
+          default: DISCONNECTED
+        authentication_method:
+          type: string
+          minLength: 1
+          default: API_KEY
+          maxLength: 50
+      required:
+      - api_base_url
+      - institution_name
+      - institution_type
+      - lender_id
+    LoanApplication:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        borrower_reference:
+          type: string
+          readOnly: true
+        lender_id:
+          type: string
+          readOnly: true
+        assessment_reference:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        application_reference:
+          type: string
+          default: ''
+          maxLength: 64
+        applied_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+        currency:
+          type: string
+          default: TZS
+          maxLength: 8
+        purpose:
+          type: string
+          default: ''
+          maxLength: 100
+        term_months:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        interest_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,4})?$
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/Status26fEnum'
+          default: SUBMITTED
+        payload: {}
+        borrower:
+          type: integer
+        lender:
+          type: integer
+          nullable: true
+        assessment:
+          type: integer
+          nullable: true
+      required:
+      - applied_amount
+      - assessment_reference
+      - borrower
+      - borrower_reference
+      - created_at
+      - id
+      - lender
+      - lender_id
+      - updated_at
+    LoanApplicationCreate:
+      type: object
+      description: 'Direct application creation: identify the borrower by reference
+        or NIDA.'
+      properties:
+        borrower_reference:
+          type: string
+        lender_id:
+          type: string
+          default: ''
+        application_reference:
+          type: string
+          default: ''
+          maxLength: 64
+        applied_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+        currency:
+          type: string
+          default: TZS
+          maxLength: 8
+        purpose:
+          type: string
+          default: ''
+          maxLength: 100
+        term_months:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        interest_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,4})?$
+          nullable: true
+        assessment:
+          type: integer
+          nullable: true
+      required:
+      - applied_amount
+      - borrower_reference
+    LoanApplicationCreateRequest:
+      type: object
+      description: 'Direct application creation: identify the borrower by reference
+        or NIDA.'
+      properties:
+        borrower_reference:
+          type: string
+          minLength: 1
+        lender_id:
+          type: string
+          default: ''
+        application_reference:
+          type: string
+          default: ''
+          maxLength: 64
+        applied_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+        currency:
+          type: string
+          minLength: 1
+          default: TZS
+          maxLength: 8
+        purpose:
+          type: string
+          default: ''
+          maxLength: 100
+        term_months:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        interest_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,4})?$
+          nullable: true
+        assessment:
+          type: integer
+          nullable: true
+      required:
+      - applied_amount
+      - borrower_reference
+    LoanApplicationRequest:
+      type: object
+      properties:
+        application_reference:
+          type: string
+          default: ''
+          maxLength: 64
+        applied_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+        currency:
+          type: string
+          minLength: 1
+          default: TZS
+          maxLength: 8
+        purpose:
+          type: string
+          default: ''
+          maxLength: 100
+        term_months:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        interest_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,4})?$
+          nullable: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/Status26fEnum'
+          default: SUBMITTED
+        payload: {}
+        borrower:
+          type: integer
+        lender:
+          type: integer
+          nullable: true
+        assessment:
+          type: integer
+          nullable: true
+      required:
+      - applied_amount
+      - borrower
+      - lender
+    PaginatedAIReputationResultList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AIReputationResult'
+    PaginatedAdminLogEntryList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminLogEntry'
+    PaginatedAssessmentList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Assessment'
+    PaginatedBlockchainTransactionList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlockchainTransaction'
+    PaginatedBorrowerAccountList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BorrowerAccount'
+    PaginatedBorrowerFinancialProfileList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BorrowerFinancialProfile'
+    PaginatedBorrowerLoanList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BorrowerLoan'
+    PaginatedCompactBorrowerList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompactBorrower'
+    PaginatedConsentList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Consent'
+    PaginatedCreditFeatureList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreditFeature'
+    PaginatedCreditProfileList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreditProfile'
+    PaginatedDataExchangeList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DataExchange'
+    PaginatedDataRoutingPolicyList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/DataRoutingPolicy'
+    PaginatedIntegrationRequestList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationRequest'
+    PaginatedLenderList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Lender'
+    PaginatedLoanApplicationList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/LoanApplication'
+    PaginatedRepaymentRecordList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RepaymentRecord'
+    PaginatedSmartContractResultList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/SmartContractResult'
+    PatchedBorrowerAccountRequest:
+      type: object
+      properties:
+        account_reference:
+          type: string
+          default: ''
+          maxLength: 128
+        account_name:
+          type: string
+          default: ''
+          maxLength: 255
+        customer_id:
+          type: string
+          default: ''
+          maxLength: 64
+        metadata: {}
+        borrower:
+          type: integer
+        lender:
+          type: integer
+    PatchedBorrowerFinancialProfileRequest:
+      type: object
+      properties:
+        transaction_frequency:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        income_frequency:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        cash_flow_patterns: {}
+        savings:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        account_activity: {}
+        active_loans:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        total_outstanding_debt:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        monthly_repayment:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        previous_loans:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        debt_to_income_ratio:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,5}(?:\.\d{0,4})?$
+          default: '0.0000'
+        borrower:
+          type: integer
+    PatchedBorrowerLoanRequest:
+      type: object
+      properties:
+        loan_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+        lender:
+          type: integer
+        loan_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        loan_date:
+          type: string
+          format: date
+          nullable: true
+        loan_duration_months:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        interest_rate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,4}(?:\.\d{0,4})?$
+          default: '0.0000'
+        outstanding_balance:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        status:
+          type: string
+          minLength: 1
+          default: ACTIVE
+          maxLength: 30
+    PatchedBorrowerRequest:
+      type: object
+      properties:
+        borrower_reference:
+          type: string
+          minLength: 1
+          maxLength: 64
+        nida_number:
+          type: string
+          nullable: true
+          maxLength: 128
+        is_active:
+          type: boolean
+          default: true
+        customer_id:
+          type: string
+          default: ''
+          maxLength: 64
+        age:
+          type: integer
+          maximum: 32767
+          minimum: 0
+          nullable: true
+        gender:
+          type: string
+          maxLength: 20
+        employment_status:
+          type: string
+          maxLength: 50
+        income:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,12}(?:\.\d{0,4})?$
+          nullable: true
+        business_information: {}
+        account_information: {}
+        data_conflicts: {}
+    PatchedConsentRequest:
+      type: object
+      properties:
+        consent_id:
+          type: string
+          minLength: 1
+          maxLength: 64
+        purpose:
+          type: string
+          minLength: 1
+          maxLength: 255
+        granted_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ConsentStatusEnum'
+          default: ACTIVE
+        borrower:
+          type: integer
+        lender:
+          type: integer
+    PatchedCreditProfileRequest:
+      type: object
+      properties:
+        profile_data: {}
+        source_version:
+          type: string
+          minLength: 1
+          default: '1'
+          maxLength: 64
+        borrower:
+          type: integer
+        integration_request:
+          type: integer
+          nullable: true
+    PatchedDataRoutingPolicyRequest:
+      type: object
+      properties:
+        policy_id:
+          type: string
+          minLength: 1
+          maxLength: 64
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        lender_fields: {}
+        ai_fields: {}
+        blockchain_fields: {}
+        active:
+          type: boolean
+          default: true
+        version:
+          type: string
+          minLength: 1
+          default: '1'
+          maxLength: 64
+    PatchedLenderRequest:
+      type: object
+      properties:
+        lender_id:
+          type: string
+          minLength: 1
+          maxLength: 64
+        institution_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        institution_type:
+          type: string
+          minLength: 1
+          maxLength: 100
+        api_base_url:
+          type: string
+          format: uri
+          minLength: 1
+          maxLength: 200
+        api_status:
+          allOf:
+          - $ref: '#/components/schemas/ApiStatusEnum'
+          default: DISCONNECTED
+        authentication_method:
+          type: string
+          minLength: 1
+          default: API_KEY
+          maxLength: 50
+    PatchedRepaymentRecordRequest:
+      type: object
+      properties:
+        repayment_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        repayment_date:
+          type: string
+          format: date
+          nullable: true
+        due_date:
+          type: string
+          format: date
+          nullable: true
+        days_overdue:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        missed_payments:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        late_payments:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        default_status:
+          type: string
+          default: ''
+          maxLength: 20
+        borrower:
+          type: integer
+        lender:
+          type: integer
+        loan:
+          type: integer
+    RepaymentRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        repayment_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        repayment_date:
+          type: string
+          format: date
+          nullable: true
+        due_date:
+          type: string
+          format: date
+          nullable: true
+        days_overdue:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        missed_payments:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        late_payments:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        default_status:
+          type: string
+          default: ''
+          maxLength: 20
+        borrower:
+          type: integer
+        lender:
+          type: integer
+        loan:
+          type: integer
+      required:
+      - borrower
+      - created_at
+      - id
+      - lender
+      - loan
+      - updated_at
+    RepaymentRecordRequest:
+      type: object
+      properties:
+        repayment_amount:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,14}(?:\.\d{0,4})?$
+          default: '0.0000'
+        repayment_date:
+          type: string
+          format: date
+          nullable: true
+        due_date:
+          type: string
+          format: date
+          nullable: true
+        days_overdue:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        missed_payments:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        late_payments:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+          default: 0
+        default_status:
+          type: string
+          default: ''
+          maxLength: 20
+        borrower:
+          type: integer
+        lender:
+          type: integer
+        loan:
+          type: integer
+      required:
+      - borrower
+      - lender
+      - loan
+    SmartContractResult:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        assessment_reference:
+          type: string
+          readOnly: true
+        transaction_hash:
+          type: string
+          readOnly: true
+        block_number:
+          type: integer
+          readOnly: true
+        risk_band:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        credit_score:
+          type: integer
+          maximum: 32767
+          minimum: 0
+        ruleset_version:
+          type: string
+          maxLength: 64
+        contract_address:
+          type: string
+          maxLength: 255
+        raw_result: {}
+        assessment:
+          type: integer
+      required:
+      - assessment
+      - assessment_reference
+      - block_number
+      - contract_address
+      - created_at
+      - credit_score
+      - id
+      - risk_band
+      - ruleset_version
+      - transaction_hash
+      - updated_at
+    Status26fEnum:
+      enum:
+      - SUBMITTED
+      - ASSESSED
+      - APPROVED
+      - DECLINED
+      type: string
+      description: |-
+        * `SUBMITTED` - Submitted
+        * `ASSESSED` - Assessed
+        * `APPROVED` - Approved
+        * `DECLINED` - Declined
+    SystemEnum:
+      enum:
+      - LENDER
+      - AI
+      - BLOCKCHAIN
+      type: string
+      description: |-
+        * `LENDER` - Lender
+        * `AI` - Ai
+        * `BLOCKCHAIN` - Blockchain
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
+servers:
+- url: http://127.0.0.1:8000
+  description: DAIRE Central System (local)

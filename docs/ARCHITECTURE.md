@@ -120,6 +120,36 @@ Central System (Credit Information Hub) inashikilia data ghafi. Contract inapoke
       inafanya uchambuzi wa kina, trends, na mapendekezo
 ```
 
+## 3.1 KANUNI YA DHAHABU — matokeo ya AI na blockchain yanapita KWENYE CENTRAL KWANZA
+
+Engines haziwahi kuwasiliana na benki moja kwa moja. Mtiririko ni huu, kwa mpangilio huu:
+
+```
+[1] Central inafungua assessment kwenye borrower ALIYOUNGANISHWA (NIDA: NMB + CRDB)
+[2] Central -> AI:      POST /api/assessments/{ref}/ai-reputation/
+      matokeo yanahifadhiwa CENTRAL KWANZA (core_aireputationresult)
+[3] Central -> Chain:   POST /api/assessments/{ref}/blockchain-score/
+      matokeo yanahifadhiwa CENTRAL KWANZA (core_smartcontractresult
+      + core_blockchaintransaction — tx hash ya on-chain ndiyo uthibitisho)
+[4] BILDI YA MWISHO:    POST /api/borrowers/{id}/broadcast-result/
+      inasoma matokeo yote mawili YA ASSESSMENT ILEILE kutoka kwenye storage,
+      inayafunga kwenye bahasha moja (results.ai + results.blockchain),
+      inaandika DataExchange (audit), KISHA inasukuma kwa NMB/CRDB
+```
+
+Udhibiti uliotekelezwa kwenye code (`broadcast_result`):
+
+- Kupasha bila matokeo yaliyohifadhiwa -> **409** ("Score first, then broadcast"). Benki haiwezi kupokea result Central isiyokuwa nayo.
+- Matokeo ya engine zote mbili yanatoka kwenye **assessment moja** — hakuna kuchanganya score mpya ya chain na score ya zamani ya AI.
+- Kila push inaandikwa `core_dataexchange` — Central inajua kilichotoka, lini, na kwa nani.
+- Benki zinapata matokeo kwa **kuuliza Central** (`/api/borrowers/search/`, `/api/assessments/{ref}/ai-result/`), siyo kwa kuuliza engines moja kwa moja.
+
+Kwa nini kanuni hii ni muhimu:
+
+1. **Audit** — kila result inayofika benki ina nakala yake kwenye Central yenye timestamp, model_version, na tx hash. Mzozo wowote unatatuliwa kwa kulinganisha na Central.
+2. **Usalama** — engines (AI model, blockchain RPC) hazipati anwani za benki wala la kujua walipa wahusika. Nguvu ya kusambaza ni ya Central pekee.
+3. **Ubora wa data** — benki inapokea result iliyounganishwa (NMB + CRDB pamoja) kutoka kwenye assessment moja, siyo vipande vya engine tofauti.
+
 ---
 
 ## 4. Nani anaruhusiwa kufanya nini

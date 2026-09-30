@@ -189,10 +189,13 @@ The applied amount becomes `applied_loan_amount` in the scoring profile: the AI 
 | `score_inputs` | JSON — features used |
 | `score_explanation` | JSON — reason codes |
 
-### `core_aireputationresult` vs `core_smartcontractresult` — AI and chain kept separate
+### `core_aireputationresult` vs `core_smartcontractresult` — AI and chain results land HERE first
+
+**Golden rule:** engine results are stored in these tables before anything is broadcast. Lenders only ever receive what Central holds — `broadcast-result` returns **409** when neither result exists for the assessment, and both results it sends come from the same assessment row.
+
 | Table | Stores |
 |---|---|
-| `core_aireputationresult` (1:1 Assessment) | AI layer only: `reputation`, `score`, `risk_level`, `behavior_summary`, `model_version`, `raw_result` JSON |
+| `core_aireputationresult` (1:1 Assessment) | AI layer only: `reputation`, `score`, `risk_level`, `behavior_summary`, `model_version`, `raw_result` JSON (decision, credit_grade, basel_metrics, consensus_metrics…) |
 | `core_smartcontractresult` (1:1 Assessment) | Chain only: `credit_score`, `ruleset_version`, `contract_address`, `raw_result` JSON |
 
 ### `core_blockchaintransaction` — tx proofs (many per assessment)

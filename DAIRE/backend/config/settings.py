@@ -235,11 +235,27 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "DAIRE Central System API",
 
     "DESCRIPTION": (
-        "Consent-aware lender integration and "
-        "assessment orchestration API."
+        "Consent-aware lender integration and assessment orchestration API.\n\n"
+        "The lender network is **NMB (LDR-NMB-02) and CRDB (LDR-CRDB-01) only** — "
+        "pushes from any other lender_id are rejected. Lenders merge on "
+        "`nida_number`: the same person at both banks becomes ONE central borrower "
+        "and a single assessment scores the merged profile.\n\n"
+        "Machine-checkable schema of record: `docs/openapi-schema.yml` "
+        "(regenerate with `./export_openapi.sh`). Human-readable contracts: "
+        "`docs/API_ENDPOINTS.md` and `DAIRE/LENDER_SUBSYSTEM_README.md`."
     ),
 
-    "VERSION": "1.0.0",
+    "VERSION": "1.1.0",
+
+    # Deterministic exports: sort everything, pin the server, keep the file
+    # stable across runs so diffs only show real API changes.
+    "SORT_OPERATION_PARAMETERS": True,
+    "SORT_SCHEMAS": True,
+    "COMPONENT_SPLIT_REQUEST": True,
+    "SERVERS": [{"url": "http://127.0.0.1:8000", "description": "DAIRE Central System (local)"}],
+
+    # Serialize DecimalFields as strings (Django default) and mark them clearly.
+    "ENUM_ADD_EXPLICIT_BLANK_NULL_CHOICE": False,
 }
 
 

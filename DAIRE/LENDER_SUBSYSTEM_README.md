@@ -365,13 +365,13 @@ Use the following prompt when creating the first lender subsystem:
 
 > Build a production-ready lender data subsystem named `DAIRE NMB Lender Subsystem`. It must expose an authenticated `GET /borrowers?borrower_reference={id}` endpoint for DAIRE Central System. Implement lender-owned models for customers, accounts, transactions, balances, loans, repayments, identity verification, consent, and data-sharing audit logs. Return the exact response contract in `LENDER_SUBSYSTEM_README.md` — including `nida_number` on every borrower and `loan_application` when a new loan is requested. Do not calculate the final cross-lender credit score. Include environment configuration, database migrations, seed data, API authentication, validation, rate limiting, audit logging, OpenAPI documentation, automated tests, Docker support, and a README explaining how to run it. Ensure a borrower lookup can only return the requested borrower, and return 404 when no match exists. Use ISO dates, numeric monetary values, stable IDs, source metadata, and TZS currency support. The only other subsystem is the CRDB duplicate — change configuration and adapters, never the contract.
 
-## 10. Duplication guide
+## 10. Duplication guide (NMB → CRDB — the only duplication)
 
-When duplicating this lender subsystem:
+The network has exactly two members, so the guide is used once, for CRDB:
 
 1. Copy the project.
 2. Rename the application and branding.
-3. Change `LENDER_ID`, institution name, and institution type.
+3. Change `LENDER_ID` to `LDR-CRDB-01` (or the CRDB id registered in Central), institution name, and institution type.
 4. Replace the internal customer/account/transaction adapters.
 5. Keep the external JSON field names unchanged.
 6. Keep the endpoint path unchanged.
@@ -379,6 +379,8 @@ When duplicating this lender subsystem:
 8. Configure separate credentials and database storage.
 9. Run the contract test against the new lender.
 10. Verify that the same borrower lookup returns only that lender's records.
+
+No third lender may be onboarded without a governance decision — Central rejects unregistered `lender_id`s by design.
 
 The external contract must remain stable even when the internal lender database schema differs.
 
@@ -696,22 +698,23 @@ interface by default (`/api/v1/score/*`). It has no lender-data routes.
 - In Central, register the lender with its `api_base_url` equal to the
   middleware/base URL that serves the receiver (e.g. `http://172.16.47:4300`).
 
-### Appendix C — Central-side registration
+### Appendix C — Central-side registration (the two members only)
 
-Register the lender in DAIRE Central with `api_base_url` set to the URL that
-serves **both** the borrower pull and the broadcast receiver. Example for the
-dev stand-in on port 4300:
+Register each lender in DAIRE Central with `api_base_url` set to the URL that
+serves **both** the borrower pull and the broadcast receiver. The registered
+members are:
 
 ```json
-{
-  "lender_id": "LDR-DEMO-FLOW",
-  "institution_name": "Demo Flow Bank",
-  "institution_type": "Digital Lender",
-  "api_base_url": "http://172.16.47:4300",
-  "api_status": "CONNECTED",
-  "authentication_method": "API_KEY"
-}
+[
+  { "lender_id": "LDR-NMB-02", "institution_name": "NMB Bank Microfinance", "institution_type": "Commercial Bank", "api_status": "CONNECTED" },
+  { "lender_id": "LDR-CRDB-01", "institution_name": "CRDB Bank Plc", "institution_type": "Commercial Bank", "api_status": "CONNECTED" }
+]
 ```
+
+Dev stand-ins live at `http://127.0.0.1:8000/api/mock-lender/NMB` and
+`/api/mock-lender/CRDB` (other names get 404). To retire a lender, remove its
+rows with `python manage.py prune_lenders --yes` — or delete it from the UI,
+which cascade-deletes all connected data (204).
 
 The backend then broadcasts to `{api_base_url}/api/daire/central/receive/` and
 routes `GET /borrowers?borrower_reference=...` to `{api_base_url}/borrowers`.

@@ -40,6 +40,32 @@ Base URLs:
 
 ---
 
+## 0.1 GOLDEN RULE — results reach Central FIRST, lenders second
+
+AI and blockchain engines **never call a lender directly**. The flow is strictly:
+
+```
+[1] Central opens an assessment on the MERGED borrower (NIDA-unified across NMB + CRDB)
+[2] Central → AI engine        POST /api/assessments/{ref}/ai-reputation/
+        AI result is STORED in Central first  (core_aireputationresult)
+[3] Central → Blockchain       POST /api/assessments/{ref}/blockchain-score/
+        Chain result is STORED in Central first (core_smartcontractresult
+        + core_blockchaintransaction) and the raw on-chain tx is the proof
+[4] ONLY THEN may results leave: POST /api/borrowers/{id}/broadcast-result/
+        reads BOTH stored results from the SAME assessment, wraps them in the
+        §5.1 envelope (results.ai + results.blockchain), logs a DataExchange
+        audit row, and pushes to each NMB/CRDB lender webhook
+```
+
+Guarantees enforced in code (`broadcast_result` in `DAIRE/backend/core/views.py`):
+
+* Broadcasting with **no stored AI/blockchain result** → **409** `No AI or blockchain result exists for this borrower. Score first, then broadcast.` — a lender can never receive a result Central does not hold.
+* Both engines' results come from the **same assessment** — no mixing of a fresh blockchain score with a stale AI score.
+* Every outbound push is audited in `core_dataexchange` (`system=LENDER, direction=PUSH, operation=broadcast_credit_result`) with the exact payload — Central always knows what left, when, and to whom.
+* Lenders pull results by **asking Central** (`GET /api/borrowers/search/`, `/api/assessments/{ref}/ai-result/`), never by querying the engines themselves.
+
+---
+
 ## 1. LENDER → CENTRAL SYSTEM (sending data in)
 
 **Endpoint:** `POST {CENTRAL_URL}/api/lender-data/receive/`
@@ -51,7 +77,7 @@ Base URLs:
 
 ```json
 {
-  "lender_id": "LDR-DEMO-FLOW",
+  "lender_id": "LDR-NMB-02",
   "borrower_reference": "1001",
   "account_reference": "8834010",
   "nida_number": "19551015157027220748",
@@ -77,7 +103,7 @@ Base URLs:
 
 | Column | Type | Required | Description |
 |---|---|---|---|
-| `lender_id` | string | ✅ | Exact lender id registered in Central (e.g. `LDR-DEMO-FLOW`) |
+| `lender_id` | string | ✅ | Exact lender id registered in Central (e.g. `LDR-NMB-02` (NMB) or `LDR-CRDB-01` (CRDB)) |
 | `borrower_reference` | string | ✅ | Central's unique borrower id (or lender's local id to link) |
 | `account_reference` | string | ✅ | Account number; falls back to `borrower_reference` if absent |
 | `nida_number` | string | ⬜ | Optional national id — global unique customer key |
@@ -101,7 +127,7 @@ A **flat contract** (lender fields at top level + `lender_id`) is also accepted.
 ```json
 {
   "received": true,
-  "lender_id": "LDR-DEMO-FLOW",
+  "lender_id": "LDR-NMB-02",
   "borrower_reference": "1001",
   "evidence_sha256": "9f2c1a…e7",
   "status": "STORED"
@@ -652,9 +678,23 @@ Records the underwriting verdict on an application and links the deciding assess
 
 **Response 200** — `{ "status": "DECISION_RECORDED", "application": { …LoanApplicationSerializer… } }` with `status` and `assessment_reference` updated. The unified borrower payload (§5.1.1) then shows the new status, and the frontend borrower detail view renders it with the linked assessment.
 
-### 5.2 Channel B — full result returned to the requesting lender (API response enrichment)
+### 5.2 Channel B — the §0.1 rule in practice: broadcast to lenders
 
-When the lender asked for a score through the Central System, Central joins the on-chain result with the AI result and returns one enriched object:
+Central assembles the combined result from its OWN stored records, then pushes to each lender linked to the borrower:
+
+```http
+POST /api/borrowers/{id}/broadcast-result/     { "assessment_reference": "ASM-2026-0001" }
+```
+
+Order of operations (all inside Central before any lender is contacted):
+
+1. Resolve the assessment (explicit reference or the borrower's latest).
+2. Load `AIReputationResult` + `SmartContractResult` **from Central's own tables** for that assessment. Neither exists → **409**, nothing is sent.
+3. Wrap into the envelope below — `results.ai` and `results.blockchain` both present (or `null` if that engine has not scored), `result` mirroring the most recent one.
+4. Audit `core_dataexchange` (PUSH/broadcast_credit_result) with the exact payload.
+5. Push to each lender's registered receiver `{api_base_url}/api/daire/central/receive/`.
+
+The envelope each lender receives (example):
 
 ```json
 {
@@ -684,6 +724,25 @@ When the lender asked for a score through the Central System, Central joins the 
   "decision_hint": "APPROVE — band VERY_GOOD, PD 18.4%"
 }
 ```
+
+> **Note:** the illustrative object above uses the middleware's field names. The
+> production broadcast (Channel B / §5.2) uses the Central envelope: `results.ai`
+> (`reputation`, `score` 0–1 as string, `risk_level`, `behavior_summary`,
+> `model_version`) and `results.blockchain` (`credit_score`, `ruleset_version`,
+> `transaction_hash`, `block_number`, `risk_band`) — see the example in
+> `LENDER_SUBSYSTEM_README.md` §12.2, which matches `broadcast_result` exactly.
+
+### 5.2.1 Reading results back — lenders ask Central, not the engines
+
+A lender (or the frontend) never queries the AI engine or the chain directly for a
+result. Central exposes the stored ones:
+
+| Need | Call |
+|---|---|
+| Both results + audit trail | `GET /api/borrowers/search/?borrower_reference=…` → assessment fields + `loan_applications[]` |
+| Stored AI result for one assessment | `GET /api/assessments/{ref}/ai-result/` |
+| On-chain proof | `GET /api/assessments/{ref}/verify/` (checks tx status, returns `verified`) |
+| Full audit of what left Central | `GET /api/data-exchanges/?…` (`system=LENDER`, `operation=broadcast_credit_result`) |
 
 ---
 
@@ -736,7 +795,7 @@ curl -X POST http://localhost:5000/api/v1/webhooks \
   -H "Content-Type: application/json" \
   -d '{
     "url": "https://lender.example.com/daire/callback",
-    "lenderId": "LDR-DEMO-FLOW",
+    "lenderId": "LDR-NMB-02",
     "events": ["SCORE_CALCULATED", "SCORE_RECORDED", "INSUFFICIENT_EVIDENCE"]
   }'
 ```
@@ -749,7 +808,7 @@ curl -X POST http://localhost:5000/api/v1/webhooks \
   "webhook": {
     "id": "wh_9f8e7d6c5b4a3210",
     "url": "https://lender.example.com/daire/callback",
-    "lenderId": "LDR-DEMO-FLOW",
+    "lenderId": "LDR-NMB-02",
     "events": ["SCORE_CALCULATED", "SCORE_RECORDED", "INSUFFICIENT_EVIDENCE"],
     "createdAt": "2026-09-30T09:41:52.000Z"
   },
