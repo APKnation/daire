@@ -713,6 +713,70 @@ class LoanApplicationViewSet(mixins.CreateModelMixin, viewsets.ReadOnlyModelView
         if application.assessment_id:
             refresh_borrower_financial_profile(application.borrower)
 
+    @action(detail=True, methods=["post"], url_path="decision")
+    def decision(self, request, pk=None):
+        """Approve/decline an application and link the assessment that decided it.
+
+        POST /api/loan-applications/{id}/decision/
+
+        ::
+
+            {"decision": "APPROVED" | "DECLINED" | "ASSESSED",
+             "assessment_reference": "ASM-2026-0001",   # optional
+             "reason": "optional audit note"}
+
+        ``assessment_reference`` must belong to the same borrower. When omitted,
+        the borrower's most recent assessment is linked automatically if one
+        exists — an application is never left verdict-less without a note.
+        Admin log records the change for audit.
+        """
+        application = self.get_object()
+        decision = str(request.data.get("decision") or "").strip().upper()
+        allowed = (LoanApplication.Status.APPROVED, LoanApplication.Status.DECLINED, LoanApplication.Status.ASSESSED)
+        if decision not in allowed:
+            return Response(
+                {"detail": f"decision must be one of: {', '.join(allowed)}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        reference = str(request.data.get("assessment_reference") or "").strip()
+        if reference:
+            assessment = Assessment.objects.filter(assessment_reference=reference).first()
+            if assessment is None:
+                return Response({"detail": f"Assessment '{reference}' not found."}, status=status.HTTP_400_BAD_REQUEST)
+            if assessment.borrower_id != application.borrower_id:
+                return Response(
+                    {"detail": "That assessment belongs to a different borrower — it cannot be linked to this application."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            application.assessment = assessment
+        elif application.assessment_id is None:
+            latest = Assessment.objects.filter(borrower=application.borrower).order_by("-created_at").first()
+            if latest is not None:
+                application.assessment = latest
+
+        application.status = decision
+        application.save(update_fields=("status", "assessment", "updated_at"))
+
+        if request.user.is_authenticated:
+            LogEntry.objects.log_action(
+                user_id=request.user.pk,
+                content_type_id=ContentType.objects.get_for_model(LoanApplication).pk,
+                object_id=str(application.pk),
+                object_repr=application.application_reference or f"Application #{application.pk}",
+                action_flag=CHANGE,
+                change_message=(
+                    f"Application {decision}"
+                    + (f" — linked {application.assessment.assessment_reference}" if application.assessment else "")
+                    + (f" — {request.data.get('reason')}" if request.data.get("reason") else "")
+                ),
+            )
+
+        return Response({
+            "status": "DECISION_RECORDED",
+            "application": LoanApplicationSerializer(application).data,
+        })
+
 
 class RepaymentRecordViewSet(viewsets.ModelViewSet):
     queryset = RepaymentRecord.objects.select_related("borrower", "lender", "loan")

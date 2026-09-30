@@ -466,6 +466,12 @@ export class ApiService {
     return this.http.get<VerificationResult>(`/api/assessments/${reference}/verify/`);
   }
 
+  decideLoanApplication(id: number, decision: 'APPROVED' | 'DECLINED' | 'ASSESSED', assessmentReference?: string, reason?: string): Observable<LoanApplication> {
+    return this.http.post<{ status: string; application: LoanApplication }>(`/api/loan-applications/${id}/decision/`,
+      { decision, ...(assessmentReference ? { assessment_reference: assessmentReference } : {}), ...(reason ? { reason } : {}) },
+    ).pipe(map((response) => response.application));
+  }
+
   predictCreditRisk(data: any): Observable<any> {
     return this.http.post<any>('/api/predict_credit_risk/', data);
   }
