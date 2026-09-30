@@ -152,15 +152,6 @@ class Command(BaseCommand):
                 "status": Consent.Status.ACTIVE,
             },
             {
-                "consent_id": "CST-2026-003",
-                "borrower": borrowers["1002"],
-                "lender": lenders["LDR-EQT-03"],
-                "purpose": "Clean energy mini-grid expansion loan assessment",
-                "granted_at": now - timedelta(days=10),
-                "expires_at": now + timedelta(days=110),
-                "status": Consent.Status.ACTIVE,
-            },
-            {
                 "consent_id": "CST-2026-004",
                 "borrower": borrowers["1003"],
                 "lender": lenders["LDR-CRDB-01"],
