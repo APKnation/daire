@@ -230,6 +230,42 @@ class LenderViewSet(viewsets.ModelViewSet):
     queryset = Lender.objects.all()
     serializer_class = LenderSerializer
 
+    def destroy(self, request, *args, **kwargs):
+        """Delete a lender together with its connected data.
+
+        Lender rows are PROTECT-ed by accounts, loans, repayments, consents,
+        integration requests, applications and audit exchanges, so a plain
+        delete raises ProtectedError (the old 500). This performs the same
+        safe ordered cascade as ``manage.py prune_lenders`` inside one
+        transaction, audits it, and returns 204.
+        """
+        from django.db import transaction as db_transaction
+
+        lender = self.get_object()
+        with db_transaction.atomic():
+            RepaymentRecord.objects.filter(lender=lender).delete()
+            for loan in BorrowerLoan.objects.filter(lender=lender):
+                loan.delete()  # cascades any remaining repayments
+            LoanApplication.objects.filter(lender=lender).delete()
+            integration_requests = list(IntegrationRequest.objects.filter(lender=lender))
+            CreditProfile.objects.filter(integration_request__in=integration_requests).delete()
+            for integration_request in integration_requests:
+                integration_request.delete()
+            Consent.objects.filter(lender=lender).delete()  # after integration requests (PROTECT)
+            BorrowerAccount.objects.filter(lender=lender).delete()
+            DataExchange.objects.filter(lender=lender).delete()
+            if request.user.is_authenticated:
+                LogEntry.objects.log_action(
+                    user_id=request.user.pk,
+                    content_type_id=ContentType.objects.get_for_model(Lender).pk,
+                    object_id=str(lender.pk),
+                    object_repr=lender.lender_id,
+                    action_flag=CHANGE,
+                    change_message=f"Lender deleted with all connected data (prune cascade).",
+                )
+            lender.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     def create(self, request, *args, **kwargs):
         """Register a lender: assigns the lender_id record plus a fresh API key.
 
@@ -1075,13 +1111,23 @@ class MockLenderDataView(APIView):
     GET /api/mock-lender/borrowers?borrower_reference=1001
     Returns a normalized borrower payload so "Pull from all lenders" has a
     live target. Data varies deterministically per lender name + borrower.
+
+    The lender network is NMB + CRDB ONLY: requests for any other lender
+    return 404 so retired lenders can never serve data again.
     """
 
+    ALLOWED_MOCK_LENDERS = ("NMB", "CRDB")
+
     def get(self, request, base=None):
+        lender_name = request.query_params.get("lender_name") or base or "MOCK"
+        if not any(allowed in str(lender_name).upper() for allowed in self.ALLOWED_MOCK_LENDERS):
+            return Response(
+                {"detail": f"Lender '{lender_name}' is not part of the DAIRE network (NMB and CRDB only)."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         borrower_reference = str(request.query_params.get("borrower_reference") or "").strip()
         if not borrower_reference:
             return Response({"detail": "borrower_reference is required."}, status=status.HTTP_400_BAD_REQUEST)
-        lender_name = request.query_params.get("lender_name") or base or "MOCK"
         seed = f"{lender_name}:{borrower_reference}"
         rng = random.Random(seed)
         rng.seed(seed)
@@ -1131,9 +1177,17 @@ class MockLenderBroadcastView(APIView):
     """Development stand-in for a lender system receiving credit results.
 
     POST /api/mock-lender/<name>/broadcast — acknowledges any JSON payload.
+    NMB + CRDB only, same as MockLenderDataView.
     """
 
+    ALLOWED_MOCK_LENDERS = MockLenderDataView.ALLOWED_MOCK_LENDERS
+
     def post(self, request, base=None):
+        if base and not any(allowed in str(base).upper() for allowed in self.ALLOWED_MOCK_LENDERS):
+            return Response(
+                {"detail": f"Lender '{base}' is not part of the DAIRE network (NMB and CRDB only)."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         return Response({
             "received": True,
             "lender_system": base or "MOCK",
