@@ -501,6 +501,17 @@ After AI and blockchain scoring complete, Central pushes the final credit result
 to every lender linked to the borrower. This is what your subsystem must be able
 to **receive**.
 
+> **Where the results come from — the golden rule.** The AI engine and the smart
+> contract never talk to your subsystem. Scoring results land in **Central's own
+> database first** (`core_aireputationresult`, `core_smartcontractresult`,
+> `core_blockchaintransaction`), and Central will refuse to broadcast (HTTP 409)
+> until at least one engine result is stored for the assessment. Both results in
+> a broadcast always come from the **same assessment** — you never receive a
+> mismatched pair. Every push is audited in Central (`core_dataexchange`), so any
+> discrepancy is settled against Central's record. To re-read a result later,
+> ask Central (`GET /api/borrowers/search/`, `/api/assessments/{ref}/ai-result/`,
+> `/api/assessments/{ref}/verify/`) — never the engines.
+
 ### 12.1 Request
 
 Central sends an authenticated `POST` for each linked lender to a **fixed receive path**:
