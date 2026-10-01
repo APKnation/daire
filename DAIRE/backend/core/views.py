@@ -40,13 +40,12 @@ from .services import (
     merge_vendor_borrower_data, refresh_borrower_financial_profile, _get_json, _post_json,
     ExternalServiceUnavailable, record_exchange, active_routing_policy,
     explain_score, ensure_credit_profile, summarize_transactions, lender_broadcast_url,
-    api_keys_required,
+    api_keys_required, blockchain_dimensions, lender_pull_headers,
 )
 from .services import (
     AIReputationService, BlockchainScoreService, BlockchainVerificationService,
     FeatureGenerationService, _mask_private_borrower_fields,
 )
-from .services import blockchain_dimensions
 
 
 def _lender_api_key_from_headers(headers) -> str:
@@ -336,8 +335,11 @@ class LenderViewSet(viewsets.ModelViewSet):
                                    operation="pull_borrower_data", lender=lender,
                                    fields_sent=["borrower_reference"], payload={"borrower_reference": borrower_reference})
         try:
-            url = request.data.get("source_url") or f"{lender.api_base_url.rstrip('/')}/borrowers?{urlencode({'borrower_reference': borrower_reference})}"
-            payload = fields_for_destination(_get_json(url), "lender")
+            source_url = request.data.get("source_url")
+            if not source_url:
+                lookup = (getattr(lender, "lookup_path", "") or "borrowers").strip("/")
+                source_url = f"{lender.api_base_url.rstrip('/')}/{lookup}?{urlencode({'borrower_reference': borrower_reference})}"
+            payload = fields_for_destination(_get_json(source_url, headers=lender_pull_headers(lender)), "lender")
             profile = merge_vendor_borrower_data(lender=lender, borrower_reference=borrower_reference, payload=payload,
                                                   account_reference=request.data.get("account_reference") or payload.get("account_reference"))
             exchange.status = DataExchange.Status.COMPLETED
@@ -472,8 +474,11 @@ class BorrowerViewSet(viewsets.ModelViewSet):
             if parsed.query:
                 query.update(dict(parse_qsl(parsed.query)))
             base = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-            url = f"{base.rstrip('/')}/borrowers?{urlencode(query)}"
-            return _get_json(url)
+            # Each lender exposes its borrower lookup wherever it actually
+            # lives (lender.lookup_path, default "borrowers").
+            lookup = (getattr(lender, "lookup_path", "") or "borrowers").strip("/")
+            url = f"{base.rstrip('/')}/{lookup}?{urlencode(query)}"
+            return _get_json(url, headers=lender_pull_headers(lender))
 
         fetched, fetch_errors = {}, {}
         # Network waits happen concurrently; database merges below remain

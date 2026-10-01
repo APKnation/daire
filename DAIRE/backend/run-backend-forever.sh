@@ -15,7 +15,9 @@ fi
 
 if ! ss -tln | grep -q ":8000 "; then
   echo "[backend] starting on 0.0.0.0:8000"
-  nohup env \
+  # setsid: fully detach from the invoking shell's session so the server
+  # survives terminal/tool-session teardown, not just SIGHUP (nohup alone).
+  setsid nohup env \
     SECRET_KEY="${SECRET_KEY:-daire-demo-secret}" \
     DEBUG="${DEBUG:-True}" \
     ALLOWED_HOSTS="${ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0,172.17.16.76,172.17.16.47,172.17.16.70,daire.co.tz,*.daire.co.tz}" \

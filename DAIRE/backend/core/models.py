@@ -25,6 +25,12 @@ class Lender(TimestampedModel):
     institution_name = models.CharField(max_length=255)
     institution_type = models.CharField(max_length=100)
     api_base_url = models.URLField()
+    # Path appended to api_base_url when Central PULLS borrower data:
+    #   {api_base_url}/{lookup_path}?borrower_reference=...
+    # Defaults to the LENDER_SUBSYSTEM_README contract ({base}/borrowers);
+    # override per lender when the lookup lives on a different route
+    # (e.g. "api/daire/borrowers/" on the NMB lender backend).
+    lookup_path = models.CharField(max_length=255, default="borrowers", blank=True)
     api_status = models.CharField(max_length=20, choices=Status.choices, default=Status.DISCONNECTED)
     authentication_method = models.CharField(max_length=50, default="API_KEY")
     # SHA-256 of the lender's API key (plaintext is shown once at issuance and

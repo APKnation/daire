@@ -109,6 +109,20 @@ def blockchain_rpc_headers() -> dict[str, str]:
 LENDER_BROADCAST_PATH = "/api/daire/central/receive/"
 
 
+def lender_pull_headers(lender) -> dict[str, str] | None:
+    """Headers for Central's inbound PULL of borrower data from a lender.
+
+    Mirrors the broadcast credential logic: the lender validates its own
+    key, so Central presents the lender-issued credential
+    (``broadcast_api_key``) as ``X-API-Key`` — but only when key
+    enforcement is on (REQUIRE_API_KEYS=true); the default trusted-network
+    mode pulls keyless.
+    """
+    if not api_keys_required() or not getattr(lender, "broadcast_api_key", ""):
+        return None
+    return {"X-API-Key": lender.broadcast_api_key}
+
+
 def lender_broadcast_url(api_base_url: str) -> str:
     """The lender receive endpoint: {registered base URL}{LENDER_BROADCAST_PATH}.
 
@@ -128,6 +142,17 @@ def _get_json(url: str, headers: dict[str, str] | None = None) -> dict[str, Any]
         request_headers = {"Accept": "application/json", **(headers or {})}
         with urlopen(Request(url, headers=request_headers), timeout=lender_request_timeout()) as response:
             result = json.loads(response.read().decode())
+    except HTTPError as exc:
+        # Distinguish "host down" from "host answered with an error": the
+        # former needs the lender's service restarted, the latter (401/403)
+        # needs an auth fix — different owners, different remedies.
+        try:
+            body = exc.read().decode()[:200]
+        except Exception:
+            body = ""
+        raise ExternalServiceUnavailable(
+            f"Lender service answered HTTP {exc.code} for {url}: {body or exc.reason}".strip()[:300]
+        ) from exc
     except (OSError, ValueError, URLError) as exc:
         raise ExternalServiceUnavailable(
             f"Could not reach {url} — the service may be offline or unreachable from this host."
