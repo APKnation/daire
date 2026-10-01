@@ -63,6 +63,7 @@ Guarantees enforced in code (`broadcast_result` in `DAIRE/backend/core/views.py`
 * Both engines' results come from the **same assessment** — no mixing of a fresh blockchain score with a stale AI score.
 * Every outbound push is audited in `core_dataexchange` (`system=LENDER, direction=PUSH, operation=broadcast_credit_result`) with the exact payload — Central always knows what left, when, and to whom.
 * Lenders pull results by **asking Central** (`GET /api/borrowers/search/`, `/api/assessments/{ref}/ai-result/`), never by querying the engines themselves.
+* **Auto-broadcast is ON by default:** the last scoring call (`POST /api/assessments/{ref}/blockchain-score/`) already pushes the stored combined results to every linked lender in the same request. The golden rule is unchanged — results are still stored in Central before anything leaves, and every push is audited exactly the same way. Turn it off with the `auto_broadcast: false` body flag or the `AUTO_BROADCAST_RESULTS` env var (see §5.2).
 
 ---
 
@@ -685,6 +686,31 @@ Central assembles the combined result from its OWN stored records, then pushes t
 ```http
 POST /api/borrowers/{id}/broadcast-result/     { "assessment_reference": "ASM-2026-0001" }
 ```
+
+**Auto-broadcast (default ON).** The same push happens automatically when the
+assessment pipeline finishes: `POST /api/assessments/{ref}/blockchain-score/`
+accepts `{"auto_broadcast": true|false}` (default `true` unless
+`AUTO_BROADCAST_RESULTS=false` in the environment) and, right after storing the
+chain result, performs the push below against the same assessment and returns
+the outcome alongside the score:
+
+```json
+{
+  "credit_score": 680, "ruleset_version": "...",
+  "auto_broadcast": {
+    "enabled": true,
+    "assessment_reference": "ASM-2026-0001",
+    "broadcasts": [
+      { "lender": "NMB Bank", "status": "COMPLETED", "response": { "received": true } }
+    ]
+  }
+}
+```
+
+`broadcast-result` honours the same flag: with auto-broadcast enabled (the
+default) it responds `{"borrower_reference", "result_type", "auto_broadcast":{"enabled":true,"broadcasts":[...]}}`; with `auto_broadcast: false` nothing is
+sent and the response carries `"auto_broadcast": {"enabled": false}` plus a
+`detail` telling the caller to run the broadcast explicitly.
 
 Order of operations (all inside Central before any lender is contacted):
 

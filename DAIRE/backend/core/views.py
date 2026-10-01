@@ -684,9 +684,6 @@ def _push_results_to_lenders(borrower: Borrower, result_payload: dict[str, Any],
     along for audit. Every push (success or failure) is logged as a
     ``DataExchange`` (system=LENDER, direction=PUSH, operation=broadcast_credit_result).
     """
-    broadcast_reference = borrower.nida_number or borrower.borrower_reference
-    broadcast_reference = str(broadcast_reference) if broadcast_reference else str(borrower.borrower_reference)
-
     results = []
     sent_to = set()
     for account in borrower.accounts.select_related("lender").all():
@@ -694,7 +691,13 @@ def _push_results_to_lenders(borrower: Borrower, result_payload: dict[str, Any],
         if lender.id in sent_to:
             continue
         sent_to.add(lender.id)
-        per_lender_reference = lender.nida_number or account.customer_id or broadcast_reference
+        # The lender maps the result to its own customer by the reference it
+        # holds for that customer: the customer_id it reported on the account,
+        # falling back to the borrower's NIDA (the shared global id) and finally
+        # the central borrower_reference. The central reference always rides
+        # along for audit.
+        per_lender_reference = (str(account.customer_id) if account.customer_id
+                                else str(borrower.nida_number or borrower.borrower_reference))
         per_lender_payload = {
             **result_payload,
             "borrower_reference": per_lender_reference,

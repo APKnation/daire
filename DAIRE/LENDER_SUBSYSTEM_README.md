@@ -512,6 +512,14 @@ to **receive**.
 > ask Central (`GET /api/borrowers/search/`, `/api/assessments/{ref}/ai-result/`,
 > `/api/assessments/{ref}/verify/`) — never the engines.
 
+> **When to expect a broadcast.** Auto-broadcast is ON by default: Central pushes
+> the result to your receive endpoint automatically the moment the borrower's
+> assessment pipeline completes (right after the blockchain-score step) — no
+> manual trigger is required. The contract below applies unchanged. Central
+> operators can disable it globally (`AUTO_BROADCAST_RESULTS=false`) or per
+> request (`auto_broadcast: false`); then the result arrives only when Central
+> runs `POST /api/borrowers/{id}/broadcast-result/` explicitly.
+
 ### 12.1 Request
 
 Central sends an authenticated `POST` for each linked lender to a **fixed receive path**:

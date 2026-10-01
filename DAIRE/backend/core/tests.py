@@ -803,8 +803,17 @@ class AutoBroadcastTests(TestCase):
         BorrowerAccount.objects.create(
             borrower=self.borrower, lender=self.lender, account_reference="ACC-AUTO-1")
 
+    _counter = 0
+
+    @classmethod
+    def next_counter(cls) -> int:
+        cls._counter += 1
+        return cls._counter
+
     def _score_both_engines(self):
-        assessment = Assessment.objects.create(borrower=self.borrower)
+        assessment = Assessment.objects.create(
+            borrower=self.borrower,
+            assessment_reference=f"ASM-AUTO-{AutoBroadcastTests.next_counter()}")
         AIReputationResult.objects.create(
             assessment=assessment, model_version="test",
             raw_result={"models_used": ["unit-test"]}, score=660)

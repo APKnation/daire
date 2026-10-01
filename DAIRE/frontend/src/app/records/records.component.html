@@ -351,7 +351,7 @@
                 @let guidance = r.actionable_guidance?.length ? r.actionable_guidance : r.raw_result?.['actionable_guidance'];
                 @if (guidance?.length) {
                   <details class="mt-2">
-                    <summary class="cursor-pointer text-[11px] font-semibold text-[#024ad8]">💡 Borrower Suggestions ({{ guidance.length }})</summary>
+                    <summary class="cursor-pointer text-[11px] font-semibold text-[#024ad8]">Borrower Suggestions ({{ guidance.length }})</summary>
                     <ol class="mt-1.5 list-none space-y-1.5 pl-0">
                       @for (g of guidance; track g; let i = $index) {
                         <li class="flex gap-2 text-[11px] text-[#1a1a1a]">

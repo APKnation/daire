@@ -170,7 +170,7 @@
             <div>
               <p class="text-xs font-semibold uppercase tracking-widest" [class]="dec === 'APPROVED' ? 'text-emerald-600' : dec === 'DECLINED' ? 'text-red-600' : 'text-amber-600'">Underwriting Decision</p>
               <p class="mt-1 text-2xl font-black tracking-tight" [class]="dec === 'APPROVED' ? 'text-emerald-700' : dec === 'DECLINED' ? 'text-red-700' : 'text-amber-700'">
-                {{ dec === 'APPROVED' ? '✅ APPROVED' : dec === 'CONDITIONAL_APPROVAL' ? '⚠️ CONDITIONAL' : dec === 'MANUAL_REVIEW' ? '⚠️ MANUAL REVIEW' : '🚫 DECLINED' }}
+                {{ dec === 'APPROVED' ? 'APPROVED' : dec === 'CONDITIONAL_APPROVAL' ? 'CONDITIONAL' : dec === 'MANUAL_REVIEW' ? 'MANUAL REVIEW' : 'DECLINED' }}
               </p>
               @if (raw['decision_label']) {
                 <p class="mt-0.5 text-sm font-medium text-[#3d3d3d]">{{ raw['decision_label'] }}</p>
@@ -257,7 +257,7 @@
       <!-- ── BORROWER SUGGESTIONS (kept — the borrower-facing value) ── -->
       @if (raw && raw['actionable_guidance']?.length) {
         <div class="rounded-2xl border border-[#dbeafe] bg-[#eff6ff] p-6">
-          <p class="mb-1 text-xs font-bold uppercase tracking-widest text-[#024ad8]">💡 Suggestions for the Borrower</p>
+          <p class="mb-1 text-xs font-bold uppercase tracking-widest text-[#024ad8]">Suggestions for the Borrower</p>
           <p class="mb-4 text-xs text-[#636363]">Share these recommendations with the borrower to help them improve their credit standing.</p>
           <ol class="space-y-3">
             @for (g of raw['actionable_guidance']; track g; let i = $index) {
