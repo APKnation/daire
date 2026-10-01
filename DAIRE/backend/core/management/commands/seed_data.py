@@ -52,12 +52,17 @@ class Command(BaseCommand):
         # ---------------------------------------------------------------------
         lenders_data = [
             {
-                "lender_id": "LDR-CRDB-01",
+                # CRDB's live lender subsystem: the NMB lender Django backend
+                # (nmb_backend.urls) serves on 172.17.16.70:8002 — broadcasts go
+                # to /api/daire/central/receive/ and pulls to /api/daire/borrowers/
+                # (lookup_path override; the default contract path is /borrowers).
+                "lender_id": "1200",
                 "institution_name": "CRDB Bank Plc",
                 "institution_type": "Commercial Bank",
-                "api_base_url": "http://127.0.0.1:8000/api/mock-lender/CRDB",
+                "api_base_url": "http://172.17.16.70:8002",
+                "lookup_path": "api/daire/borrowers/",
                 "api_status": Lender.Status.CONNECTED,
-                "authentication_method": "MUTUAL_TLS",
+                "authentication_method": "API_KEY",
             },
             {
                 "lender_id": "LDR-NMB-02",
@@ -111,12 +116,12 @@ class Command(BaseCommand):
         # ---------------------------------------------------------------------
         accounts_data = [
             # (borrower ref, lender key, account ref, account name)
-            ("1001", "LDR-CRDB-01", "7712001", "Atanas · CRDB main"),
+            ("1001", "1200", "7712001", "Atanas · CRDB main"),
             ("1001", "LDR-NMB-02", "8834010", "Atanas · NMB savings"),
             ("1002", "LDR-NMB-02", "8835220", "John · NMB main"),
-            ("1003", "LDR-CRDB-01", "7713854", "Amina · CRDB main"),
+            ("1003", "1200", "7713854", "Amina · CRDB main"),
             ("1005", "LDR-NMB-02", "8836902", "Antony · NMB main"),
-            ("1005", "LDR-CRDB-01", "7714533", "Antony · CRDB savings"),
+            ("1005", "1200", "7714533", "Antony · CRDB savings"),
         ]
         seeded_accounts = 0
         for borrower_ref, lender_key, account_ref, account_name in accounts_data:
@@ -136,7 +141,7 @@ class Command(BaseCommand):
             {
                 "consent_id": "CST-2026-001",
                 "borrower": borrowers["1001"],
-                "lender": lenders["LDR-CRDB-01"],
+                "lender": lenders["1200"],
                 "purpose": "Working capital facility underwriting and credit normalization",
                 "granted_at": now - timedelta(days=20),
                 "expires_at": now + timedelta(days=70),
@@ -154,7 +159,7 @@ class Command(BaseCommand):
             {
                 "consent_id": "CST-2026-004",
                 "borrower": borrowers["1003"],
-                "lender": lenders["LDR-CRDB-01"],
+                "lender": lenders["1200"],
                 "purpose": "Fleet logistics working capital line appraisal",
                 "granted_at": now - timedelta(days=5),
                 "expires_at": now + timedelta(days=85),
@@ -163,7 +168,7 @@ class Command(BaseCommand):
             {
                 "consent_id": "CST-2026-006",
                 "borrower": borrowers["1005"],
-                "lender": lenders["LDR-CRDB-01"],
+                "lender": lenders["1200"],
                 "purpose": "Enterprise SME line of credit and reputation scoring",
                 "granted_at": now - timedelta(days=30),
                 "expires_at": now + timedelta(days=150),

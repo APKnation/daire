@@ -725,18 +725,25 @@ members are:
 
 ```json
 [
-  { "lender_id": "LDR-NMB-02", "institution_name": "NMB Bank Microfinance", "institution_type": "Commercial Bank", "api_status": "CONNECTED" },
-  { "lender_id": "LDR-CRDB-01", "institution_name": "CRDB Bank Plc", "institution_type": "Commercial Bank", "api_status": "CONNECTED" }
+  { "lender_id": "LDR-NMB-02", "institution_name": "NMB Bank Microfinance", "institution_type": "Commercial Bank", "api_status": "CONNECTED", "api_base_url": "http://127.0.0.1:8000/api/mock-lender/NMB" },
+  { "lender_id": "1200", "institution_name": "CRDB Bank Plc", "institution_type": "Commercial Bank", "api_status": "CONNECTED", "api_base_url": "http://172.17.16.70:8002", "lookup_path": "api/daire/borrowers/" }
 ]
 ```
 
-Dev stand-ins live at `http://127.0.0.1:8000/api/mock-lender/NMB` and
-`/api/mock-lender/CRDB` (other names get 404). To retire a lender, remove its
-rows with `python manage.py prune_lenders --yes` — or delete it from the UI,
-which cascade-deletes all connected data (204).
+> **Live deployment note (2026-10-01):** the lender subsystem on
+> `172.17.16.70` runs its Django app (`nmb_backend.urls`) on **port 8002**.
+> Central broadcasts to `http://172.17.16.70:8002/api/daire/central/receive/`
+> and pulls from `http://172.17.16.70:8002/api/daire/borrowers/` (registered
+> via `lookup_path`, since the default pull route `/borrowers` differs).
+> Dev stand-ins still live at `http://127.0.0.1:8000/api/mock-lender/NMB` and
+> `/api/mock-lender/CRDB` (other names get 404). To retire a lender, remove its
+> rows with `python manage.py prune_lenders --yes` — or delete it from the UI,
+> which cascade-deletes all connected data (204).
 
 The backend then broadcasts to `{api_base_url}/api/daire/central/receive/` and
-routes `GET /borrowers?borrower_reference=...` to `{api_base_url}/borrowers`.
+routes `GET {lookup_path}?borrower_reference=...` to the lender (default
+`lookup_path` is `borrowers`, i.e. `{api_base_url}/borrowers`; per-lender
+override when the lender's lookup lives on another route).
 
 ### 12.5 Privacy rules
 

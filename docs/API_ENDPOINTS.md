@@ -36,7 +36,7 @@ Base URLs:
 | AI model service (portable scorecard) | `python score_pd.py` / wheel service | `nmb_credit_models.../portable/score_pd.py` |
 | Sepolia chain | chainId `11155111` | `contracts/DaireCreditScore.sol` |
 
-> **Lender network (2026-09-30): NMB + CRDB ONLY.** Registered lenders are `LDR-NMB-02` (NMB Bank Microfinance) and `LDR-CRDB-01` (CRDB Bank Plc). Pushes from any other `lender_id` are rejected (`404 Lender '<id>' is not registered`), and mock endpoints `/api/mock-lender/<OTHER>/…` return 404 as well. Retired lenders are removed with `python manage.py prune_lenders --yes`.
+> **Lender network (2026-10-01): NMB + CRDB ONLY.** Registered lenders are `LDR-NMB-02` (NMB Bank Microfinance) and `1200` (CRDB Bank Plc — live subsystem at `http://172.17.16.70:8002`, lookup_path `api/daire/borrowers/`). Pushes from any other `lender_id` are rejected (`404 Lender '<id>' is not registered`), and mock endpoints `/api/mock-lender/<OTHER>/…` return 404 as well. Retired lenders are removed with `python manage.py prune_lenders --yes`.
 
 ---
 

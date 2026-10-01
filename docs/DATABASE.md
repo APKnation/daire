@@ -3,7 +3,7 @@
 **Project:** DAIRE — Decentralized AI Reputation Engine
 **Database:** PostgreSQL 18 on **`127.0.0.1:5433`**, database **`daire`**, owner role **`daire`** (credentials in `DAIRE/backend/.env` as `DATABASE_URL=postgres://daire:…@127.0.0.1:5433/daire` — never committed). Schema defined by Django models in `DAIRE/backend/core/models.py`.
 **Role:** The Central System (Credit Information Hub) database is the **system of record** — it holds all raw, identifying borrower data. The blockchain holds **none** of it (see §5).
-**Lender network:** NMB (`LDR-NMB-02`) + CRDB (`LDR-CRDB-01`) only. Lenders merge on `nida_number`; retired lenders and their connected rows are removed with `python manage.py prune_lenders --yes` (dry-run default) or the cascade `DELETE /api/lenders/{id}/`.
+**Lender network:** NMB (`LDR-NMB-02`) + CRDB (lender_id `1200`, live subsystem `http://172.17.16.70:8002`) only. Lenders merge on `nida_number`; retired lenders and their connected rows are removed with `python manage.py prune_lenders --yes` (dry-run default) or the cascade `DELETE /api/lenders/{id}/`.
 
 Every `core_*` table inherits `created_at` + `updated_at` timestamps.
 
