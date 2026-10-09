@@ -4,7 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import { Subscription } from 'rxjs';
 import {
   AIReputationResult, ApiService, BlockchainTransaction, Borrower,
-  Consent, IntegrationRequest, Lender, Paged, PAGE_SIZE, SmartContractResult
+  Consent, IntegrationRequest, Lender, LoanApplication, Paged, PAGE_SIZE, SmartContractResult
 } from '../core/api.service';
 import { PagerComponent } from '../core/pager.component';
 
@@ -192,10 +192,81 @@ export class RecordsComponent implements OnInit, OnDestroy {
     return Number(borrower.financial_profile?.total_outstanding_debt || 0);
   }
 
+  /** Latest application per lender — what the borrower is currently asking for. */
+  currentApplications(borrower: Borrower): LoanApplication[] {
+    const apps = [...(borrower.loan_applications || [])];
+    apps.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    const seen = new Set<string>();
+    return apps.filter((app) => {
+      const key = app.lender_name || `#${app.lender ?? 'central'}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  appliedTotal(borrower: Borrower): number {
+    return this.currentApplications(borrower)
+      .reduce((sum, app) => sum + Number(app.applied_amount || 0), 0);
+  }
+
   paymentTotal(borrower: Borrower): number {
     return (borrower.loans || []).reduce(
       (total, loan) => total + loan.repayments.reduce((sum, payment) => sum + Number(payment.repayment_amount || 0), 0),
       0,
     );
+  }
+
+  /** Applications view mode: newest per lender, or every application row. */
+  applicationView: 'per-lender' | 'merged' = 'per-lender';
+  decidingId: number | null = null;
+  decisionError = '';
+
+  setApplicationView(view: 'per-lender' | 'merged'): void {
+    this.applicationView = view;
+  }
+
+  /** Per-lender: one row per lender (newest). Merged: every application, newest first. */
+  applicationRows(borrower: Borrower): LoanApplication[] {
+    return this.applicationView === 'per-lender'
+      ? this.currentApplications(borrower)
+      : [...(borrower.loan_applications || [])].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  }
+
+  decided(app: LoanApplication): boolean {
+    return app.status === 'APPROVED' || app.status === 'DECLINED';
+  }
+
+  decide(borrower: Borrower, app: LoanApplication, decision: 'APPROVED' | 'DECLINED'): void {
+    const verb = decision === 'APPROVED' ? 'Approve' : 'Decline';
+    if (!window.confirm(`${verb} application ${app.application_reference || '#' + app.id} (${Number(app.applied_amount).toLocaleString()} ${app.currency})?`)) return;
+    this.decidingId = app.id;
+    this.decisionError = '';
+    this.api.decideLoanApplication(app.id, decision).subscribe({
+      next: (updated) => {
+        // Refresh the unified profile so the applications table reflects the new status.
+        this.api.borrowerSearch('', '', borrower.borrower_reference).subscribe({
+          next: (data) => {
+            const fresh = data.find((b) => b.borrower_reference === borrower.borrower_reference);
+            if (fresh) this.selectedBorrower = fresh;
+            this.decidingId = null;
+            this.cdr.markForCheck();
+          },
+          error: () => {
+            // Fall back to patching the row in place if the re-fetch fails.
+            const rows = this.selectedBorrower?.loan_applications || [];
+            const idx = rows.findIndex((a) => a.id === updated.id);
+            if (idx >= 0) rows[idx] = updated;
+            this.decidingId = null;
+            this.cdr.markForCheck();
+          },
+        });
+      },
+      error: () => {
+        this.decisionError = `Could not record the ${decision === 'APPROVED' ? 'approval' : 'decline'}. Is the backend reachable?`;
+        this.decidingId = null;
+        this.cdr.markForCheck();
+      },
+    });
   }
 }

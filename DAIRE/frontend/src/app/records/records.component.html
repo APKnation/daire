@@ -33,7 +33,7 @@
   </header>
   <section class="card overflow-hidden">
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Institution</th>
@@ -46,14 +46,14 @@
         <tbody class="divide-y divide-[#e8e8e8]">
           @for (l of lenders; track l.lender_id) {
             <tr class="hover:bg-[#f7f7f7] transition-colors">
-              <td class="table-td">
+              <td class="table-td" data-label="Institution">
                 <strong class="block font-semibold text-[#1a1a1a]">{{ l.institution_name }}</strong>
                 <small class="font-mono text-xs text-[#9a9a9a]">{{ l.lender_id }}</small>
               </td>
-              <td class="table-td text-[#3d3d3d]">{{ l.institution_type }}</td>
-              <td class="table-td text-[#636363] font-mono text-xs">{{ l.api_base_url || '—' }}</td>
-              <td class="table-td text-[#636363]">{{ l.authentication_method || '—' }}</td>
-              <td class="table-td">
+              <td class="table-td text-[#3d3d3d]" data-label="Type">{{ l.institution_type }}</td>
+              <td class="table-td text-[#636363] font-mono text-xs" data-label="API URL">{{ l.api_base_url || '—' }}</td>
+              <td class="table-td text-[#636363]" data-label="Auth method">{{ l.authentication_method || '—' }}</td>
+              <td class="table-td" data-label="Status">
                 <span [class]="l.api_status === 'CONNECTED' ? 'badge-green' : 'badge-slate'">{{ l.api_status }}</span>
               </td>
             </tr>
@@ -96,7 +96,7 @@
       <span class="badge-green">Cross-lender totals</span>
     </div>
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Borrower Reference</th>
@@ -110,12 +110,12 @@
         <tbody class="divide-y divide-[#e8e8e8]">
           @for (b of borrowers; track b.borrower_reference) {
             <tr class="hover:bg-[#f7f7f7] transition-colors">
-              <td class="table-td font-semibold text-[#1a1a1a]">{{ b.borrower_reference }}</td>
-              <td class="table-td font-mono text-xs text-[#636363]">{{ b.customer_id || '—' }}</td>
-              <td class="table-td text-[#3d3d3d]">{{ b.source_lenders?.join(', ') || '—' }}</td>
-              <td class="table-td font-semibold text-[#1a1a1a]">{{ b.loans?.length || 0 }}</td>
-              <td class="table-td font-semibold text-[#1a1a1a]">{{ totalOutstanding(b) | number:'1.4-4' }}</td>
-              <td class="table-td"><button class="text-sm font-semibold text-[#024ad8] hover:text-[#0e3191]" (click)="selectBorrower(b)">View profile →</button></td>
+              <td class="table-td font-semibold text-[#1a1a1a]" data-label="Borrower">{{ b.borrower_reference }}</td>
+              <td class="table-td font-mono text-xs text-[#636363]" data-label="Customer ID">{{ b.customer_id || '—' }}</td>
+              <td class="table-td text-[#3d3d3d]" data-label="Lenders">{{ b.source_lenders?.join(', ') || '—' }}</td>
+              <td class="table-td font-semibold text-[#1a1a1a]" data-label="Loans">{{ b.loans?.length || 0 }}</td>
+              <td class="table-td amount font-semibold text-[#1a1a1a]" data-label="Outstanding (TSHS)"><span class="currency">{{ totalOutstanding(b) | number:'1.0-0' }}</span></td>
+              <td class="table-td" data-label="View"><button class="text-sm font-semibold text-[#024ad8] hover:text-[#0e3191]" (click)="selectBorrower(b)">View profile →</button></td>
             </tr>
           }
           @empty {
@@ -131,15 +131,35 @@
       <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <article class="card p-5"><span class="text-xs text-[#9a9a9a]">Identity</span><strong class="mt-2 block text-lg text-[#1a1a1a]">{{ b.customer_id || b.borrower_reference }}</strong><span class="text-xs text-[#636363]">{{ b.age ? b.age + ' years' : 'Age not supplied' }} · {{ b.employment_status || 'Employment not supplied' }}</span></article>
         <article class="card p-5"><span class="text-xs text-[#9a9a9a]">Active loans</span><strong class="mt-2 block text-2xl text-[#1a1a1a]">{{ b.financial_profile?.active_loans || 0 }}</strong><span class="text-xs text-[#636363]">{{ b.financial_profile?.previous_loans || 0 }} previous</span></article>
-        <article class="card p-5"><span class="text-xs text-[#9a9a9a]">Total outstanding</span><strong class="mt-2 block text-2xl text-[#1a1a1a]">{{ totalOutstanding(b) | number:'1.4-4' }}</strong><span class="text-xs text-[#636363]">All lenders combined</span></article>
+        <article class="card p-5"><span class="text-xs text-[#9a9a9a]">Total outstanding</span><strong class="mt-2 block text-2xl text-[#1a1a1a]"><span class="currency">{{ totalOutstanding(b) | number:'1.0-0' }}</span></strong><span class="text-xs text-[#636363]">All lenders combined</span></article>
         <article class="card p-5"><span class="text-xs text-[#9a9a9a]">Debt-to-income</span><strong class="mt-2 block text-2xl text-[#1a1a1a]">{{ b.financial_profile?.debt_to_income_ratio || 0 }}</strong><span class="text-xs text-[#636363]">Calculated from unified debt</span></article>
-        <article class="card p-5"><span class="text-xs text-[#9a9a9a]">Repayments recorded</span><strong class="mt-2 block text-2xl text-[#1a1a1a]">{{ paymentTotal(b) | number:'1.4-4' }}</strong><span class="text-xs text-[#636363]">Combined payment amounts</span></article>
+        <article class="card p-5"><span class="text-xs text-[#9a9a9a]">Repayments recorded</span><strong class="mt-2 block text-2xl text-[#1a1a1a]"><span class="currency">{{ paymentTotal(b) | number:'1.0-0' }}</span></strong><span class="text-xs text-[#636363]">Combined payment amounts</span></article>
+        <article class="card p-5"><span class="text-xs text-[#9a9a9a]">Applying for</span><strong class="mt-2 block text-2xl text-[#1a1a1a]"><span class="currency">{{ appliedTotal(b) | number:'1.0-0' }}</span></strong><span class="text-xs text-[#636363]">New loan(s) requested across lenders</span></article>
       </div>
 
       <article class="card overflow-hidden">
+        <div class="border-b border-[#e8e8e8] px-6 py-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="font-semibold text-[#1a1a1a]">Loan applications — what the borrower is asking for</h2>
+              <p class="mt-1 text-xs text-[#636363]">New loan requests reported by lenders. This is the exposure each assessment scores (merged with history from all lenders).</p>
+            </div>
+            <div class="flex overflow-hidden rounded-lg border border-[#e8e8e8]" role="group" aria-label="Applications view mode">
+              <button type="button" class="px-3 py-1.5 text-xs font-semibold transition-colors" [class]="applicationView === 'per-lender' ? 'bg-[#024ad8] text-white' : 'bg-white text-[#636363] hover:bg-[#f7f7f7]'" (click)="setApplicationView('per-lender')">Per lender</button>
+              <button type="button" class="px-3 py-1.5 text-xs font-semibold transition-colors" [class]="applicationView === 'merged' ? 'bg-[#024ad8] text-white' : 'bg-white text-[#636363] hover:bg-[#f7f7f7]'" (click)="setApplicationView('merged')">All applications (merged)</button>
+            </div>
+          </div>
+          @if (decisionError) { <p class="mt-2 text-sm text-[#b3262b]">{{ decisionError }}</p> }
+        </div>
+        <div class="overflow-x-auto"><table class="data-table w-full text-left"><thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]"><tr><th class="table-th">Lender</th><th class="table-th">Reference</th><th class="table-th">Applied amount</th><th class="table-th">Term</th><th class="table-th">Rate</th><th class="table-th">Purpose</th><th class="table-th">Status</th><th class="table-th">Decision</th></tr></thead>
+          <tbody class="divide-y divide-[#e8e8e8]">@for (app of applicationRows(b); track app.id) {<tr><td class="table-td" data-label="Lender"><strong class="font-semibold">{{ app.lender_name || 'Central' }}</strong></td><td class="table-td font-mono text-xs" data-label="Reference">{{ app.application_reference || '—' }}</td><td class="table-td amount font-semibold" data-label="Applied (TSHS)"><span class="currency">{{ app.currency === 'TZS' ? '' : app.currency + ' ' }}{{ app.applied_amount | number:'1.0-0' }}</span></td><td class="table-td" data-label="Term">{{ app.term_months ? app.term_months + ' mo' : '—' }}</td><td class="table-td" data-label="Rate">{{ app.interest_rate && toNumber(app.interest_rate) > 0 ? app.interest_rate + '%' : '—' }}</td><td class="table-td text-[#636363]" data-label="Purpose">{{ app.purpose || '—' }}</td><td class="table-td" data-label="Status"><span [class]="app.status === 'APPROVED' ? 'badge-green' : app.status === 'DECLINED' ? 'badge-red' : app.status === 'ASSESSED' ? 'badge-yellow' : 'badge-slate'">{{ app.status }}</span><span class="ml-2 font-mono text-[11px] text-[#9a9a9a]">{{ app.assessment_reference }}</span></td><td class="table-td" data-label="Decision">@if (decided(app)) { <span class="text-xs text-[#9a9a9a]">Recorded</span> } @else if (decidingId === app.id) { <span class="text-xs text-[#636363]">Recording…</span> } @else { <div class="flex gap-2"><button class="rounded-md bg-[#0f7b34] px-2.5 py-1 text-xs font-semibold text-white transition-colors hover:bg-[#0c6329] disabled:opacity-50" [disabled]="decidingId !== null" (click)="decide(b, app, 'APPROVED')">Approve</button><button class="rounded-md bg-[#b3262b] px-2.5 py-1 text-xs font-semibold text-white transition-colors hover:bg-[#8f1f23] disabled:opacity-50" [disabled]="decidingId !== null" (click)="decide(b, app, 'DECLINED')">Decline</button></div> }</td></tr>} @empty {<tr><td colspan="8" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">No loan applications on file.</td></tr>}</tbody>
+        </table></div>
+      </article>
+
+      <article class="card overflow-hidden">
         <div class="border-b border-[#e8e8e8] px-6 py-4"><h2 class="font-semibold text-[#1a1a1a]">Loans and repayment history by lender</h2></div>
-        <div class="overflow-x-auto"><table class="w-full text-left"><thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]"><tr><th class="table-th">Lender</th><th class="table-th">Loan</th><th class="table-th">Amount</th><th class="table-th">Outstanding</th><th class="table-th">Status</th><th class="table-th">Payments</th></tr></thead>
-          <tbody class="divide-y divide-[#e8e8e8]">@for (loan of b.loans || []; track loan.id) {<tr><td class="table-td font-semibold">{{ loan.lender_name }}</td><td class="table-td font-mono text-xs">{{ loan.loan_id }}</td><td class="table-td">{{ loan.loan_amount | number:'1.4-4' }}</td><td class="table-td font-semibold">{{ loan.outstanding_balance | number:'1.4-4' }}</td><td class="table-td"><span [class]="loan.status === 'ACTIVE' || loan.status === 'CURRENT' ? 'badge-green' : 'badge-slate'">{{ loan.status }}</span></td><td class="table-td">{{ loan.repayments.length }}</td></tr>} @empty {<tr><td colspan="6" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">No loan records supplied.</td></tr>}</tbody>
+        <div class="overflow-x-auto"><table class="data-table w-full text-left"><thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]"><tr><th class="table-th">Lender</th><th class="table-th">Loan</th><th class="table-th">Amount</th><th class="table-th">Outstanding</th><th class="table-th">Status</th><th class="table-th">Payments</th></tr></thead>
+          <tbody class="divide-y divide-[#e8e8e8]">@for (loan of b.loans || []; track loan.id) {<tr><td class="table-td" data-label="Lender"><strong class="font-semibold">{{ loan.lender_name }}</strong></td><td class="table-td font-mono text-xs" data-label="Loan">{{ loan.loan_id }}</td><td class="table-td amount" data-label="Amount (TSHS)"><span class="currency">{{ loan.loan_amount | number:'1.0-0' }}</span></td><td class="table-td amount font-semibold" data-label="Outstanding (TSHS)"><span class="currency">{{ loan.outstanding_balance | number:'1.0-0' }}</span></td><td class="table-td" data-label="Status"><span [class]="loan.status === 'ACTIVE' || loan.status === 'CURRENT' ? 'badge-green' : 'badge-slate'">{{ loan.status }}</span></td><td class="table-td" data-label="Payments">{{ loan.repayments.length }}</td></tr>} @empty {<tr><td colspan="6" class="px-6 py-10 text-center text-sm text-[#9a9a9a]">No loan records supplied.</td></tr>}</tbody>
         </table></div>
       </article>
     </section>
@@ -155,7 +175,7 @@
   </header>
   <section class="card overflow-hidden">
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Consent ID</th>
@@ -169,14 +189,14 @@
         <tbody class="divide-y divide-[#e8e8e8]">
           @for (c of consents; track c.consent_id) {
             <tr class="hover:bg-[#f7f7f7] transition-colors">
-              <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]">{{ c.consent_id }}</td>
-              <td class="table-td text-[#3d3d3d]">{{ c.borrower_reference || c.borrower_id || c.borrower }}</td>
-              <td class="table-td text-[#3d3d3d]">{{ c.lender_name || c.lender_id || c.lender }}</td>
-              <td class="table-td text-[#636363]">{{ c.purpose || '—' }}</td>
-              <td class="table-td">
+              <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]" data-label="Consent">{{ c.consent_id }}</td>
+              <td class="table-td text-[#3d3d3d]" data-label="Borrower">{{ c.borrower_reference || c.borrower_id || c.borrower }}</td>
+              <td class="table-td text-[#3d3d3d]" data-label="Lender">{{ c.lender_name || c.lender_id || c.lender }}</td>
+              <td class="table-td text-[#636363]" data-label="Purpose">{{ c.purpose || '—' }}</td>
+              <td class="table-td" data-label="Status">
                 <span [class]="c.status === 'ACTIVE' ? 'badge-green' : c.status === 'EXPIRED' ? 'badge-red' : 'badge-slate'">{{ c.status }}</span>
               </td>
-              <td class="table-td text-[#9a9a9a]">{{ c.expires_at | date:'mediumDate' }}</td>
+              <td class="table-td text-[#9a9a9a]" data-label="Expires">{{ c.expires_at | date:'mediumDate' }}</td>
             </tr>
           }
           @empty {
@@ -197,7 +217,7 @@
   </header>
   <section class="card overflow-hidden">
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Request ref</th>
@@ -210,13 +230,13 @@
         <tbody class="divide-y divide-[#e8e8e8]">
           @for (r of integrations; track r.request_reference) {
             <tr class="hover:bg-[#f7f7f7] transition-colors">
-              <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]">{{ r.request_reference }}</td>
-              <td class="table-td text-[#3d3d3d]">{{ r.lender_id }}</td>
-              <td class="table-td text-[#3d3d3d]">{{ r.borrower_reference }}</td>
-              <td class="table-td">
+              <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]" data-label="Request">{{ r.request_reference }}</td>
+              <td class="table-td text-[#3d3d3d]" data-label="Lender">{{ r.lender_id }}</td>
+              <td class="table-td text-[#3d3d3d]" data-label="Borrower">{{ r.borrower_reference }}</td>
+              <td class="table-td" data-label="Status">
                 <span [class]="r.status === 'SUCCESS' ? 'badge-green' : r.status === 'FAILED' ? 'badge-red' : 'badge-yellow'">{{ r.status }}</span>
               </td>
-              <td class="table-td text-[#9a9a9a]">{{ r.created_at | date:'mediumDate' }}</td>
+              <td class="table-td text-[#9a9a9a]" data-label="Created">{{ r.created_at | date:'mediumDate' }}</td>
             </tr>
           }
           @empty {
@@ -237,7 +257,7 @@
   </header>
   <section class="card overflow-hidden">
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Borrower</th>
@@ -252,13 +272,13 @@
           @for (r of aiResults; track r.id) {
             <tr class="hover:bg-[#f7f7f7] transition-colors align-top">
               <!-- Borrower -->
-              <td class="table-td">
+              <td class="table-td" data-wide data-label="Borrower">
                 <span class="block font-semibold text-[#1a1a1a]">{{ r.borrower_name || '—' }}</span>
                 <span class="block text-[11px] text-[#9a9a9a] font-mono">{{ r.borrower_reference || '#' + r.assessment }}</span>
                 <span class="block text-[10px] text-[#b0b0b0]">{{ r.created_at | date:'dd MMM y' }}</span>
               </td>
               <!-- Decision & Grade -->
-              <td class="table-td">
+              <td class="table-td" data-label="Decision & grade">
                 @let dec = r.decision || r.reputation;
                 @let grade = r.credit_grade;
                 <span [class]="dec === 'APPROVED' ? 'badge-green' : dec === 'CONDITIONAL_APPROVAL' ? 'badge-slate' : dec === 'DECLINED' ? 'badge-red' : 'badge-yellow'">
@@ -272,7 +292,7 @@
                 </span>
               </td>
               <!-- PD -->
-              <td class="table-td">
+              <td class="table-td" data-label="Default probability">
                 <span class="text-base font-bold text-[#1a1a1a]">
                   {{ r.ensemble_pd != null ? ((r.ensemble_pd * 100).toFixed(1) + '%') : ((1 - toNumber(r.score)) * 100).toFixed(1) + '%' }}
                 </span>
@@ -282,7 +302,7 @@
                 }
               </td>
               <!-- NMB Score -->
-              <td class="table-td">
+              <td class="table-td" data-label="NMB score">
                 <span class="text-base font-bold text-[#024ad8]">
                   {{ r.nmb_credit_score ?? r.raw_result?.['nmb_metrics']?.['credit_score'] ?? '—' }}
                 </span>
@@ -296,13 +316,13 @@
                 }
               </td>
               <!-- EL & Terms -->
-              <td class="table-td">
+              <td class="table-td" data-wide data-label="Expected loss & terms">
                 <div class="text-xs space-y-0.5">
                   <span class="block font-semibold text-[#b3262b]">
-                    EL: TZS {{ r.expected_loss != null ? toNumber(r.expected_loss).toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—' }}
+                    EL: <span class="currency">{{ r.expected_loss != null ? toNumber(r.expected_loss).toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—' }}</span>
                   </span>
                   <span class="block text-[#024ad8] font-medium">
-                    Limit: TZS {{ r.recommended_credit_limit != null ? toNumber(r.recommended_credit_limit).toLocaleString() : '—' }}
+                    Limit: <span class="currency">{{ r.recommended_credit_limit != null ? toNumber(r.recommended_credit_limit).toLocaleString() : '—' }}</span>
                   </span>
                   <span class="block text-[#717171]">
                     APR: {{ r.recommended_apr ?? '—' }}%
@@ -310,7 +330,7 @@
                 </div>
               </td>
               <!-- Summary & Guidance -->
-              <td class="table-td max-w-xs text-[#3d3d3d] text-xs">
+              <td class="table-td max-w-xs text-[#3d3d3d] text-xs" data-wide data-label="Lender summary">
                 <p class="leading-relaxed">{{ r.raw_result?.['underwriting_summary'] || '—' }}</p>
                 @let sts = r.strengths?.length ? r.strengths : r.raw_result?.['strengths'];
                 @if (sts?.length) {
@@ -331,7 +351,7 @@
                 @let guidance = r.actionable_guidance?.length ? r.actionable_guidance : r.raw_result?.['actionable_guidance'];
                 @if (guidance?.length) {
                   <details class="mt-2">
-                    <summary class="cursor-pointer text-[11px] font-semibold text-[#024ad8]">💡 Borrower Suggestions ({{ guidance.length }})</summary>
+                    <summary class="cursor-pointer text-[11px] font-semibold text-[#024ad8]">Borrower Suggestions ({{ guidance.length }})</summary>
                     <ol class="mt-1.5 list-none space-y-1.5 pl-0">
                       @for (g of guidance; track g; let i = $index) {
                         <li class="flex gap-2 text-[11px] text-[#1a1a1a]">
@@ -374,7 +394,7 @@
       <span class="badge-slate">{{ totalCount || smartContracts.length }} result(s)</span>
     </div>
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Assessment</th>
@@ -387,14 +407,14 @@
         <tbody class="divide-y divide-[#e8e8e8]">
           @for (r of smartContracts; track r.id) {
             <tr class="hover:bg-[#f7f7f7] transition-colors">
-              <td class="table-td font-semibold text-[#1a1a1a]">#{{ r.assessment }}</td>
-              <td class="table-td">
+              <td class="table-td font-semibold text-[#1a1a1a]" data-label="Assessment">#{{ r.assessment }}</td>
+              <td class="table-td" data-label="Credit score">
                 <span class="text-2xl font-bold text-[#1a1a1a]">{{ r.credit_score }}</span>
                 <span class="text-xs text-[#9a9a9a]">/800</span>
               </td>
-              <td class="table-td"><span class="badge-slate font-mono">{{ r.ruleset_version }}</span></td>
-              <td class="table-td max-w-xs truncate font-mono text-xs text-[#636363]">{{ r.contract_address }}</td>
-              <td class="table-td text-[#9a9a9a]">{{ r.created_at | date:'mediumDate' }}</td>
+              <td class="table-td" data-label="Ruleset"><span class="badge-slate font-mono">{{ r.ruleset_version }}</span></td>
+              <td class="table-td max-w-xs truncate font-mono text-xs text-[#636363]" data-label="Contract address">{{ r.contract_address }}</td>
+              <td class="table-td text-[#9a9a9a]" data-label="Created">{{ r.created_at | date:'mediumDate' }}</td>
             </tr>
           } @empty {
             <tr><td colspan="5" class="px-6 py-12 text-center text-sm text-[#9a9a9a]">No on-chain scores yet — run “Send to blockchain” on an assessment first.</td></tr>
@@ -414,7 +434,7 @@
       <span class="badge-slate">{{ blockchainTransactions.length }} transaction(s)</span>
     </div>
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Tx hash</th>
@@ -428,14 +448,14 @@
         <tbody class="divide-y divide-[#e8e8e8]">
           @for (tx of blockchainTransactions; track tx.id) {
             <tr class="hover:bg-[#f7f7f7] transition-colors">
-              <td class="table-td max-w-xs truncate font-mono text-xs text-[#3d3d3d]">{{ tx.transaction_hash }}</td>
-              <td class="table-td font-semibold text-[#1a1a1a]">#{{ tx.assessment }}</td>
-              <td class="table-td"><span class="badge-slate">{{ tx.network }}</span></td>
-              <td class="table-td font-mono text-[#3d3d3d]">{{ tx.block_number ?? 'Pending' }}</td>
-              <td class="table-td">
+              <td class="table-td max-w-xs truncate font-mono text-xs text-[#3d3d3d]" data-label="Tx hash">{{ tx.transaction_hash }}</td>
+              <td class="table-td font-semibold text-[#1a1a1a]" data-label="Assessment">#{{ tx.assessment }}</td>
+              <td class="table-td" data-label="Network"><span class="badge-slate">{{ tx.network }}</span></td>
+              <td class="table-td font-mono text-[#3d3d3d]" data-label="Block">{{ tx.block_number ?? 'Pending' }}</td>
+              <td class="table-td" data-label="Status">
                 <span [class]="tx.status === 'CONFIRMED' ? 'badge-green' : tx.status === 'FAILED' ? 'badge-red' : 'badge-yellow'">{{ tx.status }}</span>
               </td>
-              <td class="table-td text-[#9a9a9a]">{{ tx.created_at | date:'mediumDate' }}</td>
+              <td class="table-td text-[#9a9a9a]" data-label="Created">{{ tx.created_at | date:'mediumDate' }}</td>
             </tr>
           }
           @empty {

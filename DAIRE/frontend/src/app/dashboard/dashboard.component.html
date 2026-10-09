@@ -158,7 +158,7 @@
         <div class="flex items-center gap-3">
           <span class="w-28 shrink-0 truncate text-xs font-semibold text-[#1a1a1a] sm:w-40" [title]="bar.full">{{ bar.label }}</span>
           <div class="h-4 min-w-0 flex-1 overflow-hidden rounded-full bg-[#f7f7f7]">
-            <div class="h-full rounded-full bg-[#024ad8] transition-all" [style.width.%]="bar.width * 100"></div>
+            <div class="h-full rounded-full bg-[#356373] transition-all" [style.width.%]="bar.width * 100"></div>
           </div>
           <strong class="w-8 shrink-0 text-right text-xs text-[#1a1a1a]">{{ bar.count }}</strong>
         </div>
@@ -211,7 +211,7 @@
         <a routerLink="/data-management" class="-my-2 shrink-0 rounded-lg px-2 py-2 text-sm font-semibold text-[#024ad8] hover:text-[#0e3191] transition">Manage →</a>
       </div>
       <div class="overflow-x-auto">
-        <table class="w-full text-left">
+        <table class="data-table w-full text-left">
           <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
             <tr>
               <th class="table-th">Institution</th>
@@ -222,12 +222,12 @@
           <tbody class="divide-y divide-[#e8e8e8]">
             @for (lender of sortedLenders; track lender.lender_id) {
               <tr class="transition-colors hover:bg-[#f7f7f7]">
-                <td class="table-td">
+                <td class="table-td" data-label="Institution">
                   <strong class="block font-semibold text-[#1a1a1a]">{{ lender.institution_name }}</strong>
                   <small class="font-mono text-xs text-[#9a9a9a]">{{ lender.lender_id }}</small>
                 </td>
-                <td class="table-td text-[#636363]">{{ lender.institution_type }}</td>
-                <td class="table-td"><span [class]="lenderStatusClass(lender)">{{ lender.api_status }}</span></td>
+                <td class="table-td text-[#636363]" data-label="Type">{{ lender.institution_type }}</td>
+                <td class="table-td" data-label="Status"><span [class]="lenderStatusClass(lender)">{{ lender.api_status }}</span></td>
               </tr>
             }
             @empty {
@@ -316,7 +316,7 @@
       </div>
     </div>
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Received at</th>
@@ -333,15 +333,15 @@
         <tbody class="divide-y divide-[#e8e8e8]">
           @for (row of stageView(lenderExchangeRows, lenderQuery, lenderPage); track $index) {
             <tr class="transition-colors hover:bg-[#f7f7f7]">
-              <td class="table-td whitespace-nowrap">{{ row.when | date:'medium' }}</td>
-              <td class="table-td"><span [class]="row.direction === 'PUSH' ? 'badge-yellow' : 'badge-slate'">{{ row.direction }}</span></td>
-              <td class="table-td font-semibold text-[#1a1a1a]">{{ row.lender }}</td>
-              <td class="table-td font-mono text-xs">{{ row.borrower }}</td>
-              <td class="table-td">{{ prettyOperation(row.operation) }}</td>
-              <td class="table-td max-w-40 truncate text-xs text-[#636363]" [title]="row.fields">{{ row.fields }}</td>
-              <td class="table-td max-w-44 truncate text-xs text-[#636363]" [title]="row.detail">{{ row.detail }}</td>
-              <td class="table-td"><span [class]="row.statusClass">{{ row.status }}</span></td>
-              <td class="table-td">
+              <td class="table-td whitespace-nowrap" data-label="Received at">{{ row.when | date:'medium' }}</td>
+              <td class="table-td" data-label="Direction"><span [class]="row.direction === 'PUSH' ? 'badge-yellow' : 'badge-slate'">{{ row.direction }}</span></td>
+              <td class="table-td font-semibold text-[#1a1a1a]" data-label="Lender">{{ row.lender }}</td>
+              <td class="table-td font-mono text-xs" data-label="Borrower">{{ row.borrower }}</td>
+              <td class="table-td" data-label="Operation">{{ prettyOperation(row.operation) }}</td>
+              <td class="table-td max-w-40 truncate text-xs text-[#636363]" data-wide data-label="Fields" [title]="row.fields">{{ row.fields }}</td>
+              <td class="table-td max-w-44 truncate text-xs text-[#636363]" data-wide data-label="Detail" [title]="row.detail">{{ row.detail }}</td>
+              <td class="table-td" data-label="Status"><span [class]="row.statusClass">{{ row.status }}</span></td>
+              <td class="table-td" data-label="Actions">
                 <div class="flex justify-end gap-1">
                   <button type="button" (click)="viewRecord('lender-data', 'Data received from lenders', row.record)" title="View"
                           class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
@@ -384,7 +384,7 @@
       </div>
     </div>
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Assessed at</th>
@@ -399,13 +399,13 @@
         <tbody class="divide-y divide-[#e8e8e8]">
           @for (row of stageView(assessedRowsNewestFirst, assessedQuery, assessedPage); track row.reference) {
             <tr class="transition-colors hover:bg-[#f7f7f7]">
-              <td class="table-td whitespace-nowrap">{{ row.when | date:'medium' }}</td>
-              <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]">{{ row.reference }}</td>
-              <td class="table-td">{{ row.borrower }}</td>
-              <td class="table-td"><span [class]="reputationClass(row.reputation)">{{ row.reputation }}</span></td>
-              <td class="table-td">{{ row.risk }}</td>
-              <td class="table-td max-w-72 truncate font-mono text-xs text-[#636363]" [title]="row.inputs">{{ row.inputs }}</td>
-              <td class="table-td">
+              <td class="table-td whitespace-nowrap" data-label="Assessed at">{{ row.when | date:'medium' }}</td>
+              <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]" data-label="Assessment">{{ row.reference }}</td>
+              <td class="table-td" data-label="Borrower">{{ row.borrower }}</td>
+              <td class="table-td" data-label="Reputation"><span [class]="reputationClass(row.reputation)">{{ row.reputation }}</span></td>
+              <td class="table-td" data-label="Risk">{{ row.risk }}</td>
+              <td class="table-td max-w-72 truncate font-mono text-xs text-[#636363]" data-wide data-label="Score inputs" [title]="row.inputs">{{ row.inputs }}</td>
+              <td class="table-td" data-label="Actions">
                 <div class="flex justify-end gap-1">
                   <button type="button" (click)="viewRecord('assessed', 'Assessment record', row.record)" title="View"
                           class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
@@ -449,7 +449,7 @@
       </div>
     </div>
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Sent at</th>
@@ -464,16 +464,16 @@
         <tbody class="divide-y divide-[#e8e8e8]">
           @for (row of stageView(aiSentRows, aiSentQuery, aiSentPage); track $index) {
             <tr class="transition-colors hover:bg-[#f7f7f7]">
-              <td class="table-td whitespace-nowrap">{{ row.when | date:'medium' }}</td>
-              <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]">{{ row.reference }}</td>
-              <td class="table-td">{{ row.borrower }}</td>
-              <td class="table-td">{{ prettyOperation(row.operation) }}</td>
-              <td class="table-td max-w-80 truncate font-mono text-xs text-[#636363]" [title]="row.payload">{{ row.payload }}</td>
-              <td class="table-td">
+              <td class="table-td whitespace-nowrap" data-label="Sent at">{{ row.when | date:'medium' }}</td>
+              <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]" data-label="Assessment">{{ row.reference }}</td>
+              <td class="table-td" data-label="Borrower">{{ row.borrower }}</td>
+              <td class="table-td" data-label="Operation">{{ prettyOperation(row.operation) }}</td>
+              <td class="table-td max-w-80 truncate font-mono text-xs text-[#636363]" data-wide data-label="Payload" [title]="row.payload">{{ row.payload }}</td>
+              <td class="table-td" data-label="Status">
                 <span [class]="row.statusClass">{{ row.status }}</span>
                 @if (row.error !== '—') { <small class="mt-1 block max-w-56 truncate text-[11px] text-[#b3262b]" [title]="row.error">{{ row.error }}</small> }
               </td>
-              <td class="table-td">
+              <td class="table-td" data-label="Actions">
                 <div class="flex justify-end gap-1">
                   <button type="button" (click)="viewRecord('to-ai', 'Payload sent to AI', row.record)" title="View"
                           class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
@@ -517,7 +517,7 @@
       </div>
     </div>
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Received at</th>
@@ -533,14 +533,14 @@
         <tbody class="divide-y divide-[#e8e8e8]">
           @for (row of stageView(aiResultRows, aiResultQuery, aiResultPage); track $index) {
             <tr class="transition-colors hover:bg-[#f7f7f7]">
-              <td class="table-td whitespace-nowrap">{{ row.when | date:'medium' }}</td>
-              <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]">{{ row.reference }}</td>
-              <td class="table-td"><span [class]="row.reputationClass">{{ row.reputation }}</span></td>
-              <td class="table-td font-semibold text-[#1a1a1a]">{{ row.score }}</td>
-              <td class="table-td">{{ row.risk }}</td>
-              <td class="table-td font-mono text-xs">{{ row.model }}</td>
-              <td class="table-td max-w-72 truncate text-xs text-[#636363]" [title]="row.summary">{{ row.summary }}</td>
-              <td class="table-td">
+              <td class="table-td whitespace-nowrap" data-label="Received at">{{ row.when | date:'medium' }}</td>
+              <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]" data-label="Assessment">{{ row.reference }}</td>
+              <td class="table-td" data-label="Reputation"><span [class]="row.reputationClass">{{ row.reputation }}</span></td>
+              <td class="table-td font-semibold text-[#1a1a1a]" data-label="AI score">{{ row.score }}</td>
+              <td class="table-td" data-label="Risk">{{ row.risk }}</td>
+              <td class="table-td font-mono text-xs" data-label="Model">{{ row.model }}</td>
+              <td class="table-td max-w-72 truncate text-xs text-[#636363]" data-wide data-label="Behaviour summary" [title]="row.summary">{{ row.summary }}</td>
+              <td class="table-td" data-label="Actions">
                 <div class="flex justify-end gap-1">
                   <button type="button" (click)="viewRecord('ai-results', 'AI reputation result', row.record)" title="View"
                           class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
@@ -583,7 +583,7 @@
       </div>
     </div>
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Sent at</th>
@@ -598,16 +598,16 @@
         <tbody class="divide-y divide-[#e8e8e8]">
           @for (row of stageView(blockchainSentRows, blockchainSentQuery, blockchainSentPage); track $index) {
             <tr class="transition-colors hover:bg-[#f7f7f7]">
-              <td class="table-td whitespace-nowrap">{{ row.when | date:'medium' }}</td>
-              <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]">{{ row.reference }}</td>
-              <td class="table-td">{{ row.borrower }}</td>
-              <td class="table-td">{{ prettyOperation(row.operation) }}</td>
-              <td class="table-td max-w-80 truncate font-mono text-xs text-[#636363]" [title]="row.payload">{{ row.payload }}</td>
-              <td class="table-td">
+              <td class="table-td whitespace-nowrap" data-label="Sent at">{{ row.when | date:'medium' }}</td>
+              <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]" data-label="Assessment">{{ row.reference }}</td>
+              <td class="table-td" data-label="Borrower">{{ row.borrower }}</td>
+              <td class="table-td" data-label="Operation">{{ prettyOperation(row.operation) }}</td>
+              <td class="table-td max-w-80 truncate font-mono text-xs text-[#636363]" data-wide data-label="Payload" [title]="row.payload">{{ row.payload }}</td>
+              <td class="table-td" data-label="Status">
                 <span [class]="row.statusClass">{{ row.status }}</span>
                 @if (row.error !== '—') { <small class="mt-1 block max-w-56 truncate text-[11px] text-[#b3262b]" [title]="row.error">{{ row.error }}</small> }
               </td>
-              <td class="table-td">
+              <td class="table-td" data-label="Actions">
                 <div class="flex justify-end gap-1">
                   <button type="button" (click)="viewRecord('to-blockchain', 'Payload sent to blockchain', row.record)" title="View"
                           class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
@@ -651,7 +651,7 @@
       </div>
     </div>
     <div class="overflow-x-auto">
-      <table class="w-full text-left">
+      <table class="data-table w-full text-left">
         <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
           <tr>
             <th class="table-th">Received at</th>
@@ -667,16 +667,16 @@
         <tbody class="divide-y divide-[#e8e8e8]">
           @for (row of stageView(blockchainResultRows, blockchainResultQuery, blockchainResultPage); track $index) {
             <tr class="transition-colors hover:bg-[#f7f7f7]">
-              <td class="table-td whitespace-nowrap">{{ row.when | date:'medium' }}</td>
-              <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]">{{ row.reference }}</td>
-              <td class="table-td">
+              <td class="table-td whitespace-nowrap" data-label="Received at">{{ row.when | date:'medium' }}</td>
+              <td class="table-td font-mono text-xs font-semibold text-[#1a1a1a]" data-label="Assessment">{{ row.reference }}</td>
+              <td class="table-td" data-label="Credit score">
                 <span class="text-xl font-bold text-[#1a1a1a]">{{ row.score ?? '—' }}</span>
               </td>
-              <td class="table-td"><span [class]="reputationClass(row.band)">{{ row.band }}</span></td>
-              <td class="table-td font-mono text-xs">{{ row.ruleset }}</td>
-              <td class="table-td max-w-56 truncate font-mono text-xs text-[#636363]" [title]="row.txHash">{{ row.txHash }}</td>
-              <td class="table-td">{{ row.block ?? '—' }}</td>
-              <td class="table-td">
+              <td class="table-td" data-label="Risk band"><span [class]="reputationClass(row.band)">{{ row.band }}</span></td>
+              <td class="table-td font-mono text-xs" data-label="Ruleset">{{ row.ruleset }}</td>
+              <td class="table-td max-w-56 truncate font-mono text-xs text-[#636363]" data-wide data-label="Transaction" [title]="row.txHash">{{ row.txHash }}</td>
+              <td class="table-td" data-label="Block">{{ row.block ?? '—' }}</td>
+              <td class="table-td" data-label="Actions">
                 <div class="flex justify-end gap-1">
                   <button type="button" (click)="viewRecord('blockchain-results', 'On-chain score result', row.record)" title="View"
                           class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">
@@ -706,7 +706,7 @@
                  [(ngModel)]="txQuery" (ngModelChange)="onStageSearch()" aria-label="Search transaction ledger">
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-left">
+          <table class="data-table w-full text-left">
             <thead class="border-b border-[#e8e8e8] bg-[#f7f7f7]">
               <tr>
                 <th class="table-th">Created</th>
@@ -721,13 +721,13 @@
             <tbody class="divide-y divide-[#e8e8e8]">
               @for (tx of stageView(blockchainTxRows, txQuery, txPage); track tx.txHash) {
                 <tr class="transition-colors hover:bg-[#f7f7f7]">
-                  <td class="table-td whitespace-nowrap">{{ tx.when | date:'medium' }}</td>
-                  <td class="table-td font-mono text-xs">{{ tx.reference }}</td>
-                  <td class="table-td max-w-64 truncate font-mono text-xs text-[#636363]" [title]="tx.txHash">{{ tx.txHash }}</td>
-                  <td class="table-td">{{ tx.network }}</td>
-                  <td class="table-td">{{ tx.block ?? '—' }}</td>
-                  <td class="table-td"><span [class]="tx.statusClass">{{ tx.status }}</span></td>
-                  <td class="table-td">
+                  <td class="table-td whitespace-nowrap" data-label="Created">{{ tx.when | date:'medium' }}</td>
+                  <td class="table-td font-mono text-xs" data-label="Assessment">{{ tx.reference }}</td>
+                  <td class="table-td max-w-64 truncate font-mono text-xs text-[#636363]" data-wide data-label="Tx hash" [title]="tx.txHash">{{ tx.txHash }}</td>
+                  <td class="table-td" data-label="Network">{{ tx.network }}</td>
+                  <td class="table-td" data-label="Block">{{ tx.block ?? '—' }}</td>
+                  <td class="table-td" data-label="Status"><span [class]="tx.statusClass">{{ tx.status }}</span></td>
+                  <td class="table-td" data-label="Actions">
                     <div class="flex justify-end gap-1">
                       <button type="button" (click)="viewRecord('blockchain-results', 'Blockchain transaction', tx.record)" title="View"
                               class="grid size-7 place-items-center rounded-lg border border-[#e8e8e8] bg-white text-[#636363] transition hover:border-[#024ad8] hover:text-[#024ad8]">

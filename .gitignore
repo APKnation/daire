@@ -20,6 +20,11 @@ deployments/*.private.json
 *.swp
 .idea/
 
+# Webhook runtime state (usajili wa lenders + kumbukumbu za shindikizo)
+daire-middleware/webhooks.json
+daire-middleware/webhooks.failed.json
+daire-middleware/webhooks.secret.json
+
 # Logs
 *.log
 npm-debug.log*

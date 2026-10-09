@@ -1,4 +1,5 @@
 import { ChangeDetectorRef, Component, inject } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin, map, switchMap, tap } from 'rxjs';
 import { ApiRecord, ApiService, Borrower, PAGE_SIZE, PullResult } from '../core/api.service';
@@ -23,7 +24,7 @@ interface ExchangeStep {
 
 @Component({
   standalone: true,
-  imports: [FormsModule],
+  imports: [DecimalPipe, FormsModule],
   templateUrl: './data-exchange.component.html',
 })
 export class DataExchangeComponent {
@@ -57,6 +58,16 @@ export class DataExchangeComponent {
   blockchainRows: ResultRow[] = [];
   aiResult: ApiRecord | null = null;
   blockchainResult: ApiRecord | null = null;
+  /** Auto-broadcast ON: lenders receive the combined results the moment the
+   * assessment button completes — no separate broadcast click needed. */
+  autoBroadcast = true;
+  /** Outcome of the auto-broadcast performed by the backend, for the UI. */
+  broadcastInfo: { enabled: boolean; broadcasts?: Array<ApiRecord>; error?: string } | null = null;
+  /** Underwriting panels shown only after the analyst expands them — the raw
+   * model internals are for review, not the headline result. */
+  showUnderwritingDetails = false;
+  /** Which merged-data block is expanded. */
+  openDataPanel: '' | 'accounts' | 'loans' | 'profile' = '';
   /** Which engine produced `lastResult` — drives the panel heading. */
   resultKind = '';
   loading = false;
@@ -104,6 +115,54 @@ export class DataExchangeComponent {
   /** Label for a received borrower: name or reference, plus its data sources. */
   receivedBorrowerLabel(b: Borrower): string {
     return b.name ? `${b.name} — ${b.borrower_reference}` : b.borrower_reference;
+  }
+
+  toggleUnderwritingDetails(): void {
+    this.showUnderwritingDetails = !this.showUnderwritingDetails;
+  }
+
+  toggleDataPanel(panel: 'accounts' | 'loans' | 'profile'): void {
+    this.openDataPanel = this.openDataPanel === panel ? '' : panel;
+  }
+
+  /** Sources that actually contributed data to this borrower. */
+  sourceLenders(b: Borrower | null): Array<{ name: string; accounts: number; loans: number }> {
+    if (!b) return [];
+    const map = new Map<string, { name: string; accounts: number; loans: number }>();
+    for (const account of b.accounts || []) {
+      const name = account.lender_name || `Lender #${account.lender}`;
+      const entry = map.get(name) ?? { name, accounts: 0, loans: 0 };
+      entry.accounts += 1;
+      map.set(name, entry);
+    }
+    for (const loan of b.loans || []) {
+      const name = loan.lender_name || `Lender #${loan.lender}`;
+      const entry = map.get(name) ?? { name, accounts: 0, loans: 0 };
+      entry.loans += 1;
+      map.set(name, entry);
+    }
+    return [...map.values()];
+  }
+
+  mergedOutstanding(b: Borrower | null): number {
+    return (b?.loans || []).reduce((sum, loan) => sum + Number(loan.outstanding_balance || 0), 0);
+  }
+
+  mergedLoanCount(b: Borrower | null): number {
+    return (b?.loans || []).length;
+  }
+
+  mergedRepaymentStats(b: Borrower | null): { total: number; onTime: number; missed: number; late: number } {
+    let total = 0, onTime = 0, missed = 0, late = 0;
+    for (const loan of b?.loans || []) {
+      for (const rp of loan.repayments || []) {
+        total += 1;
+        if (Number(rp.missed_payments || 0) > 0) missed += 1;
+        else if (Number(rp.late_payments || 0) > 0 || Number(rp.days_overdue || 0) > 0) late += 1;
+        else onTime += 1;
+      }
+    }
+    return { total, onTime, missed, late };
   }
 
   /** Has Central actually received data for this borrower (account-level proof)? */
@@ -177,10 +236,10 @@ export class DataExchangeComponent {
           ? `ML: ${(Number(skl['default_probability']) * 100).toFixed(1)}% PD  |  NMB: ${(Number(nmb['default_probability']) * 100).toFixed(1)}% PD`
           : '—', true),
         row('Model agreement', consensus['model_agreement_pct'] != null ? `${consensus['model_agreement_pct']}% (${consensus['concordance'] ?? ''})` : '—'),
-        row('Basel II Expected Loss', basel['expected_loss'] != null ? `$${Number(basel['expected_loss']).toLocaleString()} (LGD: ${(Number(basel['loss_given_default'] ?? 0.5) * 100).toFixed(0)}%, EAD: $${Number(basel['exposure_at_default'] ?? 0).toLocaleString()})` : '—', false, true),
-        row('Recommended credit limit', pricing['recommended_credit_limit'] != null ? `$${Number(pricing['recommended_credit_limit']).toLocaleString()}` : '—', false, true),
+        row('Basel II Expected Loss', basel['expected_loss'] != null ? `TSHS ${Number(basel['expected_loss']).toLocaleString()} (LGD: ${(Number(basel['loss_given_default'] ?? 0.5) * 100).toFixed(0)}%, EAD: TSHS ${Number(basel['exposure_at_default'] ?? 0).toLocaleString()})` : '—', false, true),
+        row('Recommended credit limit', pricing['recommended_credit_limit'] != null ? `TSHS ${Number(pricing['recommended_credit_limit']).toLocaleString()}` : '—', false, true),
         row('Risk-based APR', pricing['recommended_apr'] != null ? `${pricing['recommended_apr']}% APR` : '—', false, true),
-        row('Max monthly debt capacity', pricing['max_monthly_debt_service'] != null ? `$${Number(pricing['max_monthly_debt_service']).toLocaleString()}/mo` : '—'),
+        row('Max monthly debt capacity', pricing['max_monthly_debt_service'] != null ? `TSHS ${Number(pricing['max_monthly_debt_service']).toLocaleString()}/mo` : '—'),
         row('Collateral policy', pricing['collateral_policy'] ?? '—'),
         row('Assessment record', result['assessment'] ?? '—', true),
       ];
@@ -287,7 +346,7 @@ export class DataExchangeComponent {
       // Run the engines in sequence: both refresh the same backend credit
       // profile, so parallel requests can race on SQLite/development DBs.
       switchMap((assessment) => this.api.pushAi(assessment.assessment_reference).pipe(
-        switchMap((ai) => this.api.pushBlockchain(assessment.assessment_reference).pipe(
+        switchMap((ai) => this.api.pushBlockchain(assessment.assessment_reference, this.autoBroadcast).pipe(
           map((blockchain) => ({ ai, blockchain })),
         )),
       )),
@@ -299,10 +358,16 @@ export class DataExchangeComponent {
         this.aiRows = this.buildResultRows(ai);
         this.blockchainRows = this.buildResultRows(blockchain);
         this.resultRows = [...this.aiRows, ...this.blockchainRows];
+        this.showUnderwritingDetails = false;
         this.setStep('analysis', 'done');
+        this.broadcastInfo = this.readBroadcastInfo(blockchain);
         this.loading = false;
-        this.message = 'Assessment completed. Review the AI and blockchain results, then broadcast them.';
-        void toast('Assessment completed');
+        this.message = this.autoBroadcast && this.broadcastInfo?.broadcasts?.length
+          ? 'Assessment completed — results stored in Central and broadcast to all linked lenders.'
+          : 'Assessment completed. Review the AI and blockchain results, then broadcast them.';
+        void toast(this.autoBroadcast && this.broadcastInfo?.broadcasts?.length
+          ? `Assessment completed — broadcast to ${this.broadcastInfo?.broadcasts?.length} lender(s)`
+          : 'Assessment completed');
         this.cdr.markForCheck();
       },
       error: (err) => {
@@ -357,7 +422,7 @@ export class DataExchangeComponent {
     this.cdr.markForCheck();
     forkJoin({
       ai: this.api.pushAi(this.assessmentReference.trim()),
-      blockchain: this.api.pushBlockchain(this.assessmentReference.trim()),
+      blockchain: this.api.pushBlockchain(this.assessmentReference.trim(), this.autoBroadcast),
     }).subscribe({
       next: ({ ai, blockchain }) => {
         this.aiResult = ai;
@@ -367,8 +432,11 @@ export class DataExchangeComponent {
         this.blockchainRows = this.buildResultRows(blockchain);
         this.resultRows = [...this.aiRows, ...this.blockchainRows];
         this.setStep('analysis', 'done');
+        this.broadcastInfo = this.readBroadcastInfo(blockchain);
         this.loading = false;
-        this.message = 'AI and blockchain analysis completed. Review the results, then broadcast them.';
+        this.message = this.autoBroadcast && this.broadcastInfo?.broadcasts?.length
+          ? 'Analysis completed — results stored in Central and broadcast to all linked lenders.'
+          : 'AI and blockchain analysis completed. Review the results, then broadcast them.';
         void toast('Borrower analysis completed');
         this.cdr.markForCheck();
       },
@@ -391,6 +459,15 @@ export class DataExchangeComponent {
     this.blockchainRows = [];
     this.resultRows = [];
     this.resultKind = '';
+    this.broadcastInfo = null;
+  }
+
+  /** Extract the backend's auto-broadcast outcome from a blockchain-score
+   * response so the UI can show which lenders received the results. */
+  private readBroadcastInfo(source: ApiRecord | null): { enabled: boolean; broadcasts?: Array<ApiRecord>; error?: string } | null {
+    const info = source?.['auto_broadcast'] as { enabled?: boolean; broadcasts?: Array<ApiRecord>; error?: string } | undefined;
+    if (!info) return null;
+    return { enabled: !!info.enabled, broadcasts: info.broadcasts, error: info.error };
   }
 
   broadcast(event: Event): void {

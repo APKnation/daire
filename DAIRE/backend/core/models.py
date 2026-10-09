@@ -25,6 +25,12 @@ class Lender(TimestampedModel):
     institution_name = models.CharField(max_length=255)
     institution_type = models.CharField(max_length=100)
     api_base_url = models.URLField()
+    # Path appended to api_base_url when Central PULLS borrower data:
+    #   {api_base_url}/{lookup_path}?borrower_reference=...
+    # Defaults to the LENDER_SUBSYSTEM_README contract ({base}/borrowers);
+    # override per lender when the lookup lives on a different route
+    # (e.g. "api/daire/borrowers/" on the NMB lender backend).
+    lookup_path = models.CharField(max_length=255, default="borrowers", blank=True)
     api_status = models.CharField(max_length=20, choices=Status.choices, default=Status.DISCONNECTED)
     authentication_method = models.CharField(max_length=50, default="API_KEY")
     # SHA-256 of the lender's API key (plaintext is shown once at issuance and
@@ -115,6 +121,49 @@ class BorrowerLoan(TimestampedModel):
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=("borrower", "lender", "loan_id"), name="unique_borrower_loan_per_lender"),
+        ]
+
+
+class LoanApplication(TimestampedModel):
+    """The NEW loan a borrower is applying for at a lender.
+
+    Distinct from :class:`BorrowerLoan` (existing loan records reported by
+    lenders). The assessment scores the MERGED borrower history across all
+    lenders PLUS this single application, so the applied amount is the
+    exposure that flows into the AI model (``loan_amnt``) and the debt
+    dimension of the blockchain score.
+    """
+
+    class Status(models.TextChoices):
+        SUBMITTED = "SUBMITTED"
+        ASSESSED = "ASSESSED"
+        APPROVED = "APPROVED"
+        DECLINED = "DECLINED"
+
+    borrower = models.ForeignKey(Borrower, on_delete=models.PROTECT, related_name="loan_applications")
+    # Nullable: Central can record an application at assessment time (from the
+    # API caller) before/without lender attribution.
+    lender = models.ForeignKey(Lender, on_delete=models.PROTECT, related_name="loan_applications", null=True, blank=True)
+    application_reference = models.CharField(max_length=64, blank=True, default="")
+    # The amount the borrower is APPLYING for — the exposure being assessed.
+    # The lender pushes it as payload.loan_application.loan_amount (TZS).
+    applied_amount = models.DecimalField(max_digits=18, decimal_places=4, validators=[MinValueValidator(0)])
+    currency = models.CharField(max_length=8, default="TZS")
+    purpose = models.CharField(max_length=100, blank=True, default="")
+    term_months = models.PositiveIntegerField(default=0)
+    interest_rate = models.DecimalField(max_digits=8, decimal_places=4, null=True, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.SUBMITTED)
+    assessment = models.ForeignKey(
+        "Assessment", on_delete=models.SET_NULL, null=True, blank=True, related_name="loan_applications",
+    )
+    payload = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("borrower", "lender", "application_reference"),
+                name="unique_loan_application_per_lender",
+            ),
         ]
 
 

@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     AssessmentViewSet, BorrowerAccountViewSet, BorrowerFinancialProfileViewSet,
     BorrowerLoanViewSet, BorrowerViewSet, ConsentViewSet, CreditFeatureViewSet,
-    CreditProfileViewSet,
+    CreditProfileViewSet, LoanApplicationViewSet,
     DashboardView, PredictCreditRiskView, IntegrationRequestViewSet, LenderViewSet, AIReputationResultViewSet,
     RepaymentRecordViewSet, SmartContractResultViewSet, BlockchainTransactionViewSet,
     DataExchangeViewSet, DataRoutingPolicyViewSet,
@@ -15,6 +15,7 @@ router.register("lenders", LenderViewSet)
 router.register("borrowers", BorrowerViewSet)
 router.register("borrower-accounts", BorrowerAccountViewSet, basename="borrower-account")
 router.register("borrower-loans", BorrowerLoanViewSet, basename="borrower-loan")
+router.register("loan-applications", LoanApplicationViewSet, basename="loan-application")
 router.register("repayments", RepaymentRecordViewSet, basename="repayment-record")
 router.register("borrower-financial-profiles", BorrowerFinancialProfileViewSet, basename="borrower-financial-profile")
 router.register("routing-policies", DataRoutingPolicyViewSet, basename="routing-policy")

@@ -178,7 +178,8 @@ or receive a broadcast. A lender has:
 - `lender_id`: stable machine identity, unique in Central.
 - `institution_name`: display name.
 - `institution_type`: bank, mobile money, microfinance, or another category.
-- `api_base_url`: lender data endpoint base URL.
+- `api_base_url`: lender data endpoint base URL (broadcasts go to `{api_base_url}/api/daire/central/receive/`).
+- `lookup_path`: path appended to `api_base_url` for borrower pulls (default `borrowers`; override per lender, e.g. `api/daire/borrowers/` for the live NMB/CRDB subsystem on `172.17.16.70:8002`).
 - `api_status`: `CONNECTED`, `DEGRADED`, or `DISCONNECTED`.
 
 Central pulls only lenders marked `CONNECTED` or `DEGRADED`. `DISCONNECTED`

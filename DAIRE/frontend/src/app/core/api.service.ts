@@ -34,8 +34,24 @@ export interface Borrower {
   financial_profile?: FinancialProfile | null;
   accounts?: BorrowerAccount[];
   loans?: BorrowerLoan[];
+  loan_applications?: LoanApplication[];
   created_at?: string;
   updated_at?: string;
+}
+
+export interface LoanApplication {
+  id: number;
+  application_reference?: string;
+  lender?: number | null;
+  lender_name?: string | null;
+  applied_amount: string | number;
+  currency: string;
+  purpose?: string;
+  term_months?: number;
+  interest_rate?: string | number | null;
+  status: string;
+  assessment_reference?: string | null;
+  created_at?: string;
 }
 
 export interface FinancialProfile {
@@ -376,8 +392,11 @@ export class ApiService {
   pushAi(reference: string): Observable<ApiRecord> {
     return this.http.post<ApiRecord>(`/api/assessments/${reference}/ai-reputation/`, {});
   }
-  pushBlockchain(reference: string): Observable<ApiRecord> {
-    return this.http.post<ApiRecord>(`/api/assessments/${reference}/blockchain-score/`, {});
+  pushBlockchain(reference: string, autoBroadcast?: boolean): Observable<ApiRecord> {
+    // auto_broadcast: when true, the backend pushes the combined AI + blockchain
+    // results to every linked lender right after storing the score (default ON).
+    return this.http.post<ApiRecord>(`/api/assessments/${reference}/blockchain-score/`,
+      autoBroadcast === undefined ? {} : { auto_broadcast: autoBroadcast });
   }
   broadcastResult(borrowerId: number, resultType: string, assessmentReference?: string, payload?: ApiRecord): Observable<ApiRecord> {
     // Without a payload the backend assembles the combined AI + blockchain results.
@@ -448,6 +467,12 @@ export class ApiService {
 
   verifyAssessment(reference: string): Observable<VerificationResult> {
     return this.http.get<VerificationResult>(`/api/assessments/${reference}/verify/`);
+  }
+
+  decideLoanApplication(id: number, decision: 'APPROVED' | 'DECLINED' | 'ASSESSED', assessmentReference?: string, reason?: string): Observable<LoanApplication> {
+    return this.http.post<{ status: string; application: LoanApplication }>(`/api/loan-applications/${id}/decision/`,
+      { decision, ...(assessmentReference ? { assessment_reference: assessmentReference } : {}), ...(reason ? { reason } : {}) },
+    ).pipe(map((response) => response.application));
   }
 
   predictCreditRisk(data: any): Observable<any> {

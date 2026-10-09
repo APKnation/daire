@@ -1,9 +1,12 @@
+from decimal import Decimal
+
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.contrib.admin.models import CHANGE, LogEntry
 from django.contrib.contenttypes.models import ContentType
 from django.db.models.deletion import ProtectedError
 from django.db.models import Avg, Count
+import os
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import urlencode, urlsplit, parse_qsl
@@ -18,13 +21,15 @@ from rest_framework.response import Response
 from .models import (
     AIReputationResult, Assessment, BlockchainTransaction, Borrower, BorrowerAccount,
     BorrowerFinancialProfile, BorrowerLoan, Consent, CreditFeature, CreditProfile,
-    IntegrationRequest, Lender, RepaymentRecord, SmartContractResult, DataExchange, DataRoutingPolicy,
+    IntegrationRequest, Lender, LoanApplication, RepaymentRecord, SmartContractResult,
+    DataExchange, DataRoutingPolicy,
 )
 from .serializers import (
     AIReputationResultSerializer, AssessmentSerializer, BorrowerAccountSerializer,
     BorrowerFinancialProfileSerializer, BorrowerLoanSerializer, BorrowerSerializer,
     BlockchainTransactionSerializer, ConsentSerializer, CreditFeatureSerializer,
     CreditProfileSerializer, IntegrationRequestSerializer, LenderSerializer,
+    LoanApplicationSerializer, LoanApplicationCreateSerializer,
     RepaymentRecordSerializer, SmartContractResultSerializer,
     DataExchangeSerializer, DataRoutingPolicySerializer,
     AdminLogEntrySerializer, LenderDataReceiveSerializer,
@@ -35,13 +40,12 @@ from .services import (
     merge_vendor_borrower_data, refresh_borrower_financial_profile, _get_json, _post_json,
     ExternalServiceUnavailable, record_exchange, active_routing_policy,
     explain_score, ensure_credit_profile, summarize_transactions, lender_broadcast_url,
-    api_keys_required,
+    api_keys_required, blockchain_dimensions, lender_pull_headers,
 )
 from .services import (
     AIReputationService, BlockchainScoreService, BlockchainVerificationService,
     FeatureGenerationService, _mask_private_borrower_fields,
 )
-from .services import blockchain_dimensions
 
 
 def _lender_api_key_from_headers(headers) -> str:
@@ -226,6 +230,42 @@ class LenderViewSet(viewsets.ModelViewSet):
     queryset = Lender.objects.all()
     serializer_class = LenderSerializer
 
+    def destroy(self, request, *args, **kwargs):
+        """Delete a lender together with its connected data.
+
+        Lender rows are PROTECT-ed by accounts, loans, repayments, consents,
+        integration requests, applications and audit exchanges, so a plain
+        delete raises ProtectedError (the old 500). This performs the same
+        safe ordered cascade as ``manage.py prune_lenders`` inside one
+        transaction, audits it, and returns 204.
+        """
+        from django.db import transaction as db_transaction
+
+        lender = self.get_object()
+        with db_transaction.atomic():
+            RepaymentRecord.objects.filter(lender=lender).delete()
+            for loan in BorrowerLoan.objects.filter(lender=lender):
+                loan.delete()  # cascades any remaining repayments
+            LoanApplication.objects.filter(lender=lender).delete()
+            integration_requests = list(IntegrationRequest.objects.filter(lender=lender))
+            CreditProfile.objects.filter(integration_request__in=integration_requests).delete()
+            for integration_request in integration_requests:
+                integration_request.delete()
+            Consent.objects.filter(lender=lender).delete()  # after integration requests (PROTECT)
+            BorrowerAccount.objects.filter(lender=lender).delete()
+            DataExchange.objects.filter(lender=lender).delete()
+            if request.user.is_authenticated:
+                LogEntry.objects.log_action(
+                    user_id=request.user.pk,
+                    content_type_id=ContentType.objects.get_for_model(Lender).pk,
+                    object_id=str(lender.pk),
+                    object_repr=lender.lender_id,
+                    action_flag=CHANGE,
+                    change_message=f"Lender deleted with all connected data (prune cascade).",
+                )
+            lender.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     def create(self, request, *args, **kwargs):
         """Register a lender: assigns the lender_id record plus a fresh API key.
 
@@ -295,8 +335,11 @@ class LenderViewSet(viewsets.ModelViewSet):
                                    operation="pull_borrower_data", lender=lender,
                                    fields_sent=["borrower_reference"], payload={"borrower_reference": borrower_reference})
         try:
-            url = request.data.get("source_url") or f"{lender.api_base_url.rstrip('/')}/borrowers?{urlencode({'borrower_reference': borrower_reference})}"
-            payload = fields_for_destination(_get_json(url), "lender")
+            source_url = request.data.get("source_url")
+            if not source_url:
+                lookup = (getattr(lender, "lookup_path", "") or "borrowers").strip("/")
+                source_url = f"{lender.api_base_url.rstrip('/')}/{lookup}?{urlencode({'borrower_reference': borrower_reference})}"
+            payload = fields_for_destination(_get_json(source_url, headers=lender_pull_headers(lender)), "lender")
             profile = merge_vendor_borrower_data(lender=lender, borrower_reference=borrower_reference, payload=payload,
                                                   account_reference=request.data.get("account_reference") or payload.get("account_reference"))
             exchange.status = DataExchange.Status.COMPLETED
@@ -330,7 +373,9 @@ class LenderViewSet(viewsets.ModelViewSet):
 
 
 class BorrowerViewSet(viewsets.ModelViewSet):
-    queryset = Borrower.objects.prefetch_related("accounts__lender", "loans__repayments").all()
+    queryset = Borrower.objects.prefetch_related(
+        "accounts__lender", "loans__repayments", "loan_applications__lender", "loan_applications__assessment",
+    ).all()
     serializer_class = BorrowerSerializer
     http_method_names = ("get", "post", "put", "patch", "head", "options")
 
@@ -429,8 +474,11 @@ class BorrowerViewSet(viewsets.ModelViewSet):
             if parsed.query:
                 query.update(dict(parse_qsl(parsed.query)))
             base = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-            url = f"{base.rstrip('/')}/borrowers?{urlencode(query)}"
-            return _get_json(url)
+            # Each lender exposes its borrower lookup wherever it actually
+            # lives (lender.lookup_path, default "borrowers").
+            lookup = (getattr(lender, "lookup_path", "") or "borrowers").strip("/")
+            url = f"{base.rstrip('/')}/{lookup}?{urlencode(query)}"
+            return _get_json(url, headers=lender_pull_headers(lender))
 
         fetched, fetch_errors = {}, {}
         # Network waits happen concurrently; database merges below remain
@@ -545,90 +593,128 @@ class BorrowerViewSet(viewsets.ModelViewSet):
             result_payload = {"borrower_reference": borrower.borrower_reference,
                               "result_type": result_type, "result": result_payload}
         else:
-            requested_reference = str(request.data.get("assessment_reference") or "").strip()
-            assessments = Assessment.objects.filter(borrower=borrower)
-            if requested_reference:
-                latest_assessment = assessments.filter(assessment_reference=requested_reference).first()
-                if latest_assessment is None:
-                    return Response(
-                        {"detail": f"Assessment '{requested_reference}' does not belong to borrower '{borrower.borrower_reference}'."},
-                        status=status.HTTP_404_NOT_FOUND,
-                    )
-            else:
-                latest_assessment = assessments.order_by("-created_at").first()
-            # Both engine results must come from the same assessment. This is
-            # important when a borrower has been assessed more than once.
-            ai = (AIReputationResult.objects.filter(assessment=latest_assessment)
-                  .select_related("assessment").first()) if latest_assessment else None
-            blockchain = (SmartContractResult.objects.filter(assessment=latest_assessment)
-                          .select_related("assessment").first()) if latest_assessment else None
-            if ai is None and blockchain is None:
-                return Response(
-                    {"detail": "No AI or blockchain result exists for this borrower. Score first, then broadcast."},
-                    status=status.HTTP_409_CONFLICT,
-                )
-            latest = max((r for r in (ai, blockchain) if r is not None), key=lambda r: r.created_at)
-            latest_is_ai = latest is ai
-            result_payload = {
+            # Both stored results must come from the same assessment; the
+            # helper assembles the combined AI + blockchain envelope.
+            envelope, error = build_result_envelope(
+                borrower,
+                str(request.data.get("assessment_reference") or "").strip(),
+                result_type,
+            )
+            if error:
+                return Response({"detail": error["detail"]}, status=error["status_code"])
+            result_payload = envelope
+
+        # Auto-broadcast (default ON): push the combined result to every linked
+        # lender right away when enabled — lenders see the result the moment the
+        # assessment button is clicked, with no separate broadcast step.
+        if _auto_broadcast_requested(request):
+            broadcasts = _push_results_to_lenders(
+                borrower, result_payload, target_url=str(request.data.get("target_url") or ""))
+            return Response({
                 "borrower_reference": borrower.borrower_reference,
                 "result_type": result_type,
-                "assessment_reference": latest_assessment.assessment_reference if latest_assessment else None,        # Backwards-compatible single result: the most recently generated score.
-                "result": {
-                    "kind": "AI_REPUTATION" if latest_is_ai else "BLOCKCHAIN_SCORE",
-                    "generated_at": latest.created_at.isoformat(),
-                    **(AIReputationResultSerializer(ai) if latest_is_ai else SmartContractResultSerializer(blockchain)).data,
-                },
-                # Combined payload: both engines, whichever exist.
-                "results": {
-                    "ai": AIReputationResultSerializer(ai).data if ai else None,
-                    "blockchain": SmartContractResultSerializer(blockchain).data if blockchain else None,
-                },
-            }
+                "auto_broadcast": {"enabled": True, "broadcasts": broadcasts},
+            })
 
-        # --- borrower_reference for the broadcast ----
-        # ``borrower_reference`` identifies the customer the result belongs to in
-        # the lender's own system. Use the lender's NIDA number when present (that
-        # is the lender's global unique customer id); fall back to the central
-        # borrower_reference otherwise.
-        broadcast_reference = borrower.nida_number or borrower.borrower_reference
-        broadcast_reference = str(broadcast_reference) if broadcast_reference else str(borrower.borrower_reference)
+        # Manual mode: nothing is pushed here; the caller decides when to run
+        # POST /api/borrowers/{id}/broadcast-result/ (or the UI Broadcast button).
+        return Response({
+            "borrower_reference": borrower.borrower_reference,
+            "result_type": result_type,
+            "auto_broadcast": {"enabled": False, "broadcasts": []},
+            "detail": "Auto-broadcast disabled. Call broadcast-result to push the results to lenders.",
+        })
 
-        results = []
-        sent_to = set()
-        for account in borrower.accounts.select_related("lender").all():
-            lender = account.lender
-            if lender.id in sent_to:
-                continue
-            sent_to.add(lender.id)
-            # Per-lender payload: lenders match results to their own customer
-            # by the reference they hold for that customer. NIDA is the
-            # lender's global unique customer id, so use it as the
-            # borrower_reference when the lender holds NIDA for this
-            # customer — lenders can map the result to their own record by
-            # that value. The central reference still rides along for audit.
-            if account.lender.nida_number:
-                # Public accounts hold NIDA centrally; send the lender's own NIDA
-                # as borrower_reference so the lender can map the result to its
-                # customer by its global unique id.
-                per_lender_reference = account.lender.nida_number
-            else:
-                per_lender_reference = account.customer_id or broadcast_reference
-            per_lender_payload = {
-                **result_payload,
-                "borrower_reference": per_lender_reference,
-                "central_borrower_reference": borrower.borrower_reference,
-            }
-            # The registered receiver endpoint is {api_base_url}/api/daire/central/receive/.
-            # The lender's own global customer id (NIDA) is included in the
-            # payload so a lender that holds NIDA can map the result to its own
-            # record; it is the lender's responsibility to keep that value private.
-            exchange = record_exchange(system=DataExchange.System.LENDER, direction=DataExchange.Direction.PUSH,
-                                       operation="broadcast_credit_result", borrower=borrower, lender=lender,
-                                       fields_sent=list(per_lender_payload.keys()),
-                                       payload=per_lender_payload)
+
+def _auto_broadcast_requested(request) -> bool:
+    """Resolve the auto-broadcast flag for a request.
+
+    Default is ON: results become visible to lenders as soon as the assessment
+    button is clicked. Callers can disable it per-request with
+    ``auto_broadcast=false`` (or any of 0/no/off) or globally with the
+    ``AUTO_BROADCAST_RESULTS`` environment variable.
+    """
+    raw = request.data.get("auto_broadcast")
+    if raw is None:
+        raw = os.environ.get("AUTO_BROADCAST_RESULTS", "true")
+    return str(raw).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def build_result_envelope(borrower: Borrower, assessment_reference: str, result_type: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """Assemble the combined AI + blockchain broadcast envelope from Central storage.
+
+    Returns ``(envelope, None)`` on success or ``(None, error_dict)`` where the
+    error dict carries ``status_code`` (404 unknown assessment / 409 nothing to
+    broadcast). Both engine results always come from the SAME assessment.
+    """
+    assessments = Assessment.objects.filter(borrower=borrower)
+    if assessment_reference:
+        latest_assessment = assessments.filter(assessment_reference=assessment_reference).first()
+        if latest_assessment is None:
+            return None, {"detail": f"Assessment '{assessment_reference}' does not belong to borrower '{borrower.borrower_reference}'.", "status_code": status.HTTP_404_NOT_FOUND}
+    else:
+        latest_assessment = assessments.order_by("-created_at").first()
+    ai = (AIReputationResult.objects.filter(assessment=latest_assessment)
+          .select_related("assessment").first()) if latest_assessment else None
+    blockchain = (SmartContractResult.objects.filter(assessment=latest_assessment)
+                  .select_related("assessment").first()) if latest_assessment else None
+    if ai is None and blockchain is None:
+        return None, {"detail": "No AI or blockchain result exists for this borrower. Score first, then broadcast.", "status_code": status.HTTP_409_CONFLICT}
+    latest = max((r for r in (ai, blockchain) if r is not None), key=lambda r: r.created_at)
+    latest_is_ai = latest is ai
+    envelope = {
+        "borrower_reference": borrower.borrower_reference,
+        "result_type": result_type,
+        "assessment_reference": latest_assessment.assessment_reference if latest_assessment else None,
+        # Backwards-compatible single result: the most recently generated score.
+        "result": {
+            "kind": "AI_REPUTATION" if latest_is_ai else "BLOCKCHAIN_SCORE",
+            "generated_at": latest.created_at.isoformat(),
+            **(AIReputationResultSerializer(ai) if latest_is_ai else SmartContractResultSerializer(blockchain)).data,
+        },
+        # Combined payload: both engines, whichever exist.
+        "results": {
+            "ai": AIReputationResultSerializer(ai).data if ai else None,
+            "blockchain": SmartContractResultSerializer(blockchain).data if blockchain else None,
+        },
+    }
+    return envelope, None
+
+
+def _push_results_to_lenders(borrower: Borrower, result_payload: dict[str, Any], *, actor=None, target_url: str = "") -> list[dict[str, Any]]:
+    """Push an assembled result envelope to every lender linked to the borrower.
+
+    Per-lender ``borrower_reference`` uses the lender's NIDA when known so the
+    lender can map the result to its own customer; the central reference rides
+    along for audit. Every push (success or failure) is logged as a
+    ``DataExchange`` (system=LENDER, direction=PUSH, operation=broadcast_credit_result).
+    """
+    results = []
+    sent_to = set()
+    for account in borrower.accounts.select_related("lender").all():
+        lender = account.lender
+        if lender.id in sent_to:
+            continue
+        sent_to.add(lender.id)
+        # The lender maps the result to its own customer by the reference it
+        # holds for that customer: the customer_id it reported on the account,
+        # falling back to the borrower's NIDA (the shared global id) and finally
+        # the central borrower_reference. The central reference always rides
+        # along for audit.
+        per_lender_reference = (str(account.customer_id) if account.customer_id
+                                else str(borrower.nida_number or borrower.borrower_reference))
+        per_lender_payload = {
+            **result_payload,
+            "borrower_reference": per_lender_reference,
+            "central_borrower_reference": borrower.borrower_reference,
+        }
+        exchange = record_exchange(system=DataExchange.System.LENDER, direction=DataExchange.Direction.PUSH,
+                                   operation="broadcast_credit_result", borrower=borrower, lender=lender,
+                                   fields_sent=list(per_lender_payload.keys()),
+                                   payload=per_lender_payload)
         try:
             response = _post_json(
-                request.data.get("target_url") or lender_broadcast_url(lender.api_base_url),
+                target_url or lender_broadcast_url(lender.api_base_url),
                 exchange.payload,
                 # Keys are only sent when REQUIRE_API_KEYS=true — same
                 # network by default means no credentials on the wire.
@@ -641,7 +727,7 @@ class BorrowerViewSet(viewsets.ModelViewSet):
             exchange.status, exchange.error_message = DataExchange.Status.FAILED, str(exc)
             exchange.save(update_fields=("status", "error_message", "updated_at"))
             results.append({"lender": lender.institution_name, "status": "FAILED", "detail": str(exc)})
-        return Response({"borrower_reference": borrower.borrower_reference, "result_type": result_type, "broadcasts": results})
+    return results
 
 
 class LenderDataReceiveView(APIView):
@@ -685,6 +771,93 @@ class BorrowerLoanViewSet(viewsets.ModelViewSet):
     serializer_class = BorrowerLoanSerializer
 
 
+class LoanApplicationViewSet(mixins.CreateModelMixin, viewsets.ReadOnlyModelViewSet):
+    """Loan applications — the amounts borrowers are APPLYING for.
+
+    Lenders report them inside a data push (``payload.loan_application``);
+    assessments can also create one directly (``POST /api/assessments/`` with
+    ``applied_loan_amount``). One assessment scores the merged borrower
+    history PLUS this single application.
+    """
+
+    queryset = LoanApplication.objects.select_related("borrower", "lender", "assessment")
+    serializer_class = LoanApplicationSerializer
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return LoanApplicationCreateSerializer
+        return LoanApplicationSerializer
+
+    def perform_create(self, serializer):
+        application = serializer.save()
+        if application.assessment_id:
+            refresh_borrower_financial_profile(application.borrower)
+
+    @action(detail=True, methods=["post"], url_path="decision")
+    def decision(self, request, pk=None):
+        """Approve/decline an application and link the assessment that decided it.
+
+        POST /api/loan-applications/{id}/decision/
+
+        ::
+
+            {"decision": "APPROVED" | "DECLINED" | "ASSESSED",
+             "assessment_reference": "ASM-2026-0001",   # optional
+             "reason": "optional audit note"}
+
+        ``assessment_reference`` must belong to the same borrower. When omitted,
+        the borrower's most recent assessment is linked automatically if one
+        exists — an application is never left verdict-less without a note.
+        Admin log records the change for audit.
+        """
+        application = self.get_object()
+        decision = str(request.data.get("decision") or "").strip().upper()
+        allowed = (LoanApplication.Status.APPROVED, LoanApplication.Status.DECLINED, LoanApplication.Status.ASSESSED)
+        if decision not in allowed:
+            return Response(
+                {"detail": f"decision must be one of: {', '.join(allowed)}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        reference = str(request.data.get("assessment_reference") or "").strip()
+        if reference:
+            assessment = Assessment.objects.filter(assessment_reference=reference).first()
+            if assessment is None:
+                return Response({"detail": f"Assessment '{reference}' not found."}, status=status.HTTP_400_BAD_REQUEST)
+            if assessment.borrower_id != application.borrower_id:
+                return Response(
+                    {"detail": "That assessment belongs to a different borrower — it cannot be linked to this application."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            application.assessment = assessment
+        elif application.assessment_id is None:
+            latest = Assessment.objects.filter(borrower=application.borrower).order_by("-created_at").first()
+            if latest is not None:
+                application.assessment = latest
+
+        application.status = decision
+        application.save(update_fields=("status", "assessment", "updated_at"))
+
+        if request.user.is_authenticated:
+            LogEntry.objects.log_action(
+                user_id=request.user.pk,
+                content_type_id=ContentType.objects.get_for_model(LoanApplication).pk,
+                object_id=str(application.pk),
+                object_repr=application.application_reference or f"Application #{application.pk}",
+                action_flag=CHANGE,
+                change_message=(
+                    f"Application {decision}"
+                    + (f" — linked {application.assessment.assessment_reference}" if application.assessment else "")
+                    + (f" — {request.data.get('reason')}" if request.data.get("reason") else "")
+                ),
+            )
+
+        return Response({
+            "status": "DECISION_RECORDED",
+            "application": LoanApplicationSerializer(application).data,
+        })
+
+
 class RepaymentRecordViewSet(viewsets.ModelViewSet):
     queryset = RepaymentRecord.objects.select_related("borrower", "lender", "loan")
     serializer_class = RepaymentRecordSerializer
@@ -708,18 +881,39 @@ class AssessmentViewSet(mixins.CreateModelMixin, viewsets.ReadOnlyModelViewSet):
     def create(self, request, *args, **kwargs):
         """Open an assessment on merged lender data.
 
-        POST /api/assessments/ {"borrower_reference": "1001"}
-        The borrower must already exist (pull or receive lender data first).
-        A scoring profile is synthesized from the merged records when the
-        borrower has none, so Send-to-AI / Send-to-blockchain work directly.
+        POST /api/assessments/
+
+        ::
+
+            {"borrower_reference": "1001",
+             "applied_loan_amount": 500000,        # optional — the REAL amount
+             "lender_id": "NMB-001",               # optional — who received the application
+             "applied_term_months": 12,             # optional
+             "applied_interest_rate": 12.5,         # optional
+             "applied_purpose": "WORKING_CAPITAL"}  # optional
+
+        The borrower must already exist (pull or receive lender data first) and
+        is resolved on ``borrower_reference`` OR ``nida_number`` — the same
+        unified record regardless of which lender reported it. The applied
+        amount becomes the exposure scored by AI + blockchain. When omitted,
+        the newest lender-reported ``loan_application`` is used; with neither,
+        scoring falls back to the largest historical loan.
         """
         reference = str(request.data.get("borrower_reference") or "").strip()
-        if not reference:
-            return Response({"detail": "borrower_reference is required."}, status=status.HTTP_400_BAD_REQUEST)
-        borrower = Borrower.objects.filter(borrower_reference=reference).first()
+        nida = str(request.data.get("nida_number") or "").strip()
+        if not reference and not nida:
+            return Response(
+                {"detail": "borrower_reference or nida_number is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        borrower = None
+        if reference:
+            borrower = Borrower.objects.filter(borrower_reference=reference).first()
+        if borrower is None and nida:
+            borrower = Borrower.objects.filter(nida_number=nida).first()
         if borrower is None:
             return Response(
-                {"detail": f"Borrower '{reference}' not found. Pull or receive lender data first."},
+                {"detail": f"Borrower '{reference or nida}' not found. Pull or receive lender data first."},
                 status=status.HTTP_404_NOT_FOUND,
             )
         assessment = Assessment.objects.create(
@@ -727,6 +921,43 @@ class AssessmentViewSet(mixins.CreateModelMixin, viewsets.ReadOnlyModelViewSet):
         )
         assessment.assessment_reference = f"ASM-{timezone.now():%Y}-{assessment.id:04d}"
         assessment.save(update_fields=("assessment_reference", "updated_at"))
+
+        # Record the loan being applied for (the real requested amount).
+        applied_amount = request.data.get("applied_loan_amount")
+        if applied_amount not in (None, ""):
+            from .models import LoanApplication
+
+            lender = None
+            lender_id = str(request.data.get("lender_id") or "").strip()
+            if lender_id:
+                lender = Lender.objects.filter(lender_id=lender_id).first()
+            try:
+                amount = Decimal(str(applied_amount))
+            except Exception:
+                return Response({"detail": "applied_loan_amount must be a number."}, status=status.HTTP_400_BAD_REQUEST)
+            if amount <= 0:
+                return Response({"detail": "applied_loan_amount must be positive."}, status=status.HTTP_400_BAD_REQUEST)
+            rate = request.data.get("applied_interest_rate")
+            application = LoanApplication.objects.create(
+                borrower=borrower, lender=lender,
+                application_reference=str(request.data.get("application_reference") or f"APP-{assessment.assessment_reference}"),
+                applied_amount=amount,
+                currency=str(request.data.get("applied_currency") or "TZS"),
+                purpose=str(request.data.get("applied_purpose") or ""),
+                term_months=int(request.data.get("applied_term_months") or 0),
+                interest_rate=Decimal(str(rate)) if rate not in (None, "") else None,
+                status=LoanApplication.Status.ASSESSED,
+                assessment=assessment,
+            )
+            assessment.score_explanation = [
+                {"dimension": "APPLICATION", "name": "Applied loan",
+                 "value": str(application.applied_amount),
+                 "reason": f"Assessing a {application.currency} {application.applied_amount} application"
+                           f"{(f" over {application.term_months} months" if application.term_months else "")}"
+                           f"{(f" from {lender.institution_name}" if lender else "")}."},
+            ]
+            assessment.save(update_fields=("score_explanation", "updated_at"))
+
         ensure_credit_profile(borrower)
         return Response(AssessmentSerializer(assessment).data, status=status.HTTP_201_CREATED)
 
@@ -859,7 +1090,27 @@ class AssessmentViewSet(mixins.CreateModelMixin, viewsets.ReadOnlyModelViewSet):
         exchange.status = DataExchange.Status.COMPLETED
         exchange.response = SmartContractResultSerializer(result).data
         exchange.save(update_fields=("status", "response", "updated_at"))
-        return Response(SmartContractResultSerializer(result).data)
+
+        response = SmartContractResultSerializer(result).data
+
+        # Auto-broadcast (default ON): the blockchain score is the last step of
+        # the assessment pipeline, so this is the natural point to make the
+        # combined AI + blockchain results visible to lenders — no second
+        # button click required.
+        auto_broadcast: dict[str, Any] = {"enabled": False, "broadcasts": []}
+        if _auto_broadcast_requested(request):
+            envelope, error = build_result_envelope(
+                assessment.borrower, str(assessment.assessment_reference or ""), "CREDIT_RESULT")
+            if error:
+                auto_broadcast = {"enabled": True, "error": error["detail"]}
+            else:
+                auto_broadcast = {
+                    "enabled": True,
+                    "assessment_reference": envelope.get("assessment_reference"),
+                    "broadcasts": _push_results_to_lenders(assessment.borrower, envelope),
+                }
+
+        return Response({**response, "auto_broadcast": auto_broadcast})
 
 
 class CreditProfileViewSet(viewsets.ModelViewSet):
@@ -924,13 +1175,23 @@ class MockLenderDataView(APIView):
     GET /api/mock-lender/borrowers?borrower_reference=1001
     Returns a normalized borrower payload so "Pull from all lenders" has a
     live target. Data varies deterministically per lender name + borrower.
+
+    The lender network is NMB + CRDB ONLY: requests for any other lender
+    return 404 so retired lenders can never serve data again.
     """
 
+    ALLOWED_MOCK_LENDERS = ("NMB", "CRDB")
+
     def get(self, request, base=None):
+        lender_name = request.query_params.get("lender_name") or base or "MOCK"
+        if not any(allowed in str(lender_name).upper() for allowed in self.ALLOWED_MOCK_LENDERS):
+            return Response(
+                {"detail": f"Lender '{lender_name}' is not part of the DAIRE network (NMB and CRDB only)."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         borrower_reference = str(request.query_params.get("borrower_reference") or "").strip()
         if not borrower_reference:
             return Response({"detail": "borrower_reference is required."}, status=status.HTTP_400_BAD_REQUEST)
-        lender_name = request.query_params.get("lender_name") or base or "MOCK"
         seed = f"{lender_name}:{borrower_reference}"
         rng = random.Random(seed)
         rng.seed(seed)
@@ -980,9 +1241,17 @@ class MockLenderBroadcastView(APIView):
     """Development stand-in for a lender system receiving credit results.
 
     POST /api/mock-lender/<name>/broadcast — acknowledges any JSON payload.
+    NMB + CRDB only, same as MockLenderDataView.
     """
 
+    ALLOWED_MOCK_LENDERS = MockLenderDataView.ALLOWED_MOCK_LENDERS
+
     def post(self, request, base=None):
+        if base and not any(allowed in str(base).upper() for allowed in self.ALLOWED_MOCK_LENDERS):
+            return Response(
+                {"detail": f"Lender '{base}' is not part of the DAIRE network (NMB and CRDB only)."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         return Response({
             "received": True,
             "lender_system": base or "MOCK",

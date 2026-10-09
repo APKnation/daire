@@ -4,5 +4,5 @@
 export type { DaireCreditScore } from './DaireCreditScore.js';
 export type { DaireHandshake } from './DaireHandshake.js';
 export * as factories from './factories/index.js';
-export { DaireHandshake__factory } from './factories/DaireHandshake__factory.js';
 export { DaireCreditScore__factory } from './factories/DaireCreditScore__factory.js';
+export { DaireHandshake__factory } from './factories/DaireHandshake__factory.js';

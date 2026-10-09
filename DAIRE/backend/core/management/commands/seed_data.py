@@ -47,16 +47,22 @@ class Command(BaseCommand):
         now = timezone.now()
 
         # ---------------------------------------------------------------------
-        # 1. LENDERS
+        # 1. LENDERS — the network is NMB + CRDB only. To remove other lenders
+        #    from a live database run: python manage.py prune_lenders --yes
         # ---------------------------------------------------------------------
         lenders_data = [
             {
-                "lender_id": "LDR-CRDB-01",
+                # CRDB's live lender subsystem: the NMB lender Django backend
+                # (nmb_backend.urls) serves on 172.17.16.70:8002 — broadcasts go
+                # to /api/daire/central/receive/ and pulls to /api/daire/borrowers/
+                # (lookup_path override; the default contract path is /borrowers).
+                "lender_id": "1200",
                 "institution_name": "CRDB Bank Plc",
                 "institution_type": "Commercial Bank",
-                "api_base_url": "http://127.0.0.1:8000/api/mock-lender/CRDB",
+                "api_base_url": "http://172.17.16.70:8002",
+                "lookup_path": "api/daire/borrowers/",
                 "api_status": Lender.Status.CONNECTED,
-                "authentication_method": "MUTUAL_TLS",
+                "authentication_method": "API_KEY",
             },
             {
                 "lender_id": "LDR-NMB-02",
@@ -65,38 +71,6 @@ class Command(BaseCommand):
                 "api_base_url": "http://127.0.0.1:8000/api/mock-lender/NMB",
                 "api_status": Lender.Status.CONNECTED,
                 "authentication_method": "OAUTH2",
-            },
-            {
-                "lender_id": "LDR-EQT-03",
-                "institution_name": "Equity Bank Agri-Credit",
-                "institution_type": "Commercial Bank",
-                "api_base_url": "http://127.0.0.1:8000/api/mock-lender/EQUITY",
-                "api_status": Lender.Status.CONNECTED,
-                "authentication_method": "API_KEY",
-            },
-            {
-                "lender_id": "LDR-TZP-04",
-                "institution_name": "Tigo Pesa Nano-Lending",
-                "institution_type": "Digital Lender",
-                "api_base_url": "http://127.0.0.1:8000/api/mock-lender/TIGO",
-                "api_status": Lender.Status.CONNECTED,
-                "authentication_method": "API_KEY",
-            },
-            {
-                "lender_id": "LDR-AIR-05",
-                "institution_name": "Airtel Money QuickLoan",
-                "institution_type": "Digital Lender",
-                "api_base_url": "http://127.0.0.1:8000/api/mock-lender/AIRTEL",
-                "api_status": Lender.Status.DEGRADED,
-                "authentication_method": "API_KEY",
-            },
-            {
-                "lender_id": "LDR-MWG-06",
-                "institution_name": "Mwanga Community Bank",
-                "institution_type": "Microfinance Institution",
-                "api_base_url": "http://127.0.0.1:8000/api/mock-lender/MWANGA",
-                "api_status": Lender.Status.DISCONNECTED,
-                "authentication_method": "API_KEY",
             },
         ]
 
@@ -142,18 +116,12 @@ class Command(BaseCommand):
         # ---------------------------------------------------------------------
         accounts_data = [
             # (borrower ref, lender key, account ref, account name)
-            ("1001", "LDR-CRDB-01", "7712001", "Atanas · CRDB main"),
+            ("1001", "1200", "7712001", "Atanas · CRDB main"),
             ("1001", "LDR-NMB-02", "8834010", "Atanas · NMB savings"),
-            ("1001", "LDR-EQT-03", "5520987", "Atanas · Equity agri"),
             ("1002", "LDR-NMB-02", "8835220", "John · NMB main"),
-            ("1002", "LDR-TZP-04", "6103342", "John · Tigo wallet"),
-            ("1003", "LDR-CRDB-01", "7713854", "Amina · CRDB main"),
-            ("1003", "LDR-AIR-05", "7745019", "Amina · Airtel money"),
-            ("1004", "LDR-EQT-03", "5521776", "Elvis · Equity main"),
+            ("1003", "1200", "7713854", "Amina · CRDB main"),
             ("1005", "LDR-NMB-02", "8836902", "Antony · NMB main"),
-            ("1005", "LDR-CRDB-01", "7714533", "Antony · CRDB savings"),
-            ("1005", "LDR-TZP-04", "6104188", "Antony · Tigo wallet"),
-            ("1006", "LDR-AIR-05", "7746230", "Amiri · Airtel money"),
+            ("1005", "1200", "7714533", "Antony · CRDB savings"),
         ]
         seeded_accounts = 0
         for borrower_ref, lender_key, account_ref, account_name in accounts_data:
@@ -173,7 +141,7 @@ class Command(BaseCommand):
             {
                 "consent_id": "CST-2026-001",
                 "borrower": borrowers["1001"],
-                "lender": lenders["LDR-CRDB-01"],
+                "lender": lenders["1200"],
                 "purpose": "Working capital facility underwriting and credit normalization",
                 "granted_at": now - timedelta(days=20),
                 "expires_at": now + timedelta(days=70),
@@ -189,36 +157,18 @@ class Command(BaseCommand):
                 "status": Consent.Status.ACTIVE,
             },
             {
-                "consent_id": "CST-2026-003",
-                "borrower": borrowers["1002"],
-                "lender": lenders["LDR-EQT-03"],
-                "purpose": "Clean energy mini-grid expansion loan assessment",
-                "granted_at": now - timedelta(days=10),
-                "expires_at": now + timedelta(days=110),
-                "status": Consent.Status.ACTIVE,
-            },
-            {
                 "consent_id": "CST-2026-004",
                 "borrower": borrowers["1003"],
-                "lender": lenders["LDR-CRDB-01"],
+                "lender": lenders["1200"],
                 "purpose": "Fleet logistics working capital line appraisal",
                 "granted_at": now - timedelta(days=5),
                 "expires_at": now + timedelta(days=85),
                 "status": Consent.Status.ACTIVE,
             },
             {
-                "consent_id": "CST-2026-005",
-                "borrower": borrowers["1004"],
-                "lender": lenders["LDR-TZP-04"],
-                "purpose": "Retail pharmaceutical inventory replenishment loan",
-                "granted_at": now - timedelta(days=2),
-                "expires_at": now + timedelta(days=28),
-                "status": Consent.Status.ACTIVE,
-            },
-            {
                 "consent_id": "CST-2026-006",
                 "borrower": borrowers["1005"],
-                "lender": lenders["LDR-CRDB-01"],
+                "lender": lenders["1200"],
                 "purpose": "Enterprise SME line of credit and reputation scoring",
                 "granted_at": now - timedelta(days=30),
                 "expires_at": now + timedelta(days=150),
@@ -232,15 +182,6 @@ class Command(BaseCommand):
                 "granted_at": now - timedelta(days=90),
                 "expires_at": now - timedelta(days=10),
                 "status": Consent.Status.EXPIRED,
-            },
-            {
-                "consent_id": "CST-2026-008",
-                "borrower": borrowers["1002"],
-                "lender": lenders["LDR-AIR-05"],
-                "purpose": "Short-term operational liquidity pre-approval",
-                "granted_at": now - timedelta(days=12),
-                "expires_at": now + timedelta(days=18),
-                "status": Consent.Status.REVOKED,
             },
         ]
 
@@ -275,23 +216,6 @@ class Command(BaseCommand):
                 },
             },
             {
-                "consent_id": "CST-2026-003",
-                "status": IntegrationRequest.Status.COMPLETED,
-                "profile_metrics": {
-                    "active_loan_count": 2,
-                    "completed_loan_count": 4,
-                    "defaulted_loan_count": 0,
-                    "total_outstanding_debt": 12800000.0,
-                    "on_time_payment_ratio": 0.93,
-                    "missed_payment_count": 0,
-                    "late_payment_count": 2,
-                    "max_days_overdue": 6,
-                    "transaction_frequency": 45,
-                    "income_frequency": 4,
-                    "balance_stability": 0.88,
-                },
-            },
-            {
                 "consent_id": "CST-2026-004",
                 "status": IntegrationRequest.Status.COMPLETED,
                 "profile_metrics": {
@@ -306,23 +230,6 @@ class Command(BaseCommand):
                     "transaction_frequency": 38,
                     "income_frequency": 3,
                     "balance_stability": 0.76,
-                },
-            },
-            {
-                "consent_id": "CST-2026-005",
-                "status": IntegrationRequest.Status.COMPLETED,
-                "profile_metrics": {
-                    "active_loan_count": 3,
-                    "completed_loan_count": 2,
-                    "defaulted_loan_count": 1,
-                    "total_outstanding_debt": 6200000.0,
-                    "on_time_payment_ratio": 0.68,
-                    "missed_payment_count": 4,
-                    "late_payment_count": 5,
-                    "max_days_overdue": 45,
-                    "transaction_frequency": 22,
-                    "income_frequency": 2,
-                    "balance_stability": 0.52,
                 },
             },
             {
@@ -459,21 +366,6 @@ class Command(BaseCommand):
                 "blockchain_transaction_hash": "0x3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d",
                 "blockchain_block_number": 19482990,
                 "verification_status": "CONFIRMED",
-                "contract_address": "0x71C677700ab35991A562D717A4072f05aB5eB5e3",
-            },
-            {
-                "assessment_reference": "ASM-2026-8804",
-                "borrower": borrowers["1004"],
-                "reputation": "HIGH_RISK",
-                "reputation_score": Decimal("0.4890"),
-                "risk_level": "HIGH",
-                "behavior_summary": "Elevated trade supplier delinquency and irregular deposit volume. Overdue payment history observed.",
-                "credit_score": 46,
-                "ruleset_version": "daire-rules-v2.1",
-                "model_version": "daire-ai-v3.0.4",
-                "blockchain_transaction_hash": "",
-                "blockchain_block_number": None,
-                "verification_status": "PENDING",
                 "contract_address": "0x71C677700ab35991A562D717A4072f05aB5eB5e3",
             },
             {
